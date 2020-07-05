@@ -12,9 +12,9 @@
 void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
 	reslist->push_back(res);
 	uint32_t 	idx 		= reslist->size() - 1;
-	std::string	idx_string 	= std::__cxx11::to_string(idx);
+	std::string	idx_string 	= std::to_string(idx);
 	uint32_t 	idx_sz		= idx_string.size();
-	std::string res_string 	= std::__cxx11::to_string(res);
+	std::string res_string 	= std::to_string(res);
 	if(idx_sz < 4) { for(int i = 0; i < 4-idx_sz; i++) { idx_string = " " + idx_string; } }
 /**/
 	std::cout	
