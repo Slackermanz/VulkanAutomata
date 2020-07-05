@@ -1,5 +1,3 @@
- - Apply and use transitions correctly, instead of relying on undefined behaviours
-
  - Pass the window dimensions to the fragment shaders
 
  - Allow the program to close gracefully if the window is closed
