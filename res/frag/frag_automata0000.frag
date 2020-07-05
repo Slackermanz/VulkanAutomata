@@ -65,37 +65,36 @@ void main() {
 		float ry 	= mod( fc[1]*dm[1], 			47.0);
 		if(rx <= ry && fcx > 0.5) {
 			col = setCol(0, 1.0, col);
-			col = setCol(1, 0.01, col);
+			col = setCol(1, 0.5, col);
 		}
 	} else {
 		float outval=cv(0.0,0.0);
-    if(fin_0>=0.0&&fin_0<=12.0){
-        outval=0.0;
-    }
-    if(fin_0>=30.0&&fin_0<=155.0){
-        outval=0.0;
-    }
-    if(fin_0>=40.0&&fin_0<=42.0){
-        outval=1.0;
-    }
-    if(fin_0>=88.0&&fin_0<=155.0){
-        outval=1.0;
-    }
-    if(fin_0>=111.0&&fin_0<=145.0){
-        outval=1.0;
-    }
-    if(fin_1>=15.0&&fin_1<=17.0){
-        outval=1.0;
-    }
-    if(fin_1>=8.0&&fin_1<=8.0){
-        outval=1.0;
-    }
-    if(fin_2>=201.0){
-        outval=0.0;
-    }
-
+		if(fin_0>=0.0&&fin_0<=12.0){
+		    outval=0.0;
+		}
+		if(fin_0>=30.0&&fin_0<=155.0){
+		    outval=0.0;
+		}
+		if(fin_0>=40.0&&fin_0<=42.0){
+		    outval=1.0;
+		}
+		if(fin_0>=88.0&&fin_0<=155.0){
+		    outval=1.0;
+		}
+		if(fin_0>=111.0&&fin_0<=145.0){
+		    outval=1.0;
+		}
+		if(fin_1>=15.0&&fin_1<=17.0){
+		    outval=1.0;
+		}
+		if(fin_1>=8.0&&fin_1<=8.0){
+		    outval=1.0;
+		}
+		if(fin_2>=201.0){
+		    outval=0.0;
+		}
 		col = setCol(0, outval, col);
-		col = setCol(1, 0.01, col);
+		//col = setCol(1, 0.1, col);
 	}
 
 	out_col = vec4(col, 1.0);

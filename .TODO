@@ -1,0 +1,13 @@
+ - Apply and use transitions correctly, instead of relying on undefined behaviours
+
+ - Pass the window dimensions to the fragment shaders
+
+ - Allow the program to close gracefully if the window is closed
+
+ - Use frag_init to seed the initial state
+
+ - Pass image to the GPU as the initial state
+
+
+
+
