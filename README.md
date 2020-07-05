@@ -3,9 +3,9 @@ GPU Renderer for Cellular Automata using the Vulkan API
 
 ---
 
-The Cellular Automata 'rules' are coded as Fragment Shaders in `./res/frag` 
+The Cellular Automata 'rules' are coded as Fragment Shaders in `./res/frag/` 
  
-Shaders are compiled from `./res/vert` and  `./res/frag` using the program `glslc`
+Shaders are compiled from `./res/vert/` and  `./res/frag/` using the program `glslc`
 
 `glslc` is found in the Vulkan SDK at `/x86_64/bin/glslc`
 
