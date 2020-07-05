@@ -30,7 +30,7 @@ void ov(const std::string& id, auto v) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/*
+/**/
 	std::cout 
 		<< "\tinfo:\t    "
 		<< id 	<< pad 
@@ -44,7 +44,7 @@ void iv(const std::string& id, auto ov, int idx) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/*
+/**/
 	std::cout 
 		<< "\tinfo:\t    "
 		<< idx 	<< "\t"
@@ -108,18 +108,16 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 	std::string msg_killer = "";
 	for(int i = msg.size()-6; i < msg.size()-1; i++) {
 		msg_killer = msg_killer + msg[i]; }
-	if(	msg_killer != "01296" && msg_killer != "01403") {
-
+//	if(	msg_killer != "01296" && msg_killer != "01403") {
 /**/
-	std::cout 
-		<< "\n\n"
-		<< bar 		<< "\n "
-		<< msg_fmt
-		<< "\n" 	<< bar
-		<< "\n\n";
+		std::cout 
+			<< "\n\n"
+			<< bar 		<< "\n "
+			<< msg_fmt
+			<< "\n" 	<< bar
+			<< "\n\n";
 /**/
-
-	}
+//	}
 
 	return VK_FALSE; 
 }
@@ -161,7 +159,7 @@ int main(void) {
 	const uint32_t 	APP_W 			= 1024;
 	const uint32_t 	APP_H 			= 768;
 	const long 		FPS 			= 60;
-	const int 		TEST_CYCLES 	= 320;
+	const int 		TEST_CYCLES 	= 120;
 
 	uint32_t 		PD_IDX 			= UINT32_MAX;
 	uint32_t 		GQF_IDX 		= UINT32_MAX;
@@ -192,10 +190,8 @@ int main(void) {
 	const char* 	device_extensions	[LDEV_EXS] =
 		{	"VK_KHR_swapchain"							};
 
-		ov("Use Physical Device", 	PD_IDX		);
 		ov("Window Width", 			APP_W		);
 		ov("Window Height", 		APP_H		);
-		ov("Surface Format Index", 	SURF_FMT	);
 		ov("Render Cycles", 		TEST_CYCLES	);
 		ov("FPS Target", 			FPS			);
 		ov("Vertex Shaders", 		VERT_FLS	);
@@ -236,8 +232,7 @@ int main(void) {
 		vkdum_info[0].messageSeverity	= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
 										| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
 										| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		vkdum_info[0].messageType		= VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
-										| VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+		vkdum_info[0].messageType		= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
 										| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 		vkdum_info[0].pfnUserCallback	= debugCallback;
 		ov("messageSeverity", 	vkdum_info[0].messageSeverity	);
