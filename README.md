@@ -15,12 +15,12 @@ The Vulkan SDK can be found at: https://vulkan.lunarg.com/sdk/home
 
 Dependencies:
 
-https://github.com/KhronosGroup/Vulkan-Headers.git
-https://github.com/KhronosGroup/Vulkan-Loader.git
-https://github.com/KhronosGroup/Vulkan-Tools.git
-https://github.com/KhronosGroup/SPIRV-Headers.git
-https://github.com/KhronosGroup/SPIRV-Tools.git
-https://github.com/KhronosGroup/Vulkan-ValidationLayers.git
+`https://github.com/KhronosGroup/Vulkan-Headers.git`
+`https://github.com/KhronosGroup/Vulkan-Loader.git`
+`https://github.com/KhronosGroup/Vulkan-Tools.git`
+`https://github.com/KhronosGroup/SPIRV-Headers.git`
+`https://github.com/KhronosGroup/SPIRV-Tools.git`
+`https://github.com/KhronosGroup/Vulkan-ValidationLayers.git`
 
 ---
 
