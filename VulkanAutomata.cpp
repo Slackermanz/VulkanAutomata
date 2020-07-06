@@ -16,7 +16,7 @@ void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
 	uint32_t 	idx_sz		= idx_string.size();
 	std::string res_string 	= std::to_string(res);
 	if(idx_sz < 4) { for(int i = 0; i < 4-idx_sz; i++) { idx_string = " " + idx_string; } }
-/**/
+/**
 	std::cout	
 		<< "  " << idx_string 		<< ":\t"
 		<< (res==0?" ":res_string) 	<< " \t"
@@ -30,7 +30,7 @@ void ov(const std::string& id, auto v) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/**/
+/**
 	std::cout 
 		<< "\tinfo:\t    "
 		<< id 	<< pad 
@@ -44,7 +44,7 @@ void iv(const std::string& id, auto ov, int idx) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/**/
+/**
 	std::cout 
 		<< "\tinfo:\t    "
 		<< idx 	<< "\t"
@@ -54,7 +54,7 @@ void iv(const std::string& id, auto ov, int idx) {
 }
 
 void rv(const std::string& id) {
-/**/
+/**
 	std::cout 
 		<< "  void: \t" 
 		<< id	<< "\n";
@@ -64,7 +64,7 @@ void rv(const std::string& id) {
 void hd(const std::string& id, const std::string& msg) {
 	std::string bar = "";
 	for(int i = 0; i < 20; i++) { bar = bar + "____"; }
-/**/	
+/**/
 	std::cout 
 		<< bar 	<< "\n "
 		<< id 	<< "\t"
@@ -158,8 +158,8 @@ int main(void) {
 
 	const uint32_t 	APP_W 			= 1024;
 	const uint32_t 	APP_H 			= 768;
-	const long 		FPS 			= 60;
-	const int 		TEST_CYCLES 	= 600;
+	const long 		FPS 			= 30;
+	const int 		TEST_CYCLES 	= 60;
 
 	uint32_t 		PD_IDX 			= UINT32_MAX;
 	uint32_t 		GQF_IDX 		= UINT32_MAX;
@@ -230,6 +230,7 @@ int main(void) {
 		vkdum_info[0].sType	= VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 	nf(&vkdum_info[0]);
 		vkdum_info[0].messageSeverity	= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
+										| VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT 
 										| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
 										| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 		vkdum_info[0].messageType		= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
@@ -579,6 +580,7 @@ int main(void) {
 	 /**/	hd("STAGE:", "RNDPASS");	/**/
 	///////////////////////////////////////
 
+		vkgfxpipe_ss_info[1].module					= vkshademod_frag[0];
 	VkAttachmentDescription vkatd_init[1];
 		vkatd_init[0].flags							= 0;
 		vkatd_init[0].format						= vksurf_fmt[SURF_FMT].format;
@@ -626,7 +628,7 @@ int main(void) {
 	VkGraphicsPipelineCreateInfo vkgp_init_info[1];
 		vkgp_init_info[0].sType	= VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 	nf(&vkgp_init_info[0]);
-		vkgp_init_info[0].stageCount				= 1;
+		vkgp_init_info[0].stageCount				= 2;
 		vkgp_init_info[0].pStages					= vkgfxpipe_ss_info;
 		vkgp_init_info[0].pVertexInputState			= &vkgfxpipe_vertins_info[0];
 		vkgp_init_info[0].pInputAssemblyState		= &vkgfxpipe_ias_info[0];
@@ -715,6 +717,7 @@ int main(void) {
 		vkCreateGraphicsPipelines(
 			vkld[0], VK_NULL_HANDLE, 1, vkgp_i2l_info, NULL, &vkgfxpipe_i2l[0] ) );
 
+		vkgfxpipe_ss_info[1].module					= vkshademod_frag[1];
 	VkAttachmentDescription vkatd_loop_0[2];
 		vkatd_loop_0[0].flags						= 0;
 		vkatd_loop_0[0].format						= vksurf_fmt[SURF_FMT].format;
@@ -1197,6 +1200,14 @@ int main(void) {
 				vkCmdBeginRenderPass (
 					vkcombuf_init[i], &vkrpbegin_init_info[i], VK_SUBPASS_CONTENTS_INLINE );
 
+				rv("vkCmdBindPipeline");
+					vkCmdBindPipeline (
+						vkcombuf_init[i], VK_PIPELINE_BIND_POINT_GRAPHICS, vkgfxpipe_init[0] );
+
+				rv("vkCmdDraw");
+					vkCmdDraw (
+						vkcombuf_init[i], 3, 1, 0, 0 );
+
 			rv("vkCmdEndRenderPass");
 				vkCmdEndRenderPass(vkcombuf_init[i]);
 
@@ -1376,11 +1387,11 @@ int main(void) {
 
 	}
 
-	for(int i = 0; i < swap_img_cnt * TEST_CYCLES; i++) {
-
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "DO_LOOP");	/**/
 	///////////////////////////////////////
+
+	for(int i = 0; i < swap_img_cnt * TEST_CYCLES; i++) {
 
 		rv("nanosleep(NS_DELAY)");
 			nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);

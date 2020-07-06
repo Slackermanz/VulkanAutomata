@@ -2,8 +2,6 @@
 
  - Allow the program to close gracefully if the window is closed
 
- - Use frag_init to seed the initial state
-
  - Pass image to the GPU as the initial state
 
 

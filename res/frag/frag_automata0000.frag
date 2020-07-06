@@ -34,6 +34,19 @@ float cv(float x, float y) {
 	if(pxtx[0] == 1.0) { return 1.0; } else { return 0.0; }
 }
 
+float cv2(float x, float y, int v) {
+	const vec4	fc 	= gl_FragCoord;
+	const vec2 	dm 	= { 1024.0, 768.0 };
+	const float pxo = 1.0 / dm[0];
+	const float pyo = 1.0 / dm[1];
+	const float fcx = (fc[0]*pxo)+(x*pxo);
+	const float fcy = (fc[1]*pyo)+(y*pyo);
+
+	vec4 pxtx = getVal( vec2(fcx, fcy) );
+	
+	return pxtx[v];
+}
+
 void main() {
     float nhd0=cv(-14.0,-1.0)+cv(-14.0,0.0)+cv(-14.0,1.0)+cv(-13.0,-4.0)+cv(-13.0,-3.0)+cv(-13.0,-2.0)+cv(-13.0,2.0)+cv(-13.0,3.0)+cv(-13.0,4.0)+cv(-12.0,-6.0)+cv(-12.0,-5.0)+cv(-12.0,5.0)+cv(-12.0,6.0)+cv(-11.0,-8.0)+cv(-11.0,-7.0)+cv(-11.0,7.0)+cv(-11.0,8.0)+cv(-10.0,-9.0)+cv(-10.0,-1.0)+cv(-10.0,0.0)+cv(-10.0,1.0)+cv(-10.0,9.0)+cv(-9.0,-10.0)+cv(-9.0,-4.0)+cv(-9.0,-3.0)+cv(-9.0,-2.0)+cv(-9.0,2.0)+cv(-9.0,3.0)+cv(-9.0,4.0)+cv(-9.0,10.0)+cv(-8.0,-11.0)+cv(-8.0,-6.0)+cv(-8.0,-5.0)+cv(-8.0,5.0)+cv(-8.0,6.0)+cv(-8.0,11.0)+cv(-7.0,-11.0)+cv(-7.0,-7.0)+cv(-7.0,-2.0)+cv(-7.0,-1.0)+cv(-7.0,0.0)+cv(-7.0,1.0)+cv(-7.0,2.0)+cv(-7.0,7.0)+cv(-7.0,11.0)+cv(-6.0,-12.0)+cv(-6.0,-8.0)+cv(-6.0,-4.0)+cv(-6.0,-3.0)+cv(-6.0,3.0)+cv(-6.0,4.0)+cv(-6.0,8.0)+cv(-6.0,12.0)+cv(-5.0,-12.0)+cv(-5.0,-8.0)+cv(-5.0,-5.0)+cv(-5.0,-1.0)+cv(-5.0,0.0)+cv(-5.0,1.0)+cv(-5.0,5.0);
     float nhd1=cv(-5.0,8.0)+cv(-5.0,12.0)+cv(-4.0,-13.0)+cv(-4.0,-9.0)+cv(-4.0,-6.0)+cv(-4.0,-3.0)+cv(-4.0,-2.0)+cv(-4.0,2.0)+cv(-4.0,3.0)+cv(-4.0,6.0)+cv(-4.0,9.0)+cv(-4.0,13.0)+cv(-3.0,-13.0)+cv(-3.0,-9.0)+cv(-3.0,-6.0)+cv(-3.0,-4.0)+cv(-3.0,-1.0)+cv(-3.0,0.0)+cv(-3.0,1.0)+cv(-3.0,4.0)+cv(-3.0,6.0)+cv(-3.0,9.0)+cv(-3.0,13.0)+cv(-2.0,-13.0)+cv(-2.0,-9.0)+cv(-2.0,-7.0)+cv(-2.0,-4.0)+cv(-2.0,-2.0)+cv(-2.0,2.0)+cv(-2.0,4.0)+cv(-2.0,7.0)+cv(-2.0,9.0)+cv(-2.0,13.0)+cv(-1.0,-14.0)+cv(-1.0,-10.0)+cv(-1.0,-7.0)+cv(-1.0,-5.0)+cv(-1.0,-3.0)+cv(-1.0,-1.0)+cv(-1.0,0.0)+cv(-1.0,1.0)+cv(-1.0,3.0)+cv(-1.0,5.0)+cv(-1.0,7.0)+cv(-1.0,10.0)+cv(-1.0,14.0)+cv(0.0,-14.0)+cv(0.0,-10.0)+cv(0.0,-7.0)+cv(0.0,-5.0)+cv(0.0,-3.0)+cv(0.0,-1.0)+cv(0.0,1.0)+cv(0.0,3.0)+cv(0.0,5.0)+cv(0.0,7.0)+cv(0.0,10.0)+cv(0.0,14.0)+cv(1.0,-14.0)+cv(1.0,-10.0)+cv(1.0,-7.0);
@@ -49,53 +62,40 @@ void main() {
     float fin_0=nhd0+nhd1+nhd2+nhd3;
     float fin_1=nhd4;
     float fin_2=nhd5+nhd6+nhd7+nhd8+nhd9+nhd10;
-
-
-	const vec4	fc 	= gl_FragCoord;
-	const vec2 	dm 	= { 1024.0, 768.0 };
-	const float pxo = 1.0 / dm[0];
-	const float pyo = 1.0 / dm[1];
-	const float fcx = fc[0]*pxo;
-	const float fcy = fc[1]*pyo;
 	
-	vec3 col = { 0.0, 0.0, 0.0 };
-	vec4 txpx = getVal( vec2(fcx, fcy) );
-	if(txpx[1] == 0.0 && fin_0+fin_1+fin_2 == 0.0) {
-		float rx 	= mod( fc[0]*dm[0], 			63.0);
-		float ry 	= mod( fc[1]*dm[1], 			47.0);
-		if(rx <= ry && fcx > 0.5) {
-			col = setCol(0, 1.0, col);
-			col = setCol(1, 0.5, col);
-		}
-	} else {
-		float outval=cv(0.0,0.0);
-		if(fin_0>=0.0&&fin_0<=12.0){
-		    outval=0.0;
-		}
-		if(fin_0>=30.0&&fin_0<=155.0){
-		    outval=0.0;
-		}
-		if(fin_0>=40.0&&fin_0<=42.0){
-		    outval=1.0;
-		}
-		if(fin_0>=88.0&&fin_0<=155.0){
-		    outval=1.0;
-		}
-		if(fin_0>=111.0&&fin_0<=145.0){
-		    outval=1.0;
-		}
-		if(fin_1>=15.0&&fin_1<=17.0){
-		    outval=1.0;
-		}
-		if(fin_1>=8.0&&fin_1<=8.0){
-		    outval=1.0;
-		}
-		if(fin_2>=201.0){
-		    outval=0.0;
-		}
-		col = setCol(0, outval, col);
-		//col = setCol(1, 0.1, col);
+	vec3 col = { 
+		cv2(0.0, 0.0, 0),
+		cv2(0.0, 0.0, 1),
+		cv2(0.0, 0.0, 2)
+	};
+
+	float outval=cv(0.0,0.0);
+	if(fin_0>=0.0&&fin_0<=12.0){
+	    outval=0.0;
 	}
+	if(fin_0>=30.0&&fin_0<=155.0){
+	    outval=0.0;
+	}
+	if(fin_0>=40.0&&fin_0<=42.0){
+	    outval=1.0;
+	}
+	if(fin_0>=88.0&&fin_0<=155.0){
+	    outval=1.0;
+	}
+	if(fin_0>=111.0&&fin_0<=145.0){
+	    outval=1.0;
+	}
+	if(fin_1>=15.0&&fin_1<=17.0){
+	    outval=1.0;
+	}
+	if(fin_1>=8.0&&fin_1<=8.0){
+	    outval=1.0;
+	}
+	if(fin_2>=201.0){
+	    outval=0.0;
+	}
+	col = setCol(0, outval, col);
+	
 
 	out_col = vec4(col, 1.0);
 
