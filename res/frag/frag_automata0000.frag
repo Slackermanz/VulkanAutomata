@@ -5,6 +5,12 @@ layout(location = 0) out vec4 out_col;
 
 layout(binding = 0) uniform sampler2D txdata;
 
+layout(binding = 1) uniform init_ub {
+    float w;
+	float h;
+	float seed;
+} ub;
+
 vec3 setCol(int col_idx, float col_val, vec3 col) {
 	if(col_val > 1.0 || col_val < 0.0) { col_val = 0.0; }
 	col[col_idx] = col_val;
@@ -23,7 +29,7 @@ int countEQL(vec2 xy, int c_idx, float val) {
 
 float cv(float x, float y) {
 	const vec4	fc 	= gl_FragCoord;
-	const vec2 	dm 	= { 1024.0, 768.0 };
+	const vec2 	dm 	= { ub.w, ub.h };
 	const float pxo = 1.0 / dm[0];
 	const float pyo = 1.0 / dm[1];
 	const float fcx = (fc[0]*pxo)+(x*pxo);
@@ -36,7 +42,7 @@ float cv(float x, float y) {
 
 float cv2(float x, float y, int v) {
 	const vec4	fc 	= gl_FragCoord;
-	const vec2 	dm 	= { 1024.0, 768.0 };
+	const vec2 	dm 	= { ub.w, ub.h };
 	const float pxo = 1.0 / dm[0];
 	const float pyo = 1.0 / dm[1];
 	const float fcx = (fc[0]*pxo)+(x*pxo);

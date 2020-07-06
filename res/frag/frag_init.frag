@@ -3,9 +3,15 @@
 
 layout(location = 0) out vec4 out_col;
 
+layout(binding = 1) uniform init_ub {
+    float w;
+	float h;
+	float seed;
+} ub;
+
 void main() {
 	const 	vec4	fc 		= gl_FragCoord;
-	const 	vec2	dm 		= { 1024.0, 768.0 };
+	const 	vec2	dm 		= { ub.w, ub.h };
 			vec3 	col 	= vec3(0.0, 0.0, 0.0);
 
 	float 	rsq0 = sqrt	( mod( fc[1] * fc[0] + fc[1], 256.0 ) ) / 16.0;

@@ -9,6 +9,8 @@
 #include <X11/Xlib.h>
 #include <vulkan/vulkan.h>
 
+bool valid = 1;
+
 void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
 	reslist->push_back(res);
 	uint32_t 	idx 		= reslist->size() - 1;
@@ -16,7 +18,7 @@ void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
 	uint32_t 	idx_sz		= idx_string.size();
 	std::string res_string 	= std::to_string(res);
 	if(idx_sz < 4) { for(int i = 0; i < 4-idx_sz; i++) { idx_string = " " + idx_string; } }
-/**
+/**/
 	std::cout	
 		<< "  " << idx_string 		<< ":\t"
 		<< (res==0?" ":res_string) 	<< " \t"
@@ -30,7 +32,7 @@ void ov(const std::string& id, auto v) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/**
+/**/
 	std::cout 
 		<< "\tinfo:\t    "
 		<< id 	<< pad 
@@ -44,7 +46,7 @@ void iv(const std::string& id, auto ov, int idx) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/**
+/**/
 	std::cout 
 		<< "\tinfo:\t    "
 		<< idx 	<< "\t"
@@ -54,7 +56,7 @@ void iv(const std::string& id, auto ov, int idx) {
 }
 
 void rv(const std::string& id) {
-/**
+/**/
 	std::cout 
 		<< "  void: \t" 
 		<< id	<< "\n";
@@ -118,7 +120,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 			<< "\n\n";
 /**/
 //	}
-
+	valid = 0;
 	return VK_FALSE; 
 }
 
@@ -144,10 +146,10 @@ ShaderCodeInfo getShaderCodeInfo(const std::string& filename) {
 	return rfsc_info[0];
 }
 
-struct init_u0 {
-    float uw;
-	float uh;
-	float us;
+struct init_ub {
+    float w;
+	float h;
+	float seed;
 };
 
 int main(void) {
@@ -157,13 +159,14 @@ int main(void) {
 	///////////////////////////////////////
 
 	const uint32_t 	APP_W 			= 1024;
-	const uint32_t 	APP_H 			= 768;
-	const long 		FPS 			= 30;
-	const int 		TEST_CYCLES 	= 60;
+	const uint32_t 	APP_H 			= 512;
+	const long 		FPS 			= 60;
+	const int 		TEST_CYCLES 	= 600;
 
 	uint32_t 		PD_IDX 			= UINT32_MAX;
 	uint32_t 		GQF_IDX 		= UINT32_MAX;
 	uint32_t		SURF_FMT 		= UINT32_MAX;
+	uint32_t		UB_MEMTYPE 		= UINT32_MAX;
 
 	const uint32_t	SHDRSTGS 		= 2;
 	const long 		NS_DELAY 		= 1000000000 / FPS;
@@ -544,17 +547,22 @@ int main(void) {
 		vkgfxpipe_colblend_info[0].blendConstants[2]	= 1.0f;
 		vkgfxpipe_colblend_info[0].blendConstants[3]	= 1.0f;
 
-	VkDescriptorSetLayoutBinding vkgp_laydes_setbnd[1];
+	VkDescriptorSetLayoutBinding vkgp_laydes_setbnd[2];
 		vkgp_laydes_setbnd[0].binding				= 0;
 		vkgp_laydes_setbnd[0].descriptorType		= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		vkgp_laydes_setbnd[0].descriptorCount		= 1;
 		vkgp_laydes_setbnd[0].stageFlags			= VK_SHADER_STAGE_FRAGMENT_BIT;
 		vkgp_laydes_setbnd[0].pImmutableSamplers	= NULL;
+		vkgp_laydes_setbnd[1].binding				= 1;
+		vkgp_laydes_setbnd[1].descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vkgp_laydes_setbnd[1].descriptorCount		= 1;
+		vkgp_laydes_setbnd[1].stageFlags			= VK_SHADER_STAGE_FRAGMENT_BIT;
+		vkgp_laydes_setbnd[1].pImmutableSamplers	= NULL;
 
 	VkDescriptorSetLayoutCreateInfo vkgp_laydes_info[1];
 		vkgp_laydes_info[0].sType	= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	nf(&vkgp_laydes_info[0]);
-		vkgp_laydes_info[0].bindingCount	= 1;
+		vkgp_laydes_info[0].bindingCount	= 2;
 		vkgp_laydes_info[0].pBindings		= vkgp_laydes_setbnd;
 		
 	VkDescriptorSetLayout vkgp_laydes[2];
@@ -563,8 +571,7 @@ int main(void) {
 	vr("vkCreateDescriptorSetLayout", &vkres, 
 		vkCreateDescriptorSetLayout(vkld[0], &vkgp_laydes_info[0], NULL, &vkgp_laydes[1]) );
 
-
-	VkPipelineLayoutCreateInfo vkgp_lay_info[1];
+	VkPipelineLayoutCreateInfo vkgp_lay_info[2];
 		vkgp_lay_info[0].sType	= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	nf(&vkgp_lay_info[0]);
 		vkgp_lay_info[0].setLayoutCount			= 1;
@@ -574,13 +581,14 @@ int main(void) {
 
 	VkPipelineLayout vkgp_lay[1];
 	vr("vkCreatePipelineLayout", &vkres, 
-		vkCreatePipelineLayout(vkld[0], &vkgp_lay_info[0], NULL, vkgp_lay) );
+		vkCreatePipelineLayout(vkld[0], &vkgp_lay_info[0], NULL, &vkgp_lay[0]) );
 
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "RNDPASS");	/**/
 	///////////////////////////////////////
 
 		vkgfxpipe_ss_info[1].module					= vkshademod_frag[0];
+
 	VkAttachmentDescription vkatd_init[1];
 		vkatd_init[0].flags							= 0;
 		vkatd_init[0].format						= vksurf_fmt[SURF_FMT].format;
@@ -796,6 +804,8 @@ int main(void) {
 	vr("vkCreateGraphicsPipelines", &vkres, 
 		vkCreateGraphicsPipelines(
 			vkld[0], VK_NULL_HANDLE, 1, vkgp_loop_0_info, NULL, &vkgfxpipe_loop_0[0] ) );
+
+// LOOP 0 NEEDS TO GRAM IMGVIEW 1 - THE UNBOUND DESCRIPTOR
 
 	VkAttachmentDescription vkatd_loop_1[2];
 		vkatd_loop_1[0].flags						= 0;
@@ -1113,8 +1123,7 @@ int main(void) {
 
 	VkSamplerCreateInfo vksmplr_info[1];
 		vksmplr_info[0].sType	= VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-		vksmplr_info[0].pNext	= NULL;
-		vksmplr_info[0].flags	= 0;
+	nf(&vksmplr_info[0]);
 		vksmplr_info[0].magFilter				= VK_FILTER_NEAREST;
 		vksmplr_info[0].minFilter				= VK_FILTER_NEAREST;
 		vksmplr_info[0].mipmapMode				= VK_SAMPLER_MIPMAP_MODE_NEAREST;
@@ -1135,20 +1144,24 @@ int main(void) {
 	vr("vkCreateSampler", &vkres, 
 		vkCreateSampler(vkld[0], &vksmplr_info[0], NULL, &vksmplr[0]) );
 
-	VkDescriptorPoolSize vkdescpool_size[1];
+	VkDescriptorPoolSize vkdescpool_size[2];
 		vkdescpool_size[0].type				= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		vkdescpool_size[0].descriptorCount	= 1;
+		vkdescpool_size[1].type				= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vkdescpool_size[1].descriptorCount	= 1;
 
 	VkDescriptorPoolCreateInfo vkdescpool_info[1];
 		vkdescpool_info[0].sType	= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	nf(&vkdescpool_info[0]);
-		vkdescpool_info[0].maxSets			= 2;
-		vkdescpool_info[0].poolSizeCount	= 1;
+		vkdescpool_info[0].maxSets			= 1;
+		vkdescpool_info[0].poolSizeCount	= 2;
 		vkdescpool_info[0].pPoolSizes		= vkdescpool_size;
 
-	VkDescriptorPool vkdescpool[1];
+	VkDescriptorPool vkdescpool[2];
 	vr("vkCreateDescriptorPool", &vkres, 
 		vkCreateDescriptorPool(vkld[0], &vkdescpool_info[0], NULL, &vkdescpool[0]) );
+	vr("vkCreateDescriptorPool", &vkres, 
+		vkCreateDescriptorPool(vkld[0], &vkdescpool_info[0], NULL, &vkdescpool[1]) );
 
 	VkDescriptorSetAllocateInfo vkdescset_alloc_info[1];
 		vkdescset_alloc_info[0].sType	= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1156,36 +1169,164 @@ int main(void) {
 		vkdescset_alloc_info[0].descriptorPool		= vkdescpool[0];
 		vkdescset_alloc_info[0].descriptorSetCount	= vkdescpool_info[0].maxSets;
 		vkdescset_alloc_info[0].pSetLayouts			= vkgp_laydes;
+		vkdescset_alloc_info[1].sType	= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		vkdescset_alloc_info[1].pNext	= NULL;
+		vkdescset_alloc_info[1].descriptorPool		= vkdescpool[1];
+		vkdescset_alloc_info[1].descriptorSetCount	= vkdescpool_info[0].maxSets;
+		vkdescset_alloc_info[1].pSetLayouts			= vkgp_laydes;
 
-	VkDescriptorSet vkdescset[vkdescpool_info[0].maxSets];
+	VkDescriptorSet vkdescset_0[1];
 	vr("vkAllocateDescriptorSets", &vkres, 
-		vkAllocateDescriptorSets(vkld[0], &vkdescset_alloc_info[0], vkdescset) );
+		vkAllocateDescriptorSets(vkld[0], &vkdescset_alloc_info[0], &vkdescset_0[0]) );
+	VkDescriptorSet vkdescset_1[1];
+	vr("vkAllocateDescriptorSets", &vkres, 
+		vkAllocateDescriptorSets(vkld[0], &vkdescset_alloc_info[1], &vkdescset_1[0]) );
 
-	VkDescriptorImageInfo vkdesc_img_info[swap_img_cnt];
-	for(int i = 0; i < swap_img_cnt; i++) {
-		vkdesc_img_info[i].sampler		= vksmplr[0];
-		vkdesc_img_info[i].imageView	= vkimgview[i];
-		vkdesc_img_info[i].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	}
+	VkDescriptorImageInfo vkdesc_img_info_0[1];
+		vkdesc_img_info_0[0].sampler		= vksmplr[0];
+		vkdesc_img_info_0[0].imageView		= vkimgview[1];
+		vkdesc_img_info_0[0].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	const int DESC_UP_CNT = 2;
+	VkDescriptorImageInfo vkdesc_img_info_1[1];
+		vkdesc_img_info_1[0].sampler		= vksmplr[0];
+		vkdesc_img_info_1[0].imageView		= vkimgview[0];
+		vkdesc_img_info_1[0].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-	VkWriteDescriptorSet vkdescset_write[DESC_UP_CNT];
-	for(int i = 0; i < DESC_UP_CNT; i++) {
-		vkdescset_write[i].sType	= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vkdescset_write[i].pNext	= NULL;
-		vkdescset_write[i].dstSet			= vkdescset[i];
-		vkdescset_write[i].dstBinding		= 0;
-		vkdescset_write[i].dstArrayElement	= 0;
-		vkdescset_write[i].descriptorCount	= 1;
-		vkdescset_write[i].descriptorType	= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		vkdescset_write[i].pImageInfo		= &vkdesc_img_info[(i+1)%DESC_UP_CNT];
-		vkdescset_write[i].pBufferInfo		= NULL;
-		vkdescset_write[i].pTexelBufferView	= NULL;
-	}
+
+/* ONLY IMAGE 0 GETS USED HERE! */
+
+	VkWriteDescriptorSet vkdescset_write_0[2];
+		vkdescset_write_0[0].sType	= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vkdescset_write_0[0].pNext	= NULL;
+		vkdescset_write_0[0].dstSet				= vkdescset_0[0];
+		vkdescset_write_0[0].dstBinding			= 0;
+		vkdescset_write_0[0].dstArrayElement	= 0;
+		vkdescset_write_0[0].descriptorCount	= 1;
+		vkdescset_write_0[0].descriptorType		= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		vkdescset_write_0[0].pImageInfo			= &vkdesc_img_info_0[0];
+		vkdescset_write_0[0].pBufferInfo		= NULL;
+		vkdescset_write_0[0].pTexelBufferView	= NULL;
+
+	VkWriteDescriptorSet vkdescset_write_1[2];
+		vkdescset_write_1[0].sType	= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vkdescset_write_1[0].pNext	= NULL;
+		vkdescset_write_1[0].dstSet				= vkdescset_1[0];
+		vkdescset_write_1[0].dstBinding			= 0;
+		vkdescset_write_1[0].dstArrayElement	= 0;
+		vkdescset_write_1[0].descriptorCount	= 1;
+		vkdescset_write_1[0].descriptorType		= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		vkdescset_write_1[0].pImageInfo			= &vkdesc_img_info_1[0];
+		vkdescset_write_1[0].pBufferInfo		= NULL;
+		vkdescset_write_1[0].pTexelBufferView	= NULL;
+
+
+/* ONLY IMAGE 0 GETS USED HERE! */
+
+
+	VkDeviceSize vk_devsz_buff[1];
+		vk_devsz_buff[0]	= sizeof(float) * 3;
+		ov("Uniform init_ub size", vk_devsz_buff[0]);
+		vk_devsz_buff[0] = (vk_devsz_buff[0] > 256 ? vk_devsz_buff[0] : 256);
+		ov("Uniform init_ub size", vk_devsz_buff[0]);
+
+	VkBufferCreateInfo vkbuff_ub_info[1];
+		vkbuff_ub_info[0].sType	= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	nf(&vkbuff_ub_info[0]);
+		vkbuff_ub_info[0].size						= vk_devsz_buff[0];
+		vkbuff_ub_info[0].usage						= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+		vkbuff_ub_info[0].sharingMode				= vkswap_info[0].imageSharingMode;
+		vkbuff_ub_info[0].queueFamilyIndexCount		= 0;
+		vkbuff_ub_info[0].pQueueFamilyIndices		= NULL;
+
+	VkBuffer vkbuff_ub[1];
+	vr("vkCreateBuffer", &vkres, 
+		vkCreateBuffer(vkld[0], &vkbuff_ub_info[0], NULL, &vkbuff_ub[0]) );
+
+	VkMemoryRequirements vkmemreq_vkbuff_ub[1];
+	rv("vkGetBufferMemoryRequirements");
+		vkGetBufferMemoryRequirements(vkld[0], vkbuff_ub[0], &vkmemreq_vkbuff_ub[0]);
+		ov("Uniform init_u0 size", 				vkmemreq_vkbuff_ub[0].size				);
+		ov("Uniform init_u0 alignment", 		vkmemreq_vkbuff_ub[0].alignment			);
+		ov("Uniform init_u0 memoryTypeBits", 	vkmemreq_vkbuff_ub[0].memoryTypeBits	);
+
+	VkDescriptorBufferInfo vkdescbuf_ub_info[1];
+		vkdescbuf_ub_info[0].buffer		= vkbuff_ub[0];
+		vkdescbuf_ub_info[0].offset		= 0;
+		vkdescbuf_ub_info[0].range		= vkmemreq_vkbuff_ub[0].size;
+
+		vkdescset_write_0[1].sType	= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vkdescset_write_0[1].pNext	= NULL;
+		vkdescset_write_0[1].dstSet				= vkdescset_0[0];
+		vkdescset_write_0[1].dstBinding			= 1;
+		vkdescset_write_0[1].dstArrayElement	= 0;
+		vkdescset_write_0[1].descriptorCount	= 1;
+		vkdescset_write_0[1].descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vkdescset_write_0[1].pImageInfo			= NULL;
+		vkdescset_write_0[1].pBufferInfo		= vkdescbuf_ub_info;
+		vkdescset_write_0[1].pTexelBufferView	= NULL;
+
+		vkdescset_write_1[1].sType	= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vkdescset_write_1[1].pNext	= NULL;
+		vkdescset_write_1[1].dstSet				= vkdescset_1[0];
+		vkdescset_write_1[1].dstBinding			= 1;
+		vkdescset_write_1[1].dstArrayElement	= 0;
+		vkdescset_write_1[1].descriptorCount	= 1;
+		vkdescset_write_1[1].descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		vkdescset_write_1[1].pImageInfo			= NULL;
+		vkdescset_write_1[1].pBufferInfo		= vkdescbuf_ub_info;
+		vkdescset_write_1[1].pTexelBufferView	= NULL;
+
+	VkPhysicalDeviceMemoryProperties vkpd_memprops[1];
+	rv("vkGetPhysicalDeviceMemoryProperties");
+		vkGetPhysicalDeviceMemoryProperties(vkpd[PD_IDX], &vkpd_memprops[0]);
+		ov("memoryTypeCount", 	vkpd_memprops[0].memoryTypeCount					);
+		for(int i = 0; i < 		vkpd_memprops[0].memoryTypeCount; 				i++	) {
+			iv("propertyFlags", vkpd_memprops[0].memoryTypes[i].propertyFlags,	i	); 
+			iv("heapIndex", 	vkpd_memprops[0].memoryTypes[i].heapIndex, 		i	); }
+		ov("memoryHeapCount", 	vkpd_memprops[0].memoryHeapCount				);
+		for(int i = 0; i < 		vkpd_memprops[0].memoryHeapCount; 				i++	) {
+			iv("size", 			vkpd_memprops[0].memoryHeaps[i].size,			i	); 
+			iv("flags", 		vkpd_memprops[0].memoryHeaps[i].flags,			i	); }
+
+		for(int i = 0; i < 		vkpd_memprops[0].memoryTypeCount; 				i++	) {
+			if( vkpd_memprops[0].memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+			&&	UB_MEMTYPE == UINT32_MAX ) {
+				UB_MEMTYPE = i; } }
+
+	VkMemoryAllocateInfo vkbuff_ub_memallo_info[1];
+		vkbuff_ub_memallo_info[0].sType	= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		vkbuff_ub_memallo_info[0].pNext	= NULL;
+		vkbuff_ub_memallo_info[0].allocationSize	= vk_devsz_buff[0];
+		vkbuff_ub_memallo_info[0].memoryTypeIndex	= UB_MEMTYPE;
+
+	VkDeviceMemory vkbuff_ub_devmem[1];
+	vr("vkAllocateMemory", &vkres, 
+		vkAllocateMemory(vkld[0], &vkbuff_ub_memallo_info[0], NULL, &vkbuff_ub_devmem[0]) );
+
+	void *pvoid_memmap;
+	vr("vkMapMemory", &vkres, 
+		vkMapMemory(vkld[0], vkbuff_ub_devmem[0], 
+					vkdescbuf_ub_info[0].offset, 
+					vkdescbuf_ub_info[0].range,
+					0, &pvoid_memmap) );
+
+	init_ub ubo_init_ub[1];
+		ubo_init_ub[0].w 	= float(APP_W);
+		ubo_init_ub[0].h 	= float(APP_H);
+		ubo_init_ub[0].seed = float(1.0);
+
+	ov("sizeof(ubo_init_ub[0])", sizeof(ubo_init_ub[0]));
+
+	rv("memcpy");
+		memcpy(pvoid_memmap, &ubo_init_ub[0], sizeof(ubo_init_ub[0]));
+
+	vr("vkBindBufferMemory", &vkres, 
+		vkBindBufferMemory(vkld[0], vkbuff_ub[0], vkbuff_ub_devmem[0], vkdescbuf_ub_info[0].offset) );
 
 	rv("vkUpdateDescriptorSets");
-		vkUpdateDescriptorSets(vkld[0], DESC_UP_CNT, vkdescset_write, 0, NULL);
+		vkUpdateDescriptorSets(vkld[0], 2, vkdescset_write_0, 0, NULL);
+	rv("vkUpdateDescriptorSets");
+		vkUpdateDescriptorSets(vkld[0], 2, vkdescset_write_1, 0, NULL);
 
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "CMDINIT");	/**/
@@ -1204,6 +1345,11 @@ int main(void) {
 					vkCmdBindPipeline (
 						vkcombuf_init[i], VK_PIPELINE_BIND_POINT_GRAPHICS, vkgfxpipe_init[0] );
 
+				rv("vkCmdBindDescriptorSets");
+					vkCmdBindDescriptorSets (
+						vkcombuf_init[i], VK_PIPELINE_BIND_POINT_GRAPHICS, vkgp_lay[0],
+						0, 1, vkdescset_0, 0, NULL );
+
 				rv("vkCmdDraw");
 					vkCmdDraw (
 						vkcombuf_init[i], 3, 1, 0, 0 );
@@ -1216,13 +1362,13 @@ int main(void) {
 
 	}
 
-	VkQueue vkq[1];
-	rv("vkGetDeviceQueue");
-		vkGetDeviceQueue(vkld[0], GQF_IDX, 0, &vkq[0]);
-
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "SYNC");		/**/
 	///////////////////////////////////////
+
+	VkQueue vkq[1];
+	rv("vkGetDeviceQueue");
+		vkGetDeviceQueue(vkld[0], GQF_IDX, 0, &vkq[0]);
 
 	VkSemaphoreCreateInfo vksemaph_info[1];
 		vksemaph_info[0].sType	= VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1242,35 +1388,35 @@ int main(void) {
 	VkPipelineStageFlags qsubwait	= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 	uint32_t aqimg_idx[1];
 
-	for(int i = 0; i < swap_img_cnt; i++) {
-
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "DO_INIT");	/**/
 	///////////////////////////////////////
 
-		rv("nanosleep(NS_DELAY)");
-			nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
+	for(int i = 0; i < swap_img_cnt; i++) {
+		if(valid) {
 
-		VkSubmitInfo vksub_info[1];
-			vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			vksub_info[0].pNext	= NULL;
-			vksub_info[0].waitSemaphoreCount	= 0;
-			vksub_info[0].pWaitSemaphores		= NULL;
-			vksub_info[0].pWaitDstStageMask		= NULL;
-			vksub_info[0].commandBufferCount	= 1;
-			vksub_info[0].pCommandBuffers		= &vkcombuf_init[i];
-			vksub_info[0].signalSemaphoreCount	= 0;
-			vksub_info[0].pSignalSemaphores		= NULL;
+			rv("nanosleep(NS_DELAY)");
+				nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
 
-		vr("vkQueueSubmit", &vkres, 
-			vkQueueSubmit(vkq[0], 1, vksub_info, VK_NULL_HANDLE) );
+			VkSubmitInfo vksub_info[1];
+				vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+				vksub_info[0].pNext	= NULL;
+				vksub_info[0].waitSemaphoreCount	= 0;
+				vksub_info[0].pWaitSemaphores		= NULL;
+				vksub_info[0].pWaitDstStageMask		= NULL;
+				vksub_info[0].commandBufferCount	= 1;
+				vksub_info[0].pCommandBuffers		= &vkcombuf_init[i];
+				vksub_info[0].signalSemaphoreCount	= 0;
+				vksub_info[0].pSignalSemaphores		= NULL;
 
+			vr("vkQueueSubmit", &vkres, 
+				vkQueueSubmit(vkq[0], 1, vksub_info, VK_NULL_HANDLE) );
+		}
 	}
 
 	  ///////////////////////////////////////
-	 /**/	hd("STAGE:", "CMDI2L");	/**/
+	 /**/	hd("STAGE:", "CMDI2L");		/**/
 	///////////////////////////////////////
-
 
 	vr("vkBeginCommandBuffer", &vkres, 
 		vkBeginCommandBuffer(vkcombuf_i2l[0], &vkcombufbegin_info[0]) );
@@ -1284,7 +1430,7 @@ int main(void) {
 
 	vr("vkEndCommandBuffer", &vkres, 
 		vkEndCommandBuffer(vkcombuf_i2l[0]) );
-
+/**
 	vr("vkBeginCommandBuffer", &vkres, 
 		vkBeginCommandBuffer(vkcombuf_i2l[1], &vkcombufbegin_info[1]) );
 
@@ -1297,36 +1443,42 @@ int main(void) {
 
 	vr("vkEndCommandBuffer", &vkres, 
 		vkEndCommandBuffer(vkcombuf_i2l[1]) );
-
-
-	for(int i = 0; i < 1; i++) {
+/**/
 	  ///////////////////////////////////////
-	 /**/	hd("STAGE:", "DO_I2L");	/**/
+	 /**/	hd("STAGE:", "DO_I2L");		/**/
 	///////////////////////////////////////
 
-		rv("nanosleep(NS_DELAY)");
-			nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
+	for(int i = 0; i < 1; i++) {
+		if(valid) {
+			rv("nanosleep(NS_DELAY)");
+				nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
 
-		VkSubmitInfo vksub_info[1];
-			vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			vksub_info[0].pNext	= NULL;
-			vksub_info[0].waitSemaphoreCount	= 0;
-			vksub_info[0].pWaitSemaphores		= NULL;
-			vksub_info[0].pWaitDstStageMask		= NULL;
-			vksub_info[0].commandBufferCount	= 1;
-			vksub_info[0].pCommandBuffers		= &vkcombuf_i2l[i];
-			vksub_info[0].signalSemaphoreCount	= 0;
-			vksub_info[0].pSignalSemaphores		= NULL;
+			VkSubmitInfo vksub_info[1];
+				vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+				vksub_info[0].pNext	= NULL;
+				vksub_info[0].waitSemaphoreCount	= 0;
+				vksub_info[0].pWaitSemaphores		= NULL;
+				vksub_info[0].pWaitDstStageMask		= NULL;
+				vksub_info[0].commandBufferCount	= 1;
+				vksub_info[0].pCommandBuffers		= &vkcombuf_i2l[i];
+				vksub_info[0].signalSemaphoreCount	= 0;
+				vksub_info[0].pSignalSemaphores		= NULL;
 
-		vr("vkQueueSubmit", &vkres, 
-			vkQueueSubmit(vkq[0], 1, vksub_info, VK_NULL_HANDLE) );
-
+			vr("vkQueueSubmit", &vkres, 
+				vkQueueSubmit(vkq[0], 1, vksub_info, VK_NULL_HANDLE) );
+		}
 	}
 
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "CMDLOOP");	/**/
 	///////////////////////////////////////
-
+/**
+	vr("vkDeviceWaitIdle", &vkres, 
+		vkDeviceWaitIdle(vkld[0]) );
+/**
+	rv("vkUpdateDescriptorSets");
+		vkUpdateDescriptorSets(vkld[0], 3, vkdescset_write, 0, NULL);
+/**/
 	for(int i = 0; i < 1; i++) {
 
 		vr("vkBeginCommandBuffer", &vkres, 
@@ -1343,7 +1495,7 @@ int main(void) {
 				rv("vkCmdBindDescriptorSets");
 					vkCmdBindDescriptorSets (
 						vkcombuf_loop[i], VK_PIPELINE_BIND_POINT_GRAPHICS, vkgp_lay[0],
-						0, 1, &vkdescset[i], 0, NULL );
+						0, 1, vkdescset_0, 0, NULL );
 
 				rv("vkCmdDraw");
 					vkCmdDraw (
@@ -1373,7 +1525,7 @@ int main(void) {
 				rv("vkCmdBindDescriptorSets");
 					vkCmdBindDescriptorSets (
 						vkcombuf_loop[i], VK_PIPELINE_BIND_POINT_GRAPHICS, vkgp_lay[0],
-						0, 1, &vkdescset[i], 0, NULL );
+						0, 1, vkdescset_1, 0, NULL );
 
 				rv("vkCmdDraw");
 					vkCmdDraw (
@@ -1392,58 +1544,62 @@ int main(void) {
 	///////////////////////////////////////
 
 	for(int i = 0; i < swap_img_cnt * TEST_CYCLES; i++) {
+		if(valid) {
+			rv("nanosleep(NS_DELAY)");
+				nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
 
-		rv("nanosleep(NS_DELAY)");
-			nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
+			vr("vkResetFences", &vkres, 
+				vkResetFences(vkld[0], 1, vkfence_aqimg) );
 
-		vr("vkResetFences", &vkres, 
-			vkResetFences(vkld[0], 1, vkfence_aqimg) );
+			vr("vkCreateSemaphore", &vkres, 
+				vkCreateSemaphore(vkld[0], &vksemaph_info[0], NULL, &vksemaph_image[0]) );
 
-		vr("vkCreateSemaphore", &vkres, 
-			vkCreateSemaphore(vkld[0], &vksemaph_info[0], NULL, &vksemaph_image[0]) );
+			vr("vkAcquireNextImageKHR", &vkres, 
+				vkAcquireNextImageKHR(vkld[0], vkswap[0], UINT64_MAX, vksemaph_image[0], 
+					VK_NULL_HANDLE, &aqimg_idx[0]) );
+				iv("aqimg_idx", aqimg_idx[0], i);
 
-		vr("vkAcquireNextImageKHR", &vkres, 
-			vkAcquireNextImageKHR(vkld[0], vkswap[0], UINT64_MAX, vksemaph_image[0], 
-				VK_NULL_HANDLE, &aqimg_idx[0]) );
-			iv("aqimg_idx", aqimg_idx[0], i);
+			vr("vkCreateSemaphore", &vkres, 
+				vkCreateSemaphore(vkld[0], &vksemaph_info[0], NULL, &vksemaph_rendr[0]) );
 
-		vr("vkCreateSemaphore", &vkres, 
-			vkCreateSemaphore(vkld[0], &vksemaph_info[0], NULL, &vksemaph_rendr[0]) );
+			VkSubmitInfo vksub_info[1];
+				vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+				vksub_info[0].pNext	= NULL;
+				vksub_info[0].waitSemaphoreCount	= 1;
+				vksub_info[0].pWaitSemaphores		= vksemaph_image;
+				vksub_info[0].pWaitDstStageMask		= &qsubwait;
+				vksub_info[0].commandBufferCount	= 1;
+				vksub_info[0].pCommandBuffers		= &vkcombuf_loop[aqimg_idx[0]];
+				vksub_info[0].signalSemaphoreCount	= 1;
+				vksub_info[0].pSignalSemaphores		= vksemaph_rendr;
 
-		VkSubmitInfo vksub_info[1];
-			vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			vksub_info[0].pNext	= NULL;
-			vksub_info[0].waitSemaphoreCount	= 1;
-			vksub_info[0].pWaitSemaphores		= vksemaph_image;
-			vksub_info[0].pWaitDstStageMask		= &qsubwait;
-			vksub_info[0].commandBufferCount	= 1;
-			vksub_info[0].pCommandBuffers		= &vkcombuf_loop[aqimg_idx[0]];
-			vksub_info[0].signalSemaphoreCount	= 1;
-			vksub_info[0].pSignalSemaphores		= vksemaph_rendr;
+			vr("vkQueueSubmit", &vkres, 
+				vkQueueSubmit(vkq[0], 1, vksub_info, vkfence_aqimg[0]) );
+			
+			int res_idx = vkres.size();
+			do {
+				vr("vkWaitForFences <100ms>", &vkres, 
+					vkWaitForFences(vkld[0], 1, vkfence_aqimg, VK_TRUE, 100000000) );
+					res_idx = vkres.size()-1;
+			} while (vkres[res_idx] == VK_TIMEOUT);
 
-		vr("vkQueueSubmit", &vkres, 
-			vkQueueSubmit(vkq[0], 1, vksub_info, vkfence_aqimg[0]) );
-		
-		int res_idx = vkres.size();
-		do {
-			vr("vkWaitForFences <100ms>", &vkres, 
-				vkWaitForFences(vkld[0], 1, vkfence_aqimg, VK_TRUE, 100000000) );
-				res_idx = vkres.size()-1;
-		} while (vkres[res_idx] == VK_TIMEOUT);
+			VkPresentInfoKHR vkpresent_info[1];
+				vkpresent_info[0].sType 	= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+				vkpresent_info[0].pNext 	= NULL;
+				vkpresent_info[0].waitSemaphoreCount	= 1;
+				vkpresent_info[0].pWaitSemaphores 		= vksemaph_rendr;
+				vkpresent_info[0].swapchainCount 		= 1;
+				vkpresent_info[0].pSwapchains 			= vkswap;
+				vkpresent_info[0].pImageIndices 		= aqimg_idx;
+				vkpresent_info[0].pResults 				= NULL;
 
-		VkPresentInfoKHR vkpresent_info[1];
-			vkpresent_info[0].sType 	= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-			vkpresent_info[0].pNext 	= NULL;
-			vkpresent_info[0].waitSemaphoreCount	= 1;
-			vkpresent_info[0].pWaitSemaphores 		= vksemaph_rendr;
-			vkpresent_info[0].swapchainCount 		= 1;
-			vkpresent_info[0].pSwapchains 			= vkswap;
-			vkpresent_info[0].pImageIndices 		= aqimg_idx;
-			vkpresent_info[0].pResults 				= NULL;
+			vr("vkQueuePresentKHR", &vkres, 
+				vkQueuePresentKHR(vkq[0], &vkpresent_info[0]) );
+		}
+	}
 
-		vr("vkQueuePresentKHR", &vkres, 
-			vkQueuePresentKHR(vkq[0], &vkpresent_info[0]) );
-
+	if(!valid) {
+		hd("STAGE:", "ABORTED");
 	}
 
 	rv("XCloseDisplay");
