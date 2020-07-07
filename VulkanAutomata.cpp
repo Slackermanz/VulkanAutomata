@@ -10,6 +10,7 @@
 #include <vulkan/vulkan.h>
 
 bool valid = 1;
+bool output = 0;
 
 void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
 	reslist->push_back(res);
@@ -18,12 +19,12 @@ void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
 	uint32_t 	idx_sz		= idx_string.size();
 	std::string res_string 	= std::to_string(res);
 	if(idx_sz < 4) { for(int i = 0; i < 4-idx_sz; i++) { idx_string = " " + idx_string; } }
-/**/
-	std::cout	
-		<< "  " << idx_string 		<< ":\t"
-		<< (res==0?" ":res_string) 	<< " \t"
-		<< id 						<< "\n";
-/**/
+	if(output) {
+		std::cout	
+			<< "  " << idx_string 		<< ":\t"
+			<< (res==0?" ":res_string) 	<< " \t"
+			<< id 						<< "\n";
+	}
 }
 
 void ov(const std::string& id, auto v) {
@@ -32,12 +33,12 @@ void ov(const std::string& id, auto v) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/**/
+	if(output) {
 	std::cout 
 		<< "\tinfo:\t    "
 		<< id 	<< pad 
 		<< " [" << v	<< "]\n";
-/**/
+	}
 }
 
 void iv(const std::string& id, auto ov, int idx) {
@@ -46,32 +47,32 @@ void iv(const std::string& id, auto ov, int idx) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-/**/
+	if(output) {
 	std::cout 
 		<< "\tinfo:\t    "
 		<< idx 	<< "\t"
 		<< id 	<< pad 
 		<< " [" << ov	<< "]\n";
-/**/
+	}
 }
 
 void rv(const std::string& id) {
-/**/
+	if(output) {
 	std::cout 
 		<< "  void: \t" 
 		<< id	<< "\n";
-/**/
+	}
 }
 
 void hd(const std::string& id, const std::string& msg) {
 	std::string bar = "";
 	for(int i = 0; i < 20; i++) { bar = bar + "____"; }
-/**/
+	if(output) {
 	std::cout 
 		<< bar 	<< "\n "
 		<< id 	<< "\t"
 		<< msg 	<< "\n";
-/**/
+	}
 }
 
 void nf(auto *Vk_obj) {
@@ -104,22 +105,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 				)
 			);
 	}
-
 	msg_fmt = msg_fmt + msg[msg.size()-1];
-
-	std::string msg_killer = "";
-	for(int i = msg.size()-6; i < msg.size()-1; i++) {
-		msg_killer = msg_killer + msg[i]; }
-//	if(	msg_killer != "01296" && msg_killer != "01403") {
-/**/
+	if(output) {
 		std::cout 
 			<< "\n\n"
 			<< bar 		<< "\n "
 			<< msg_fmt
 			<< "\n" 	<< bar
 			<< "\n\n";
-/**/
-//	}
+	}
 	valid = 0;
 	return VK_FALSE; 
 }
@@ -158,10 +152,10 @@ int main(void) {
 	 /**/	hd("STAGE:", "CONFIG");		/**/
 	///////////////////////////////////////
 
-	const uint32_t 	APP_W 			= 1024;
-	const uint32_t 	APP_H 			= 512;
+	const uint32_t 	APP_W 			= 1536;
+	const uint32_t 	APP_H 			= 768;
 	const long 		FPS 			= 60;
-	const int 		TEST_CYCLES 	= 600;
+	const int 		TEST_CYCLES 	= 6000;
 
 	uint32_t 		PD_IDX 			= UINT32_MAX;
 	uint32_t 		GQF_IDX 		= UINT32_MAX;
@@ -805,8 +799,6 @@ int main(void) {
 		vkCreateGraphicsPipelines(
 			vkld[0], VK_NULL_HANDLE, 1, vkgp_loop_0_info, NULL, &vkgfxpipe_loop_0[0] ) );
 
-// LOOP 0 NEEDS TO GRAM IMGVIEW 1 - THE UNBOUND DESCRIPTOR
-
 	VkAttachmentDescription vkatd_loop_1[2];
 		vkatd_loop_1[0].flags						= 0;
 		vkatd_loop_1[0].format						= vksurf_fmt[SURF_FMT].format;
@@ -981,9 +973,6 @@ int main(void) {
 			vkCreateFramebuffer(vkld[0], &vkfbuf_i2l_info[i], NULL, &vkfbuf_i2l[i]) );
 	}
 
-
-
-
 	VkFramebufferCreateInfo vkfbuf_loop_0_info[swap_img_cnt];
 	for(int i = 0; i < swap_img_cnt; i++) {
 			vkfbuf_loop_0_info[i].sType	= VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1017,10 +1006,6 @@ int main(void) {
 			vkCreateFramebuffer(vkld[0], &vkfbuf_loop_1_info[i], NULL, &vkfbuf_loop_1[i]) );
 	}
 
-
-
-
-
 	VkClearValue vkclear_col_init[1];
 		vkclear_col_init[0].color	= { 0.3f, 0.0f, 0.3f, 1.0f };
 	VkClearValue vkclear_col_i2l[1];
@@ -1051,8 +1036,6 @@ int main(void) {
 		vkrpbegin_i2l_info[i].pClearValues		= vkclear_col_i2l;
 	}
 
-
-
 	VkRenderPassBeginInfo vkrpbegin_loop_0_info[swap_img_cnt];
 	for(int i = 0; i < swap_img_cnt; i++) {
 		vkrpbegin_loop_0_info[i].sType	= VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -1073,8 +1056,6 @@ int main(void) {
 		vkrpbegin_loop_1_info[i].clearValueCount	= 1;
 		vkrpbegin_loop_1_info[i].pClearValues		= vkclear_col_loop_1;
 	}
-
-
 
 	VkCommandPoolCreateInfo vkcompool_info[1];
 		vkcompool_info[0].sType	= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1192,9 +1173,6 @@ int main(void) {
 		vkdesc_img_info_1[0].imageView		= vkimgview[0];
 		vkdesc_img_info_1[0].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-
-/* ONLY IMAGE 0 GETS USED HERE! */
-
 	VkWriteDescriptorSet vkdescset_write_0[2];
 		vkdescset_write_0[0].sType	= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		vkdescset_write_0[0].pNext	= NULL;
@@ -1218,10 +1196,6 @@ int main(void) {
 		vkdescset_write_1[0].pImageInfo			= &vkdesc_img_info_1[0];
 		vkdescset_write_1[0].pBufferInfo		= NULL;
 		vkdescset_write_1[0].pTexelBufferView	= NULL;
-
-
-/* ONLY IMAGE 0 GETS USED HERE! */
-
 
 	VkDeviceSize vk_devsz_buff[1];
 		vk_devsz_buff[0]	= sizeof(float) * 3;
@@ -1472,13 +1446,7 @@ int main(void) {
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "CMDLOOP");	/**/
 	///////////////////////////////////////
-/**
-	vr("vkDeviceWaitIdle", &vkres, 
-		vkDeviceWaitIdle(vkld[0]) );
-/**
-	rv("vkUpdateDescriptorSets");
-		vkUpdateDescriptorSets(vkld[0], 3, vkdescset_write, 0, NULL);
-/**/
+
 	for(int i = 0; i < 1; i++) {
 
 		vr("vkBeginCommandBuffer", &vkres, 
@@ -1543,7 +1511,9 @@ int main(void) {
 	 /**/	hd("STAGE:", "DO_LOOP");	/**/
 	///////////////////////////////////////
 
-	for(int i = 0; i < swap_img_cnt * TEST_CYCLES; i++) {
+//	for(int i = 0; i < swap_img_cnt * TEST_CYCLES; i++) {
+	int i = 0;
+	do {
 		if(valid) {
 			rv("nanosleep(NS_DELAY)");
 				nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
@@ -1554,49 +1524,56 @@ int main(void) {
 			vr("vkCreateSemaphore", &vkres, 
 				vkCreateSemaphore(vkld[0], &vksemaph_info[0], NULL, &vksemaph_image[0]) );
 
-			vr("vkAcquireNextImageKHR", &vkres, 
-				vkAcquireNextImageKHR(vkld[0], vkswap[0], UINT64_MAX, vksemaph_image[0], 
-					VK_NULL_HANDLE, &aqimg_idx[0]) );
-				iv("aqimg_idx", aqimg_idx[0], i);
-
-			vr("vkCreateSemaphore", &vkres, 
-				vkCreateSemaphore(vkld[0], &vksemaph_info[0], NULL, &vksemaph_rendr[0]) );
-
-			VkSubmitInfo vksub_info[1];
-				vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-				vksub_info[0].pNext	= NULL;
-				vksub_info[0].waitSemaphoreCount	= 1;
-				vksub_info[0].pWaitSemaphores		= vksemaph_image;
-				vksub_info[0].pWaitDstStageMask		= &qsubwait;
-				vksub_info[0].commandBufferCount	= 1;
-				vksub_info[0].pCommandBuffers		= &vkcombuf_loop[aqimg_idx[0]];
-				vksub_info[0].signalSemaphoreCount	= 1;
-				vksub_info[0].pSignalSemaphores		= vksemaph_rendr;
-
-			vr("vkQueueSubmit", &vkres, 
-				vkQueueSubmit(vkq[0], 1, vksub_info, vkfence_aqimg[0]) );
+			if(valid) {
+				vr("vkAcquireNextImageKHR", &vkres, 
+					vkAcquireNextImageKHR(vkld[0], vkswap[0], UINT64_MAX, vksemaph_image[0], 
+						VK_NULL_HANDLE, &aqimg_idx[0]) );
+					iv("aqimg_idx", aqimg_idx[0], i);
 			
-			int res_idx = vkres.size();
-			do {
-				vr("vkWaitForFences <100ms>", &vkres, 
-					vkWaitForFences(vkld[0], 1, vkfence_aqimg, VK_TRUE, 100000000) );
-					res_idx = vkres.size()-1;
-			} while (vkres[res_idx] == VK_TIMEOUT);
+				vr("vkCreateSemaphore", &vkres, 
+					vkCreateSemaphore(vkld[0], &vksemaph_info[0], NULL, &vksemaph_rendr[0]) );
 
-			VkPresentInfoKHR vkpresent_info[1];
-				vkpresent_info[0].sType 	= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-				vkpresent_info[0].pNext 	= NULL;
-				vkpresent_info[0].waitSemaphoreCount	= 1;
-				vkpresent_info[0].pWaitSemaphores 		= vksemaph_rendr;
-				vkpresent_info[0].swapchainCount 		= 1;
-				vkpresent_info[0].pSwapchains 			= vkswap;
-				vkpresent_info[0].pImageIndices 		= aqimg_idx;
-				vkpresent_info[0].pResults 				= NULL;
+				VkSubmitInfo vksub_info[1];
+					vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+					vksub_info[0].pNext	= NULL;
+					vksub_info[0].waitSemaphoreCount	= 1;
+					vksub_info[0].pWaitSemaphores		= vksemaph_image;
+					vksub_info[0].pWaitDstStageMask		= &qsubwait;
+					vksub_info[0].commandBufferCount	= 1;
+					vksub_info[0].pCommandBuffers		= &vkcombuf_loop[aqimg_idx[0]];
+					vksub_info[0].signalSemaphoreCount	= 1;
+					vksub_info[0].pSignalSemaphores		= vksemaph_rendr;
 
-			vr("vkQueuePresentKHR", &vkres, 
-				vkQueuePresentKHR(vkq[0], &vkpresent_info[0]) );
+				if(valid) {
+					vr("vkQueueSubmit", &vkres, 
+						vkQueueSubmit(vkq[0], 1, vksub_info, vkfence_aqimg[0]) );
+					
+					int res_idx = vkres.size();
+					do {
+						vr("vkWaitForFences <100ms>", &vkres, 
+							vkWaitForFences(vkld[0], 1, vkfence_aqimg, VK_TRUE, 100000000) );
+							res_idx = vkres.size()-1;
+					} while (vkres[res_idx] == VK_TIMEOUT);
+
+					VkPresentInfoKHR vkpresent_info[1];
+						vkpresent_info[0].sType 	= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+						vkpresent_info[0].pNext 	= NULL;
+						vkpresent_info[0].waitSemaphoreCount	= 1;
+						vkpresent_info[0].pWaitSemaphores 		= vksemaph_rendr;
+						vkpresent_info[0].swapchainCount 		= 1;
+						vkpresent_info[0].pSwapchains 			= vkswap;
+						vkpresent_info[0].pImageIndices 		= aqimg_idx;
+						vkpresent_info[0].pResults 				= NULL;
+
+					if(valid) {
+						vr("vkQueuePresentKHR", &vkres, 
+							vkQueuePresentKHR(vkq[0], &vkpresent_info[0]) );
+					}
+				}
+			}
 		}
-	}
+		i++;
+	} while (valid);
 
 	if(!valid) {
 		hd("STAGE:", "ABORTED");
