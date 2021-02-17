@@ -11,11 +11,14 @@
 #include <X11/Xlib.h>
 #include <vulkan/vulkan.h>
 
-bool 	valid 		=	1;
-bool 	output 		=	1;
-int 	loglevel 	=	1;
+bool 	valid 		=	1;	//	Break on error
+bool 	output 		=	1;	//	?
+int 	loglevel 	=	1;	//	?
+
+//	Messaging systems designed for terminal width of 96 characters
 
 void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
+//	VkResult output message
 	reslist->push_back(res);
 	uint32_t 	idx 		= reslist->size() - 1;
 	std::string	idx_string 	= std::to_string(idx);
@@ -26,11 +29,10 @@ void vr(const std::string& id, std::vector<VkResult>* reslist, VkResult res) {
 		std::cout	
 			<< "  " << idx_string 		<< ":\t"
 			<< (res==0?" ":res_string) 	<< " \t"
-			<< id 						<< "\n";
-	}
-}
+			<< id 						<< "\n"; } }
 
 void ov(const std::string& id, auto v) {
+//	Single info output message
 	int 		padlen	= 4;
 	int 		pads	= 10;
 	std::string pad 	= " ";
@@ -40,11 +42,10 @@ void ov(const std::string& id, auto v) {
 	std::cout 
 		<< "\tinfo:\t    "
 		<< id 	<< pad 
-		<< " [" << v	<< "]\n";
-	}
-}
+		<< " [" << v	<< "]\n"; } }
 
 void iv(const std::string& id, auto ov, int idx) {
+//	Multiple info output message
 	int 		padlen 	= 4;
 	int 		pads 	= 9;
 	std::string pad 	= " ";
@@ -55,76 +56,55 @@ void iv(const std::string& id, auto ov, int idx) {
 		<< "\tinfo:\t    "
 		<< idx 	<< "\t"
 		<< id 	<< pad 
-		<< " [" << ov	<< "]\n";
-	}
-}
+		<< " [" << ov	<< "]\n"; } }
 
 void rv(const std::string& id) {
+//	Return void output message
 	if(output && loglevel <= 0) {
 	std::cout 
 		<< "  void: \t" 
-		<< id	<< "\n";
-	}
-}
+		<< id	<< "\n"; } }
 
 void hd(const std::string& id, const std::string& msg) {
+//	Header output message
 	std::string bar = "";
 	for(int i = 0; i < 20; i++) { bar = bar + "____"; }
 	if(output && loglevel <= 0) {
 	std::cout 
 		<< bar 	<< "\n "
 		<< id 	<< "\t"
-		<< msg 	<< "\n";
-	}
-}
+		<< msg 	<< "\n"; } }
 
 void nf(auto *Vk_obj) {
+//	NullFlags shorthand
 	Vk_obj->pNext = NULL;
-	Vk_obj->flags = 0;
-}
+	Vk_obj->flags = 0; }
 
-unsigned char ToByte(bool b[8])
-{
+unsigned char ToByte(bool b[8]) {
+//	For image P4 output
     unsigned char c = 0;
-    for (int i=0; i < 8; i++)
-        if (b[i]) { c = c | 1 << i; }
-    return c;
-}
+    for (int i=0; i < 8; i++) { if (b[i]) { c = c | 1 << i; } } return c; }
 
 // Find a memory in `memoryTypeBitsRequirement` that includes all of `requiredProperties`
-int32_t findProperties(const VkPhysicalDeviceMemoryProperties* pMemoryProperties,
-                       uint32_t memoryTypeBitsRequirement,
-                       VkMemoryPropertyFlags requiredProperties)
-{
-    const uint32_t memoryCount = pMemoryProperties->memoryTypeCount;
+int32_t findProperties(
+	const 		VkPhysicalDeviceMemoryProperties* 	pMemoryProperties,
+				uint32_t 							memoryTypeBitsRequirement,
+				VkMemoryPropertyFlags 				requiredProperties 			) {
+    const 		uint32_t 	memoryCount = pMemoryProperties->memoryTypeCount;
+    for ( uint32_t memoryIndex = 0; memoryIndex < memoryCount; ++memoryIndex ) {
+        const 	uint32_t 				memoryTypeBits 			= (1 << memoryIndex);
+        const 	bool 					isRequiredMemoryType 	= memoryTypeBitsRequirement & memoryTypeBits;
+        const 	VkMemoryPropertyFlags 	properties 				= pMemoryProperties->memoryTypes[memoryIndex].propertyFlags;
+        const 	bool 					hasRequiredProperties 	= (properties & requiredProperties) == requiredProperties;
+        if (isRequiredMemoryType && hasRequiredProperties) { return static_cast<int32_t>(memoryIndex); } } return -1; }
 
-    for (uint32_t memoryIndex = 0; memoryIndex < memoryCount; ++memoryIndex)
-    {
-        const uint32_t memoryTypeBits = (1 << memoryIndex);
-        const bool isRequiredMemoryType = memoryTypeBitsRequirement & memoryTypeBits;
-
-        const VkMemoryPropertyFlags properties = 
-			pMemoryProperties->memoryTypes[memoryIndex].propertyFlags;
-        const bool hasRequiredProperties = 
-			(properties & requiredProperties) == requiredProperties;
-
-        if (isRequiredMemoryType && hasRequiredProperties)
-        {
-            return static_cast<int32_t>(memoryIndex);
-        }
-    }
-
-    // failed to find memory type
-    return -1;
-}
-
-static VKAPI_ATTR VkBool32 VKAPI_CALL 
+static VKAPI_ATTR VkBool32 VKAPI_CALL
+//	Vulkan validation layer message output
 	debugCallback(
 				VkDebugUtilsMessageSeverityFlagBitsEXT	messageSeverity, 
 				VkDebugUtilsMessageTypeFlagsEXT			messageType, 
 		const 	VkDebugUtilsMessengerCallbackDataEXT* 	pCallbackData, 
-		void* 											pUserData		) 
-{
+		void* 											pUserData		) {
 	std::string bar = "";
 	for(int i = 0; i < 20; i++) { bar = bar + "####"; }
 
@@ -178,74 +158,61 @@ ShaderCodeInfo getShaderCodeInfo(const std::string& filename) {
 	return rfsc_info[0];
 }
 
+//	COMMENTMARKER_0
+//	Number of 'v' floats to pass to frag shader
 const int VMX = 32;
-//	Don't forget: COMMENTMARKER_0
+
 struct init_ub {
-    float w;
-	float h;
-	float seed;
-	float frame;
-	float clicks;
-	float mx;
-	float my;
-	float mlb;
-	float mrb;
-	float div;
-	float v0;
-	float v1;
-	float v2;
-	float v3;
-	float v4;
-	float v5;
-	float v6;
-	float v7;
-	float v8;
-	float v9;
-	float v10;
-	float v11;
-	float v12;
-	float v13;
-	float v14;
-	float v15;
-	float v16;
-	float v17;
-	float v18;
-	float v19;
-	float v20;
-	float v21;
-	float v22;
-	float v23;
-	float v24;
-	float v25;
-	float v26;
-	float v27;
-	float v28;
-	float v29;
-	float v30;
-	float v31;
+//	struct for uniform buffer passed to frag shader
+    float w;		//	Application Width
+	float h;		//	Application Height
+	float seed;		//	'seed' value
+	float frame;	//	Total GPU frames generated
+	float clicks;	//	Sum of mousewheel up and mousewheel down
+	float mx;		//	Mouse X position
+	float my;		//	Mouse Y position
+	float mlb;		//	Mouse Left Clicked
+	float mrb;		//	Mouse Right Clicked
+	float div;		//	Divider Panels
+//	'v' parameters for shenanigans
+	float v0; 	float v1; 	float v2; 	float v3;
+	float v4; 	float v5; 	float v6; 	float v7;
+	float v8; 	float v9; 	float v10; 	float v11;
+	float v12; 	float v13; 	float v14; 	float v15;
+	float v16; 	float v17; 	float v18;	float v19;
+	float v20; 	float v21; 	float v22; 	float v23;
+	float v24; 	float v25; 	float v26; 	float v27;
+	float v28; 	float v29; 	float v30; 	float v31;
 };
 
 int main(void) {
 
+//	Timestamp for file handling
 	std::string timestamp = std::to_string(time(0));
 
 	if(loglevel != 0) { loglevel = loglevel * -1; }
 
+//	Make local backup: Fragment Shader (automata)
 	std::string fbk_auto 	= "res/frag/frag_automata0000.frag";
 	std::string cp_auto		= "cp '" + fbk_auto + "' 'fbk/auto_" + timestamp +".frag'";
 	system(cp_auto.c_str());
 
+//	Make local backup: Fragment Shader (seed)
 	std::string fbk_seed 	= "res/frag/frag_init.frag";
 	std::string cp_seed		= "cp '" + fbk_seed + "' 'fbk/seed_" + timestamp +".frag'";
 	system(cp_seed.c_str());
 
+//	Make local backup: Render Engine
 	std::string fbk_engi 	= "VulkanAutomata.cpp";
 	std::string cp_engi		= "cp '" + fbk_engi + "' 'fbk/engi_" + timestamp +".cpp.bk'";
 	system(cp_engi.c_str());
 
+//	Make blank file: Plaintext 'v' Coordinates
 	std::string mkevo		= "echo > 'fbk/" + timestamp + ".evo'";
 	system(mkevo.c_str());
 
+//	If the last automata fragment shader matches the current one,
+//		Use the last 'v' coordinates float file for the current timestamp
 	std::string frg_last 	= "fbk/LastFrg.chk";
 	std::string evo_last 	= "fbk/LastEvo.chk";
 	std::string cmp_evo		= 	"if cmp --silent -- '" + fbk_auto + "' '" + frg_last + "';"
@@ -253,31 +220,9 @@ int main(void) {
 							+	" fi";
 	system(cmp_evo.c_str());
 
+//	Record the current automata fragment as the last used config
 	std::string cpfrglst	= "cp '" + fbk_auto + "' '" + frg_last + "'";
 	system(cpfrglst.c_str());
-
-
-/*
-	float ar[4];
-		ar[0] = float(0.5); 
-		ar[1] = float(0.0);
-		ar[2] = float(3.013313);
-		ar[3] = float(1.0);
-
-	std::string arfn = "fbk/floats.test";
-
-	std::ofstream file(arfn.c_str(), std::ios::out | std::ios::binary);
-	for(int ari = 0; ari < 4; ari++) {
-		file.write( reinterpret_cast<const char*>( &ar[ari] ), sizeof( float ));
-	}
-	file.close();
-
-	float f;
-	std::ifstream fin(arfn.c_str(), std::ios::in | std::ios::binary);
-    while (fin.read(reinterpret_cast<char*>(&f), sizeof(float))) {
-        std::cout << f << '\n';
-	}
-*/
 
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "CONFIG");		/**/
@@ -285,33 +230,34 @@ int main(void) {
 
 	const uint32_t 	APP_W 			= 512;		//	1536	768		512		384
 	const uint32_t 	APP_H 			= 320;		//	832		448		320		256
-	const long 		FPS 			= 300;		//	60
-	const int 		TEST_CYCLES 	= 0;		//	1200, 2400 4800
-	const int 		SCR_RECORD 		= 0;		//	24	12	8
-	const int 		SCR_RAMP_ACCEL 	= 0;		//	0	2	4	6
-	const int 		SCR_PAD 		= 0;		//	0	2	4	6
-	const int 		SCR_PAD_MULT 	= 0;		//	1	2	3
+	const long 		FPS 			= 300;		//	2+
+	const int 		TEST_CYCLES 	= 0;		//	0+
+	const int 		SCR_RECORD 		= 0;		//	0+
+	const int 		SCR_RAMP_ACCEL 	= 0;		//	1+
+	const int 		SCR_PAD 		= 0;		//	1+
+	const int 		SCR_PAD_MULT 	= 0;		//	?
 	const char*		PPM_ENC			= "P5";		// 	P4 	P5	P6
 	const int 		PPM_P5C			= 0;		// 	0 	1	2
-		  float 	div 			= 1.0;
+		  float 	div 			= 1.0;		//	1.0, 2.0, ...
 
-	uint32_t 		PD_IDX 			= UINT32_MAX;
-	uint32_t 		GQF_IDX 		= UINT32_MAX;
-	uint32_t		SURF_FMT 		= UINT32_MAX;
-	uint32_t		UB_MEMTYPE 		= UINT32_MAX;
-	uint32_t		SCR_MEMTYPE 	= UINT32_MAX;
+	uint32_t 		PD_IDX 			= UINT32_MAX;	//	Physical Device Index
+	uint32_t 		GQF_IDX 		= UINT32_MAX;	//	Graphics Queue Family Index
+	uint32_t		SURF_FMT 		= UINT32_MAX;	//	Surface Format
+	uint32_t		UB_MEMTYPE 		= UINT32_MAX;	//	?? 	Uniform Buffer Memorytype 	?? 
+	uint32_t		SCR_MEMTYPE 	= UINT32_MAX;	//	?? 	Screenshot Memorytype 		??
 
-	const uint32_t	SHDRSTGS 		= 2;
-	const long 		NS_DELAY 		= 1000000000 / FPS;
-	const float 	TRIQUAD_SCALE 	= 1.0;
-	const float 	VP_SCALE 		= TRIQUAD_SCALE + (1.0-TRIQUAD_SCALE) * 0.5;
+	const uint32_t	SHDRSTGS 		= 2;											//	Shader Stages
+	const long 		NS_DELAY 		= 1000000000 / FPS;								//	Nanosecond Delay
+	const float 	TRIQUAD_SCALE 	= 1.0;											//	Vertex Shader Triangle Scale
+	const float 	VP_SCALE 		= TRIQUAD_SCALE + (1.0-TRIQUAD_SCALE) * 0.5;	//	Vertex Shader Viewport Scale
 
-	const uint32_t 	VERT_FLS 		= 1;
-	const uint32_t 	FRAG_FLS 		= 2;
-	const uint32_t 	INST_EXS 		= 3;
-	const uint32_t 	LDEV_EXS 		= 1;
-	const uint32_t 	VLID_LRS 		= 1;
+	const uint32_t 	VERT_FLS 		= 1;	//	Number of Vertex Shader Files
+	const uint32_t 	FRAG_FLS 		= 2;	//	Number of Fragment Shader Files
+	const uint32_t 	INST_EXS 		= 3;	//	Number of Vulkan Instance Extensions
+	const uint32_t 	LDEV_EXS 		= 1;	//	Number of Vulkan Logical Device Extensions
+	const uint32_t 	VLID_LRS 		= 1;	//	Number of Vulkan Validation Layers
 
+//	Paths to shader files and extension names
 	const char* 	filepath_vert		[VERT_FLS] =
 		{	"./app/vert_TriQuad.spv" 					};
 	const char* 	filepath_frag		[FRAG_FLS] =
@@ -326,17 +272,19 @@ int main(void) {
 	const char* 	device_extensions	[LDEV_EXS] =
 		{	"VK_KHR_swapchain"							};
 
-		ov("Window Width", 			APP_W		);
-		ov("Window Height", 		APP_H		);
-		ov("Render Cycles", 		TEST_CYCLES	);
-		ov("FPS Target", 			FPS			);
-		ov("Vertex Shaders", 		VERT_FLS	);
-		ov("Fragment Shaders", 		FRAG_FLS	);
+//	Config Notification Messages
+	ov("Window Width", 			APP_W		);
+	ov("Window Height", 		APP_H		);
+	ov("Render Cycles", 		TEST_CYCLES	);
+	ov("FPS Target", 			FPS			);
+	ov("Vertex Shaders", 		VERT_FLS	);
+	ov("Fragment Shaders", 		FRAG_FLS	);
 
 	  ///////////////////////////////////////
 	 /**/	hd("STAGE:", "INIT");		/**/
 	///////////////////////////////////////
 
+//	VkResult storage
 	std::vector<VkResult> vkres;
 	vr("init", &vkres, VK_ERROR_UNKNOWN);
 
@@ -409,9 +357,7 @@ int main(void) {
 	for(int i = 0; i < pdqfp_cnt; i++) {
 		if(	GQF_IDX == UINT32_MAX 
 		&&	vkqfamprops[i].queueFlags & VK_QUEUE_GRAPHICS_BIT ) {
-			GQF_IDX = i;
-		}
-	}
+			GQF_IDX = i; } }
 
 	uint32_t gfxq_cnt = vkqfamprops[GQF_IDX].queueCount;
 	float queue_priorities[gfxq_cnt];
