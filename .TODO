@@ -1,8 +1,0 @@
-
- - Allow the program to close gracefully if the window is closed
-
- - Pass image to the GPU as the initial state
-
-
-
-
