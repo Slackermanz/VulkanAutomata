@@ -25,10 +25,10 @@ Build & Run:
 
 Contacts & Networking:
 
-		https://www.reddit.com/user/slackermanz/
+  https://www.reddit.com/user/slackermanz/
 
-		https://www.youtube.com/channel/UCmoNsNuM0M9VsIXfm2cHPiA/videos
+  https://www.youtube.com/channel/UCmoNsNuM0M9VsIXfm2cHPiA/videos
 
-		https://www.shadertoy.com/user/SlackermanzCA
+  https://www.shadertoy.com/user/SlackermanzCA
 
-		https://discord.gg/BCuYCEn
+  https://discord.gg/BCuYCEn
