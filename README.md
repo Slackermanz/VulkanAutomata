@@ -15,8 +15,20 @@ The Vulkan SDK can be found at: https://vulkan.lunarg.com/sdk/home
 
 ---
 
-Commands should be called from the location `./VulkanAutomata`:
+Commands should be called from the location `./VulkanAutomata`
 
 Build & Run:
 
 `script_buildrun.sh`
+
+---
+
+Contacts & Networking:
+
+		https://www.reddit.com/user/slackermanz/
+
+		https://www.youtube.com/channel/UCmoNsNuM0M9VsIXfm2cHPiA/videos
+
+		https://www.shadertoy.com/user/SlackermanzCA
+
+		https://discord.gg/BCuYCEn
