@@ -1,5 +1,5 @@
 #!/bin/bash
-	source '/home/YOUR_USERNAME/vulkan/1.2.170.0/setup-env.sh'
+	source '/home/pseudo/vulkan/1.2.170.0/setup-env.sh'
 	rm ./app/RunVkAuto
 	rm ./app/vert_TriQuad.spv
 	rm ./app/frag_automata0000.spv

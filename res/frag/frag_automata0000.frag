@@ -194,6 +194,7 @@ void main() {
 			col = ( minfo[2] == 1 || minfo[2] == 3 ) ? place(col, minfo) : col;
 
 	out_col = vec4(col, 1.0);
+
 }
 
 
