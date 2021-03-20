@@ -193,14 +193,14 @@ int main(void) {
 
 	const uint32_t 	APP_W 			= 512;		//	1920 1536 1280	768	512	384	256
 	const uint32_t 	APP_H 			= 288;		//	1080 864  720	432	288	216	144
-	const long 		FPS 			= 300;		//	2+
+	const long 		FPS 			= 0;		//	2+
 	const int 		TEST_CYCLES 	= 0;		//	0+
 
 	uint32_t 		PD_IDX 			= UINT32_MAX;	//	Physical Device Index
 	uint32_t 		GQF_IDX 		= UINT32_MAX;	//	Graphics Queue Family Index
 	uint32_t		SURF_FMT 		= UINT32_MAX;	//	Surface Format
 
-	const long 		NS_DELAY 		= 1000000000 / FPS;								//	Nanosecond Delay
+	const long 		NS_DELAY 		= (FPS==0) ? 1 : 1000000000 / FPS;							//	Nanosecond Delay
 	const float 	TRIQUAD_SCALE 	= 1.0;											//	Vertex Shader Triangle Scale
 	const float 	VP_SCALE 		= TRIQUAD_SCALE + (1.0-TRIQUAD_SCALE) * 0.5;	//	Vertex Shader Viewport Scale
 
@@ -343,13 +343,18 @@ int main(void) {
 	 /**/	hd("STAGE:", "DISPLAY");				/**/
 	///////////////////////////////////////////////////
 
+	XEvent 			xe;
+	Window 			wVoid;
+	int 			siVoid;
+	unsigned int 	uiVoid;
+
 	rv("XOpenDisplay");
 	Display *d = 
 		XOpenDisplay(NULL);
 		ov("DisplayString", DisplayString(d));
 
 	XSetWindowAttributes xswa;
-	xswa.event_mask = ButtonPressMask | ButtonReleaseMask | KeyPressMask | KeyReleaseMask;
+	xswa.event_mask = ButtonPressMask | ButtonReleaseMask | KeyPressMask | KeyReleaseMask | PointerMotionMask | PointerMotionHintMask;
 
 	Window rw = XDefaultRootWindow(d);
 	rv("XCreateWindow");
@@ -1528,10 +1533,17 @@ int main(void) {
 		vkbuffimgcopy.imageExtent.height 	= vksurf_ables[0].currentExtent.height;
 		vkbuffimgcopy.imageExtent.depth		= 1;
 
+	VkMemoryRequirements vkmemreqs_swap;
+	rv("vkGetImageMemoryRequirements");
+		vkGetImageMemoryRequirements(vkld[0], vkswap_img[0], &vkmemreqs_swap);
+		ov("memreq size", 			vkmemreqs_swap.size);
+		ov("memreq alignment", 		vkmemreqs_swap.alignment);
+		ov("memreq memoryTypeBits", vkmemreqs_swap.memoryTypeBits);
+
 	VkBufferCreateInfo vkbuff_info_save;
 		vkbuff_info_save.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	nf(&vkbuff_info_save);
-		vkbuff_info_save.size 						= 3145728;
+		vkbuff_info_save.size 						= vkmemreqs_swap.size;
 		vkbuff_info_save.usage 						= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		vkbuff_info_save.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
 		vkbuff_info_save.queueFamilyIndexCount 		= 1;
@@ -1690,58 +1702,137 @@ int main(void) {
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
 	///////////////////////////////////////////////////
 
-	int ilimit = TEST_CYCLES;
-	int idx = 0;
-	int SCR_idx = 0;
-	int pause = 0;
-	int SCR_frameskip = 16;
+	int idx 			= 0;
+	int SCR_count 		= 0;
+	int pause 			= 0;
+	int SCR_frameskip 	= 8;
+	int SCR_record 		= 0;
+	int SCR_make_vid	= 0;
+	int SCR_batchsize	= 180;
+	int fps_report 		= time(0) - 1;
+	int  current_sec	= time(0);
+    auto start_loop 	= std::chrono::high_resolution_clock::now();
+    auto finish_loop 	= start_loop;
+	auto start_frame 	= start_loop;
+	auto finish_frame 	= start_loop;
+	auto start_save 	= start_loop;
+	auto finish_save 	= start_loop;
 
 	void* SCR_data;
 	vr("vkMapMemory", &vkres, 
 		vkMapMemory(vkld[0], vkdevmem_save, 0, VK_WHOLE_SIZE, 0, &SCR_data) );
 
 	do {
-    	auto start = std::chrono::high_resolution_clock::now();
+    	start_loop 	= std::chrono::high_resolution_clock::now();
+		current_sec = time(0);
+		if( current_sec - fps_report >= 2) { fps_report = current_sec; }
+
+		//	UI Controls
 		if(valid) {
-			XEvent xe;
-			XSelectInput( d, w, ButtonPressMask | KeyPressMask );
-			if(XCheckWindowEvent(d, w, ButtonPressMask | KeyPressMask, &xe)) {
-				if( xe.type == 2) {
-					//	Pause Simulation: 			SPACEBAR
-					if( xe.xbutton.button == 65	) { pause = (pause) ? 0 : 1; }
-					//	Toroidal Subdivisions:		1,2,3,4
-					if( xe.xbutton.button == 10	) { window_size.divs = 1; 	 }
-					if( xe.xbutton.button == 11	) { window_size.divs = 2; 	 }
-					if( xe.xbutton.button == 12	) { window_size.divs = 4; 	 }
-					if( xe.xbutton.button == 13	) { window_size.divs = 8; 	 }
-					ub.wsize = wsize_pack( window_size ); }
-					
-				if( xe.type == 4) {
-					//	MouseButtons:	LMB,MMB,RMB,MWU,MWD,BTB,FTB
-					if(	xe.xbutton.button == 1
-					|| 	xe.xbutton.button == 2
-					|| 	xe.xbutton.button == 3
-					|| 	xe.xbutton.button == 4
-					|| 	xe.xbutton.button == 5
-					|| 	xe.xbutton.button == 8
-					|| 	xe.xbutton.button == 9 	)  {
+			XSelectInput( d, w, xswa.event_mask );
+			for(int pending_xe = 0; pending_xe < XPending(d); pending_xe++) {
+				if(XCheckWindowEvent(d, w, xswa.event_mask, &xe)) {
+
+					if( xe.type == 2) {
+						//	Pause Simulation: 			SPACEBAR
+						if( xe.xbutton.button == 65	 ) {
+							pause = (pause) ? 0 : 1;
+							ov("Pause State", ((pause) ? "Paused" : "Running") ); }
+
+						//	Toroidal Subdivisions:		1,2,3,4
+						if( xe.xbutton.button == 10	 ) { window_size.divs = 1; }
+						if( xe.xbutton.button == 11	 ) { window_size.divs = 2; }
+						if( xe.xbutton.button == 12	 ) { window_size.divs = 4; }
+						if( xe.xbutton.button == 13	 ) { window_size.divs = 8; }
+
+						//	Recording Toggle:			Numpad ENTER
+						if( xe.xbutton.button == 104 ) {
+							SCR_record = (SCR_record) ? 0 : 1;
+							ov("Record State", ((pause) ? "Recording" : "Idle") ); }
+
+						//	Make Video:					Numpad .
+						if( xe.xbutton.button == 91  ) {
+							SCR_record		= 0;
+							pause			= 1;
+							SCR_make_vid 	= 1;
+							ov("Output Video", SCR_count ); }
+
+						//	Increase FrameSkip:			Numpad +
+						if( xe.xbutton.button == 86  ) {
+							SCR_frameskip = SCR_frameskip + 1;
+							ov("FrameSkip", SCR_frameskip); }
+
+						//	Decrease FrameSkip:			Numpad -
+						if( xe.xbutton.button == 82  ) {
+							SCR_frameskip = (SCR_frameskip > 1) ? SCR_frameskip - 1 : 1;
+							ov("FrameSkip", SCR_frameskip); }
+
+						ov("Key", xe.xbutton.button); }
+
+					if(xe.type == 6) {
+						mouse_info.mouse_x 	= xe.xbutton.x;
+						mouse_info.mouse_y 	= xe.xbutton.y; }
+
+					if( xe.type == 4 || xe.type == 5) {
 						mouse_info.mouse_x 	= xe.xbutton.x;
 						mouse_info.mouse_y 	= xe.xbutton.y;
-						mouse_info.mouse_c 	= xe.xbutton.button;
-						mouse_info.unused 	= 15;
-						ub.minfo = minfo_pack(mouse_info); } }
-				ov("Input", xe.xbutton.button); } }
+						//	MouseButtons:	LMB,MMB,RMB,MWU,MWD,BTB,FTB
+						if(	xe.xbutton.button == 1
+						|| 	xe.xbutton.button == 2
+						|| 	xe.xbutton.button == 3
+						|| 	xe.xbutton.button == 4
+						|| 	xe.xbutton.button == 5
+						|| 	xe.xbutton.button == 8
+						|| 	xe.xbutton.button == 9 	) {
+							mouse_info.unused 	= 15;
+							if(xe.type == 4) { mouse_info.mouse_c = xe.xbutton.button; }
+							if(xe.type == 5) { mouse_info.mouse_c = 0; } } } } }
 
+			XQueryPointer(d, w, &wVoid, &wVoid, &siVoid, &siVoid, &siVoid, &siVoid, &uiVoid);
+			ub.minfo = minfo_pack(mouse_info);
+			ub.wsize = wsize_pack(window_size); }
+
+		//	Video Creation
+		if(valid && SCR_make_vid && SCR_count > 0) {
+			rv("SystemCLI: Make Thumbnail Image");
+				int thumbnail_index = (SCR_count / 20) + 150;
+					thumbnail_index = (thumbnail_index < SCR_count) ? thumbnail_index : SCR_count / 2;
+				std::string thumbnail_image 	= "out/PPM" + std::to_string(thumbnail_index) + ".PAM";
+				std::string first_image 		= "out/PPM" + std::to_string(0) + ".PAM";
+				std::string cli_cmd_thumb 		= "cp '" + thumbnail_image + "' '" + first_image + "'";
+				system(cli_cmd_thumb.c_str());
+
+			rv("SystemCLI: Run 'png2vid.sh'");
+				system("./png2vid.sh");
+
+			rv("SystemCLI: Remove Output Images");
+				for(int i = 0; i < SCR_count; i++) {
+					std::string ppmfile = "out/PPM" + std::to_string(i) + ".PAM";
+					std::string cli_cmd_remove 	= "rm '" + ppmfile + "'";
+					system(cli_cmd_remove.c_str()); }
+
+			ov("Video Creation", "Complete!" );
+
+			SCR_count 		= 0;
+			SCR_make_vid 	= 0; }
+
+		//	Image Generation
 		if (!pause) {
 			if(valid) {
-				iv("i", idx, idx);
-				ub.frame = uint32_t(idx);
-				rv("memcpy");
-					memcpy(pvoid_memmap, &ub, sizeof(ub));
 				rv("nanosleep(NS_DELAY)");
 					nanosleep((const struct timespec[]){{0, NS_DELAY}}, NULL);
+
+				iv("i", idx, idx);
+
+				ub.frame 	= uint32_t(idx);
+    			start_frame = std::chrono::high_resolution_clock::now();
+
+				rv("memcpy");
+					memcpy(pvoid_memmap, &ub, sizeof(ub));
+
 				vr("vkResetFences", &vkres, 
 					vkResetFences(vkld[0], 1, vkfence_aqimg) );
+
 				if(valid) {
 					vr("vkAcquireNextImageKHR", &vkres, 
 						vkAcquireNextImageKHR(vkld[0], vkswap[0], UINT64_MAX, vksemaph_image[0], 
@@ -1797,34 +1888,58 @@ int main(void) {
 
 						if(valid) {
 							vr("vkQueuePresentKHR", &vkres, 
-								vkQueuePresentKHR(vkq[0], &vkpresent_info[0]) ); } } } }
+								vkQueuePresentKHR(vkq[0], &vkpresent_info[0]) ); } } }
 
-					if(valid && idx%SCR_frameskip == 0 && SCR_frameskip >= 0) {
-						std::string ppmfile = "out/PPM" + std::to_string(SCR_idx) + ".PGM";
-						ov("Screenshot Out", ppmfile);
-						std::ofstream file(ppmfile.c_str(), std::ios::out | std::ios::binary);
-							file 	<<	"P6" 									<< "\n"
-								 	<< 	vksurf_ables[0].currentExtent.width		<< " "
-							 		<< 	vksurf_ables[0].currentExtent.height	<< " "
-									<< 	"255" << "\n";
-							for(int i = 0; i < vksurf_ables[0].currentExtent.height; i++) {
-								for(int j = 0; j < vksurf_ables[0].currentExtent.width; j++) {
-									for(int k = 2; k >= 0; k--) {
-										file.write(
-											(const char*)SCR_data
-											+ ((j*4) + k)
-											+  (i*4*vksurf_ables[0].currentExtent.width)
-											, 1 ); } } }
-						file.close(); 
-						SCR_idx++; }
-			idx++; } else { nanosleep((const struct timespec[]){{0, NS_DELAY*30}}, NULL); }
+				if(fps_report == current_sec) {
+					auto finish_frame	= std::chrono::high_resolution_clock::now();
+					std::string ftime 	= std::to_string(
+						std::chrono::duration_cast<std::chrono::nanoseconds>(finish_frame-start_frame).count()) + " ns, "
+										+ std::to_string(
+						int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(finish_frame-start_frame).count())) + " FPS";
+					ov("Frame Time", ftime); } }
+
+			if(valid && idx%SCR_frameskip == 0 && SCR_record) {
+				if(SCR_count%SCR_batchsize == 0 && SCR_count > 0 && SCR_batchsize > 0) { pause = 1; }
+    			auto start_save 	= std::chrono::high_resolution_clock::now();
+				std::string ppmfile = "out/PPM" + std::to_string(SCR_count) + ".PAM";
+				ov("Screenshot Out", ppmfile);
+				std::ofstream file(ppmfile.c_str(), std::ios::out | std::ios::binary);
+					file 	<<	"P7" 												<< "\n"
+						 	<< 	"WIDTH "	<< vksurf_ables[0].currentExtent.width 	<< "\n"
+						 	<< 	"HEIGHT "	<< vksurf_ables[0].currentExtent.height	<< "\n"
+						 	<< 	"DEPTH "	<< "4"									<< "\n"
+						 	<< 	"MAXVAL "	<< "255"								<< "\n"
+						 	<< 	"TUPLTYPE "	<< "RGB_ALPHA"							<< "\n"
+						 	<< 	"ENDHDR"	<< "\n";
+					file.write(
+						(const char*)SCR_data,
+						vksurf_ables[0].currentExtent.width * vksurf_ables[0].currentExtent.height * 4 );
+				file.close(); 
+				SCR_count++;
+				auto finish_save 	= std::chrono::high_resolution_clock::now();
+				std::string ftime 	= std::to_string(
+					std::chrono::duration_cast<std::chrono::nanoseconds>(finish_save-start_save).count()) + " ns, "
+									+ std::to_string(
+					int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(finish_save-start_save).count())) + " FPS";
+				ov("Export Time", ftime); }
+
+			idx++; 
+
+		} else { nanosleep((const struct timespec[]){{0, 100000000}}, NULL); }
+
 		if(loglevel != 0 && idx == 2) { loglevel = loglevel * -1; }
-		if(idx%512 == 0) {
-			auto finish = std::chrono::high_resolution_clock::now();
-			std::string ftime = std::to_string(
-				std::chrono::duration_cast<std::chrono::nanoseconds>(finish-start).count()/1000000.0) + " ms";
-			ov("Frame Time", ftime); }
-	} while (valid && (idx < ilimit || ilimit < 1));
+
+		if(fps_report == current_sec) {
+			auto finish_loop = std::chrono::high_resolution_clock::now();
+			std::string ftime 	= std::to_string(
+				std::chrono::duration_cast<std::chrono::nanoseconds>(finish_loop-start_loop).count()) + " ns, "
+								+ std::to_string(
+				int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(finish_loop-start_loop).count())) + " FPS";
+			ov("Loop Time", ftime);
+			ov("Index", idx); }
+
+		if(fps_report == current_sec) { fps_report--; }
+	} while (valid && (idx < TEST_CYCLES || TEST_CYCLES < 1));
 
 	  ///////////////////////////////////////////////
 	 /**/	hd("STAGE:", "EXIT APPLICATION");	/**/

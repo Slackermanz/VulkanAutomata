@@ -190,6 +190,8 @@ void main() {
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
+	if(ub.frame == 0 || minfo[2] == 2) { res_r = reseed(0.0); res_g = reseed(1.0); }
+
 	vec3 	col = vec3( res_r, res_g, res_b );
 			col = ( minfo[2] == 1 || minfo[2] == 3 ) ? place(col, minfo) : col;
 
