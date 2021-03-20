@@ -1,5 +1,5 @@
 #version 460
-//	Shader developed by Slackermanz
+//	Shader developed by Slackermanz:
 //		https://www.reddit.com/user/slackermanz/
 //		https://github.com/Slackermanz/VulkanAutomata
 //		https://www.youtube.com/channel/UCmoNsNuM0M9VsIXfm2cHPiA/videos
@@ -190,7 +190,7 @@ void main() {
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	vec3 	col = vec3( res_r, res_g, res_b) ;
+	vec3 	col = vec3( res_r, res_g, res_b );
 			col = ( minfo[2] == 1 || minfo[2] == 3 ) ? place(col, minfo) : col;
 
 	out_col = vec4(col, 1.0);
