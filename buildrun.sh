@@ -5,10 +5,10 @@
 	rm ./app/frag_automata0000.spv
 	clear
 	echo ""
-	echo "  ./glslc ./dat/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv"
-	./glslc ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv
-	echo "  ./glslc ./dat/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv"
-	./glslc ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
+	echo "  ./glslc -O ./dat/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv"
+	./glslc -O ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv
+	echo "  ./glslc -O ./dat/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv"
+	./glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
 	echo ""
 	echo "  g++ VulkanAutomata.cpp -fconcepts -lX11 -lvulkan -o ./app/RunVkAuto"
 	echo ""
