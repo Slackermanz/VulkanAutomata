@@ -25,6 +25,8 @@ Build & Run:
 
 Contacts & Networking:
 
+  https://twitter.com/slackermanz
+
   https://www.reddit.com/user/slackermanz/
 
   https://www.youtube.com/channel/UCmoNsNuM0M9VsIXfm2cHPiA/videos

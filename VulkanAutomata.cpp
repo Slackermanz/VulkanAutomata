@@ -188,6 +188,16 @@ void eval4_unpack(uint32_t ev, uint32_t* ev32) {
 		ev32[2] = uint32_t((ev >> 16) & uint32_t(0x000000FF) );
 		ev32[3] = uint32_t((ev >> 24) & uint32_t(0x000000FF) ); }
 
+void eval8_unpack(uint32_t ev, uint32_t* ev32) {
+		ev32[0] = uint32_t((ev      ) & uint32_t(0x0000000F) );
+		ev32[1] = uint32_t((ev >>  4) & uint32_t(0x0000000F) );
+		ev32[2] = uint32_t((ev >>  8) & uint32_t(0x0000000F) );
+		ev32[3] = uint32_t((ev >> 12) & uint32_t(0x0000000F) );
+		ev32[4] = uint32_t((ev >> 16) & uint32_t(0x0000000F) );
+		ev32[5] = uint32_t((ev >> 20) & uint32_t(0x0000000F) );
+		ev32[6] = uint32_t((ev >> 24) & uint32_t(0x0000000F) );
+		ev32[7] = uint32_t((ev >> 28) & uint32_t(0x0000000F) ); }
+
 struct UniBuf {
 	uint32_t wsize;
 	uint32_t frame;
@@ -215,10 +225,14 @@ struct SpecConstData {
 	uint32_t sc16; uint32_t sc17; uint32_t sc18; uint32_t sc19;
 	uint32_t sc20; uint32_t sc21; uint32_t sc22; uint32_t sc23;
 	uint32_t sc24; uint32_t sc25; uint32_t sc26; uint32_t sc27;
-	uint32_t sc28; uint32_t sc29; uint32_t sc30; uint32_t sc31; };
+	uint32_t sc28; uint32_t sc29; uint32_t sc30; uint32_t sc31;
+	uint32_t sc32; uint32_t sc33; uint32_t sc34; uint32_t sc35;
+	uint32_t sc36; uint32_t sc37; uint32_t sc38; uint32_t sc39;
+	uint32_t sc40; uint32_t sc41; uint32_t sc42; uint32_t sc43;
+	uint32_t sc44; uint32_t sc45; uint32_t sc46; uint32_t sc47; };
 
 struct PatternConfigData {
-	uint32_t scd_save[32];
+	uint32_t scd_save[48];
 	uint32_t ubi_save[4];
 	uint32_t ubv_save[48];
 	float	 scl_save; };
@@ -379,6 +393,10 @@ int main(void) {
 		vkdq_info[GQF_IDX].queueCount			= gfxq_cnt;
 		vkdq_info[GQF_IDX].pQueuePriorities		= queue_priorities; 
 
+	VkPhysicalDeviceFeatures vkphysdevfeat;
+	rv("vkGetPhysicalDeviceFeatures");
+		vkGetPhysicalDeviceFeatures(vkpd[PD_IDX], &vkphysdevfeat);
+
 	VkDeviceCreateInfo vkld_info[1];
 		vkld_info[0].sType 	= VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	nf(&vkld_info[0]);
@@ -388,7 +406,7 @@ int main(void) {
 		vkld_info[0].ppEnabledLayerNames 		= NULL;
 		vkld_info[0].enabledExtensionCount 		= 1;
 		vkld_info[0].ppEnabledExtensionNames 	= device_extensions;
-		vkld_info[0].pEnabledFeatures 			= NULL;
+		vkld_info[0].pEnabledFeatures 			= &vkphysdevfeat;
 
 	VkDevice vkld[1];
 	vr("vkCreateDevice", &vkres, 
@@ -842,7 +860,7 @@ int main(void) {
 		vkpipecolblend.blendConstants[2]	= 1.0f;
 		vkpipecolblend.blendConstants[3]	= 1.0f;
 
-	const uint32_t SPCONST_ENTRIES = 32;
+	const uint32_t SPCONST_ENTRIES = 48;
 	size_t ui32_t_size = sizeof(uint32_t);
 
 	SpecConstData scd;
@@ -854,6 +872,10 @@ int main(void) {
 		scd.sc20 = 0; scd.sc21 = 0; scd.sc22 = 0; scd.sc23 = 0;
 		scd.sc24 = 0; scd.sc25 = 0; scd.sc26 = 0; scd.sc27 = 0;
 		scd.sc28 = 0; scd.sc29 = 0; scd.sc30 = 0; scd.sc31 = 0;
+		scd.sc32 = 0; scd.sc33 = 0; scd.sc34 = 0; scd.sc35 = 0;
+		scd.sc36 = 0; scd.sc37 = 0; scd.sc38 = 0; scd.sc39 = 0;
+		scd.sc40 = 0; scd.sc41 = 0; scd.sc42 = 0; scd.sc43 = 0;
+		scd.sc44 = 0; scd.sc45 = 0; scd.sc46 = 0; scd.sc47 = 0;
 
 	VkSpecializationMapEntry vkspecmapent[SPCONST_ENTRIES];
 	for(int i = 0; i < SPCONST_ENTRIES; i++) {
@@ -1290,7 +1312,7 @@ int main(void) {
 		ub.v36 = 0; ub.v37 = 0; ub.v38 = 0; ub.v39 = 0;
 		ub.v40 = 0; ub.v41 = 0; ub.v42 = 0; ub.v43 = 0;
 		ub.v44 = 0; ub.v45 = 0; ub.v46 = 0; ub.v47 = 0;
-		ub.scale = float(128.0);
+		ub.scale = float(96.0);
 
 	ov("UniBuf Size", sizeof(ub));
 
@@ -1799,16 +1821,19 @@ int main(void) {
 	///////////////////////////////////////////////////
 
 	int  idx 			= 0;
-	int  SCR_count 		= 0;
 	int  pause 			= 0;
-	int  current_sec	= time(0);
-	int  fps_report 	= time(0) - 1;
 
+	int  SCR_count 		= 0;
 	int  SCR_frameskip 	= 8;
 	int  SCR_record 	= 0;
 	int  SCR_make_vid	= 0;
 	int  SCR_batchsize	= 300;
+	int  SCR_save		= 0;
+	int  SCR_save_count = 0;
 
+	int  current_sec	= time(0);
+	int  fps_report 	= time(0) - 5;
+	int  fp_r_limit 	= 1;
     auto start_loop 	= std::chrono::high_resolution_clock::now();
     auto finish_loop 	= start_loop;
 	auto start_frame 	= start_loop;
@@ -1830,7 +1855,7 @@ int main(void) {
 	int  load_config	= 0;
 	int  do_mutate		= 0;
 
-	float mut = 0.15;
+	float mut = 0.2;
 
 	PatternConfigData pcd;
 
@@ -1876,15 +1901,15 @@ int main(void) {
 								load_pcd_index		= (f_len / sizeof(pcd)) - 1; }
 							//	Increase Mutation Strength	MWU
 							if(xe.xbutton.button == 4) {
-								mut = mut + 0.01;
-								mut = (mut >= 1.0) ? 1.0 : mut;
-								mut = float(int(round(mut * 1000.0)) / 1000.0);
+								mut = ((mut >= 0.002) ? ((mut >= 0.019) ? mut + 0.01 : mut + 0.001) : mut + 0.0001);
+								mut = (mut >= 8.0) ? 8.0 : mut;
+								mut = float(int(round(mut * 10000.0)) / 10000.0);
 								ov("Mutation Rate", mut); }
 							//	Decrease Mutation Strength	MWD
 							if(xe.xbutton.button == 5) {
-								mut = mut - 0.01;
-								mut = (mut <= 0.01) ? 0.01 : mut;
-								mut = float(int(round(mut * 1000.0)) / 1000.0);
+								mut = ((mut >= 0.002) ? ((mut >= 0.02) ? mut - 0.01 : mut - 0.001) : mut - 0.0001);
+								mut = (mut <= 0.0001) ? 0.0001 : mut;
+								mut = float(int(round(mut * 10000.0)) / 10000.0);
 								ov("Mutation Rate", mut); }
 							//	Load Prev Pattern			TBB
 							if(xe.xbutton.button == 8) {
@@ -1962,6 +1987,12 @@ int main(void) {
 							mouse_info.run_cmd 	= 1;
 							do_mutate 			= 1; }
 
+						//	Mutate						C
+						if( xe.xbutton.button == 54 ) {
+							update_ubiv 		= 1;
+							mouse_info.run_cmd 	= 1;
+							do_mutate 			= 2; }
+
 						//	Randomise all values		R
 						if( xe.xbutton.button == 27 ) {
 							ub.scale 			= 128.0;
@@ -1971,6 +2002,12 @@ int main(void) {
 
 						//	Reseed						LSHIFT
 						if( xe.xbutton.button == 50 ) { mouse_info.run_cmd 	= 1; }
+
+						//	Clear						X
+						if( xe.xbutton.button == 53 ) { mouse_info.run_cmd 	= 2; }
+
+						//	Symmetrical Seed			Z
+						if( xe.xbutton.button == 52 ) { mouse_info.run_cmd 	= 3; }
 
 						//	Snap to div scale			F
 						if( xe.xbutton.button == 41 ) { 
@@ -2002,14 +2039,14 @@ int main(void) {
 
 						//	Randomise all ub values		R
 						if( xe.xbutton.button == 27 ) {
-//							for(int i = 0; i < SPCONST_ENTRIES / 2; i++) {
-//								sce[i*2] 	= rand()%12+1;
-//								sce[i*2+1] 	= sce[i*2] - (rand()%sce[i*2] + 1); }
 							for(int i = 0; i < SPCONST_ENTRIES; i++) { sce[i] = rand()%16; }
+							for(int i = 0; i < 4; i++) {
+								for(int j = 0; j < 8; j++) { ev8[j] = rand()%16; }
+								ubi[i] = eval8_pack(ev8); }
 							for(int i = 0; i < 48; i++) {
 								for(int j = 0; j < 4; j++) { ev4[j] = rand()%256; }
 								ubv[i] = eval4_pack(ev4); } }
-
+						SCR_save = 600;
 						ov("Key", xe.xbutton.button); } } }
 
 			if(load_config) {
@@ -2024,15 +2061,36 @@ int main(void) {
 
 			if(do_mutate == 1) {
 				do_mutate = 0;
+				for(int i = 0; i < 4; i++) {
+					eval8_unpack(ubi[i], ev8);
+					for(int j = 0; j < 8; j++) {
+						if(rand()%4 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mut)+1) - rand()%(int(16.0*mut*0.5)+1)))%16; }
+						if(rand()%32 == 0) { ev8[j] = rand()%16; } }
+					ubi[i] = eval8_pack(ev8); }
+				for(int i = 0; i < 48; i++) {
+					eval4_unpack(ubv[i], ev4);
+					for(int j = 0; j < 4; j++) {
+						if(rand()%12 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mut)+1) - rand()%(int(256.0*mut*0.5)+1)))%256; }
+						if(rand()%128 == 0) { ev4[j] = rand()%256; } }
+					ubv[i] = eval4_pack(ev4); }
+				for(int i = 0; i < SPCONST_ENTRIES; i++) { 
+					if(rand()%4  == 0) { sce[i] = (sce[i] + (rand()%(int(16.0*mut)+1) - rand()%(int(16.0*mut*0.5)+1)))%16; }
+					if(rand()%64 == 0) { sce[i] = rand()%16; } } }
+
+			if(do_mutate == 2) {
+				do_mutate = 0;
+				for(int i = 0; i < 4; i++) {
+					eval8_unpack(ubi[i], ev8);
+					for(int j = 0; j < 8; j++) {
+						if(rand()%4 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mut)+1) - rand()%(int(16.0*mut*0.5)+1)))%16; }
+						if(rand()%32 == 0) { ev8[j] = rand()%16; } }
+					ubi[i] = eval8_pack(ev8); }
 				for(int i = 0; i < 48; i++) {
 					eval4_unpack(ubv[i], ev4);
 					for(int j = 0; j < 4; j++) {
 						if(rand()%12 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mut)+1) - rand()%(int(256.0*mut*0.5)+1)))%256; }
 						if(rand()%64 == 0) { ev4[j] = rand()%256; } }
-					ubv[i] = eval4_pack(ev4); }
-				for(int i = 0; i < SPCONST_ENTRIES; i++) { 
-					if(rand()%4  == 0) { sce[i] = (sce[i] + (rand()%(int(16.0*mut)+1) - rand()%(int(16.0*mut*0.5)+1)))%16; }
-					if(rand()%32 == 0) { sce[i] = rand()%16; } } }
+					ubv[i] = eval4_pack(ev4); } }
 
 			if(set_scale) {
 						set_scale 		= 0;
@@ -2074,6 +2132,10 @@ int main(void) {
 				scd.sc20 = sce[20]; scd.sc21 = sce[21]; scd.sc22 = sce[22]; scd.sc23 = sce[23];
 				scd.sc24 = sce[24]; scd.sc25 = sce[25]; scd.sc26 = sce[26]; scd.sc27 = sce[27];
 				scd.sc28 = sce[28]; scd.sc29 = sce[29]; scd.sc30 = sce[30]; scd.sc31 = sce[31];
+				scd.sc32 = sce[32]; scd.sc33 = sce[33]; scd.sc34 = sce[34]; scd.sc35 = sce[35];
+				scd.sc36 = sce[36]; scd.sc37 = sce[37]; scd.sc38 = sce[38]; scd.sc39 = sce[39];
+				scd.sc40 = sce[40]; scd.sc41 = sce[41]; scd.sc42 = sce[42]; scd.sc43 = sce[43];
+				scd.sc44 = sce[44]; scd.sc45 = sce[45]; scd.sc46 = sce[46]; scd.sc47 = sce[47];
 
 				if(loglevel != 0) { loglevel = loglevel * -1; }
 
@@ -2122,6 +2184,10 @@ int main(void) {
 				pcd.scd_save[20] = scd.sc20; pcd.scd_save[21] = scd.sc21; pcd.scd_save[22] = scd.sc22; pcd.scd_save[23] = scd.sc23;
 				pcd.scd_save[24] = scd.sc24; pcd.scd_save[25] = scd.sc25; pcd.scd_save[26] = scd.sc26; pcd.scd_save[27] = scd.sc27;
 				pcd.scd_save[28] = scd.sc28; pcd.scd_save[29] = scd.sc29; pcd.scd_save[30] = scd.sc30; pcd.scd_save[31] = scd.sc31;
+				pcd.scd_save[32] = scd.sc32; pcd.scd_save[33] = scd.sc33; pcd.scd_save[34] = scd.sc34; pcd.scd_save[35] = scd.sc35;
+				pcd.scd_save[36] = scd.sc36; pcd.scd_save[37] = scd.sc37; pcd.scd_save[38] = scd.sc38; pcd.scd_save[39] = scd.sc39;
+				pcd.scd_save[40] = scd.sc40; pcd.scd_save[41] = scd.sc41; pcd.scd_save[42] = scd.sc42; pcd.scd_save[43] = scd.sc43;
+				pcd.scd_save[44] = scd.sc44; pcd.scd_save[45] = scd.sc45; pcd.scd_save[46] = scd.sc46; pcd.scd_save[47] = scd.sc47;
 				pcd.ubi_save[0]  = ub.i0;  pcd.ubi_save[1]  = ub.i1;  pcd.ubi_save[2]  = ub.i2;  pcd.ubi_save[3]  = ub.i3;
 				pcd.ubv_save[0]  = ub.v0;  pcd.ubv_save[1]  = ub.v1;  pcd.ubv_save[2]  = ub.v2;  pcd.ubv_save[3]  = ub.v3;
 				pcd.ubv_save[4]  = ub.v4;  pcd.ubv_save[5]  = ub.v5;  pcd.ubv_save[6]  = ub.v6;  pcd.ubv_save[7]  = ub.v7;
@@ -2161,8 +2227,8 @@ int main(void) {
 
 			rv("SystemCLI: Remove Output Images");
 				for(int i = 0; i < SCR_count; i++) {
-					std::string ppmfile = "out/PPM" + std::to_string(i) + ".PAM";
-					std::string cli_cmd_remove 	= "rm '" + ppmfile + "'";
+					std::string imgfile = "out/PPM" + std::to_string(i) + ".PAM";
+					std::string cli_cmd_remove 	= "rm '" + imgfile + "'";
 					system(cli_cmd_remove.c_str()); }
 
 			ov("Video Creation", "Complete!" );
@@ -2249,15 +2315,25 @@ int main(void) {
 					std::string ftime 	= std::to_string(
 						std::chrono::duration_cast<std::chrono::nanoseconds>(finish_frame-start_frame).count()) + " ns, "
 										+ std::to_string(
-						int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(finish_frame-start_frame).count())) + " FPS";
-					ov("Frame Time", ftime); } }
+						int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(finish_frame-start_frame).count())) + " FPS, i"
+						+  std::to_string(idx);
+					ov("Frame", ftime); } }
 
-			if(valid && idx%SCR_frameskip == 0 && SCR_record) {
-				if(SCR_count%SCR_batchsize == 0 && SCR_count > 0 && SCR_batchsize > 0) { pause = 1; }
-    			auto start_save 	= std::chrono::high_resolution_clock::now();
-				std::string ppmfile = "out/PPM" + std::to_string(SCR_count) + ".PAM";
-				ov("Screenshot Out", ppmfile);
-				std::ofstream file(ppmfile.c_str(), std::ios::out | std::ios::binary);
+			if( (valid && idx%SCR_frameskip == 0 && SCR_record) || (valid && SCR_save == 1) ) {
+				if( SCR_record ) { SCR_save = 0; }
+				if( SCR_count%SCR_batchsize == 0 && SCR_count > 0 && SCR_batchsize > 0 ) { pause = 1; }
+
+				std::string imgfile;
+				if(SCR_save == 1) {
+					imgfile = "scr/SCR_"	+ std::to_string(idx)
+							+ "_" 			+ timestamp
+							+ "_" 			+ std::to_string(SCR_save_count)
+							+ ".PAM"; SCR_save_count++; } else {
+					imgfile = "out/IMG" + std::to_string(SCR_count)
+							+ ".PAM"; SCR_count++; }
+				ov("Save Image", imgfile);
+
+				std::ofstream file(imgfile.c_str(), std::ios::out | std::ios::binary);
 					file 	<<	"P7" 												<< "\n"
 						 	<< 	"WIDTH "	<< vksurf_ables[0].currentExtent.width 	<< "\n"
 						 	<< 	"HEIGHT "	<< vksurf_ables[0].currentExtent.height	<< "\n"
@@ -2268,29 +2344,23 @@ int main(void) {
 					file.write(
 						(const char*)SCR_data,
 						vksurf_ables[0].currentExtent.width * vksurf_ables[0].currentExtent.height * 4 );
-				file.close(); 
-				SCR_count++;
-				auto finish_save 	= std::chrono::high_resolution_clock::now();
-				std::string ftime 	= std::to_string(
-					std::chrono::duration_cast<std::chrono::nanoseconds>(finish_save-start_save).count()) + " ns, "
-									+ std::to_string(
-					int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(finish_save-start_save).count())) + " FPS";
-				ov("Export Time", ftime); }
+				file.close();
 
-			idx++; 
+				if(SCR_save == 1) {
+					std::string scr_convert = "convert '" + imgfile + "' '" + imgfile + ".png'";
+					system(scr_convert.c_str());
+					if(window_size.divs == 1) {
+						std::string scr_cp = "cp '" + imgfile + ".png' 'prs/" + imgfile + ".png'";
+						system(scr_cp.c_str()); }
+					std::string scr_remove 	= "rm '" + imgfile + "'";
+					system(scr_remove.c_str()); } }
+
+			SCR_save = (SCR_save > 0) ? SCR_save - 1 : 2500;
+			idx++;
 
 		} else { nanosleep((const struct timespec[]){{0, 100000000}}, NULL); }
 
 		if(loglevel != 0 && idx == 2) { loglevel = loglevel * -1; }
-
-		if(fps_report == current_sec) {
-			auto finish_loop = std::chrono::high_resolution_clock::now();
-			std::string ftime 	= std::to_string(
-				std::chrono::duration_cast<std::chrono::nanoseconds>(finish_loop-start_loop).count()) + " ns, "
-								+ std::to_string(
-				int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(finish_loop-start_loop).count())) + " FPS";
-			ov("Loop Time", ftime);
-			ov("Index", idx); }
 
 		if(fps_report == current_sec) { fps_report--; }
 	} while (valid && (idx < TEST_CYCLES || TEST_CYCLES < 1));
