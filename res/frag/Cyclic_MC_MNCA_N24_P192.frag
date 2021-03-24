@@ -455,7 +455,28 @@ void main() {
 			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
 	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
 
-//	Cyclic
+		cyw[0] = eval8_ubi_f[0]  * c8;
+		cyw[1] = eval8_ubi_f[1]  * c8;
+		cyw[2] = eval8_ubi_f[2]  * c8;
+		cyw[3] = eval8_ubi_f[3]  * c8;
+		cyw[4] = eval8_ubi_f[4]  * c8;
+		cyw[5] = eval8_ubi_f[5]  * c8;
+			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
+			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
+			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
+	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
+
+		cyw[0] = eval8_ubi_f[6]  * c8;
+		cyw[1] = eval8_ubi_f[7]  * c8;
+		cyw[2] = eval8_ubi_f[8]  * c8;
+		cyw[3] = eval8_ubi_f[9]  * c8;
+		cyw[4] = eval8_ubi_f[10] * c8;
+		cyw[5] = eval8_ubi_f[11] * c8;
+			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
+			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
+			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
+	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
+
 		cyw[0] = eval4_ubi_f[15] * cy *  1.0;
 		cyw[1] = eval4_ubi_f[15] * cy * -1.0;
 		cyw[2] = eval4_ubi_f[15] * cy *  1.0;

@@ -75,9 +75,8 @@ layout(binding 		=  0) uniform 	UniBuf {
 	uint v44; uint v45; uint v46; uint v47;
 	float scale; } ub;
 
-const int MAXSNH = 10;
-const int SCNH_COUNT = 24;
-const int SCNH_COUNT_CHAN =  8;
+const int MAXSNH = 42;
+const int SCNH_COUNT = 7;
 
 ivec4 wsize_unpack(uint ui32) {
 	ivec4 	wsize;
@@ -225,179 +224,21 @@ float reseed(int seed) {
 	float 	r2 = get_lump(fc[0], fc[1],  6.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
 	return clamp((r0+r1)-r2,0.0,1.0); }
 
-float nh16_t_02(ivec2 nh, vec3[MAXSNH] rings){
-	float e0_sum = 0.0;
-	float e1_sum = 0.0;
-	if(nh[0] == 0) { nh[0] = 1; }
-	if(nh[0] > MAXSNH) { nh[0] = MAXSNH; }
-	if(nh[0] <= nh[1]) { nh[1] = nh[0] - 1; }
-	for(int i = nh[1]; i < nh[0]; i++) {
-		e0_sum = e0_sum + rings[i][0];
-		e1_sum = e1_sum + rings[i][2]; }
-	return e0_sum / e1_sum; }
-
 void main() {
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Setup
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	vec4	fc 		= gl_FragCoord;				//	Origin Pixel Coordinates
-	float 	psn		= 65536.0;					//	Texture Precision
-	float 	mnp 	= 1.0 / psn;				//	Minimum value of a precise step
-	ivec4	wsize	= wsize_unpack(ub.wsize);	//	Layout Information
-	ivec4 	minfo 	= minfo_unpack(ub.minfo);	//	Mouse State Information
-	float 	div_idx	= floor((fc[0]*wsize[2])/(wsize[0]))
-					+ floor((fc[1]*wsize[2])/(wsize[1]))*wsize[2];
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Rule Initilisation
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-//	Origin value references
-	ivec2	origin  = ivec2(0,0);
-	float 	ref_r 	= gdv( origin, 0 );
-	float 	ref_g 	= gdv( origin, 1 );
-	float 	ref_b 	= gdv( origin, 2 );
-
-//	Output Values
-	float 	res_r 	= ref_r;
-	float 	res_g 	= ref_g;
-	float 	res_b 	= ref_b;
-
-//	Neighbourhood Rings
-	vec3[MAXSNH] rings_r;
-	for(int i = 0; i < MAXSNH; i++) {
-		rings_r[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 0 ); }
-
-	vec3[MAXSNH] rings_g;
-	for(int i = 0; i < MAXSNH; i++) {
-		rings_g[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 1 ); }
-
-	vec3[MAXSNH] rings_b;
-	for(int i = 0; i < MAXSNH; i++) {
-		rings_b[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 2 ); }
-
-//	Parameters
-	float s  = mnp * 16.0 * 192.0;
-	float b  = mnp * 16.0 *  64.0;
-	float c4 = mnp * 16.0 *   8.0;
-	float c8 = mnp * 16.0 *   4.0;
-	float n  = mnp * 16.0 *   4.0;
-	float cy = mnp * 16.0 *  96.0;
-	float li = mnp * 16.0 *   1.0;
-
-//	Get Neighbourhood Values
-	int SCi = 0;
-	float[SCNH_COUNT_CHAN] nhv_r;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI00, SCUI01), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI02, SCUI03), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI04, SCUI05), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI06, SCUI07), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI08, SCUI09), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI10, SCUI11), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI12, SCUI13), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI14, SCUI15), rings_r); SCi++;
-
-		SCi = 0;
-	float[SCNH_COUNT_CHAN] nhv_g;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI16, SCUI17), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI18, SCUI19), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI20, SCUI21), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI22, SCUI23), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI24, SCUI25), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI26, SCUI27), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI28, SCUI29), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI30, SCUI31), rings_g); SCi++;
-
-		SCi = 0;
-	float[SCNH_COUNT_CHAN] nhv_b;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI32, SCUI33), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI34, SCUI35), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI36, SCUI37), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI38, SCUI39), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI40, SCUI41), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI42, SCUI43), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI44, SCUI46), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI46, SCUI47), rings_b); SCi++;
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Uniform Buffer Unpacking
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-	uint[48] ubvn = uint[48] (
-		ub.v0,  ub.v1,  ub.v2,  ub.v3,
-		ub.v4,  ub.v5,  ub.v6,  ub.v7,
-		ub.v8,  ub.v9,  ub.v10, ub.v11,
-		ub.v12, ub.v13, ub.v14, ub.v15,
-		ub.v16, ub.v17, ub.v18, ub.v19,
-		ub.v20, ub.v21, ub.v22, ub.v23,
-		ub.v24, ub.v25, ub.v26, ub.v27,
-		ub.v28, ub.v29, ub.v30, ub.v31,
-		ub.v32, ub.v33, ub.v34, ub.v35,
-		ub.v36, ub.v37, ub.v38, ub.v39,
-		ub.v40, ub.v41, ub.v42, ub.v43,
-		ub.v44, ub.v45, ub.v46, ub.v47 );
-	uint[48*4] 	eval4;
-	for(int i = 0; i < 48; i++) {
-		ivec4 eval4_ivec = eval4_unpack(ubvn[i]);
-		for(int j = 0; j < 4; j++) { eval4[i*4+j] = eval4_ivec[j]; } }
-//	Adjust eval4 values
-	float[48*4] eval4_f;
-	float		div_idx_scale 	= ((div_idx+1.0) / (wsize[2]*wsize[2]));
-	float		ub_scale 		= (wsize[2] == 1.0) ? ub.scale * 0.5 : ub.scale;
-	for(int i = 0; i < 48*4; i++) {
-		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * div_idx_scale * ub_scale; }
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Transition Functions
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-	int evof = 0;
-	for(int i = 0; i < (SCNH_COUNT_CHAN/2); i++) {
-		if(nhv_r[i] >= eval4_f[i*4+0+evof] && nhv_r[i] <= eval4_f[i*4+1+evof]) { res_r = res_r + s; }
-		if(nhv_r[i] >= eval4_f[i*4+2+evof] && nhv_r[i] <= eval4_f[i*4+3+evof]) { res_r = res_r - s; } }
-
-		evof = 16;
-	for(int i = 0; i < (SCNH_COUNT_CHAN/2); i++) {
-		if(nhv_g[i] >= eval4_f[i*4+0+evof] && nhv_g[i] <= eval4_f[i*4+1+evof]) { res_g = res_g + s; }
-		if(nhv_g[i] >= eval4_f[i*4+2+evof] && nhv_g[i] <= eval4_f[i*4+3+evof]) { res_g = res_g - s; } }
-
-		evof = 32;
-	for(int i = 0; i < (SCNH_COUNT_CHAN/2); i++) {
-		if(nhv_b[i] >= eval4_f[i*4+0+evof] && nhv_b[i] <= eval4_f[i*4+1+evof]) { res_b = res_b + s; }
-		if(nhv_b[i] >= eval4_f[i*4+2+evof] && nhv_b[i] <= eval4_f[i*4+3+evof]) { res_b = res_b - s; } }
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Blur Application
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-	float nhr_blur	=	( 	nh16_t_02( ivec2(1,0), rings_r ) 
-						+ 	nh16_t_02( ivec2(3,2), rings_r )
-						+ 	nh16_t_02( ivec2(6,5), rings_r ) ) / ( 3.0 );
-	float nhg_blur	=	( 	nh16_t_02( ivec2(1,0), rings_g ) 
-						+ 	nh16_t_02( ivec2(3,2), rings_g )
-						+ 	nh16_t_02( ivec2(6,5), rings_g ) ) / ( 3.0 );
-	float nhb_blur	=	( 	nh16_t_02( ivec2(1,0), rings_b ) 
-						+ 	nh16_t_02( ivec2(3,2), rings_b )
-						+ 	nh16_t_02( ivec2(6,5), rings_b ) ) / ( 3.0 );
-
-	res_r = (res_r + nhr_blur * b) / (1.0 + b);
-	res_g = (res_g + nhg_blur * b) / (1.0 + b);
-	res_b = (res_b + nhb_blur * b) / (1.0 + b);
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Channel Communication
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-//	Interpolate
-	float	inp_r = (res_r * 1.0 	+ res_g *  li 	+ res_b *  li	) / ( 1.0 + li * 2.0 );
-	float	inp_g = (res_r *  li 	+ res_g * 1.0 	+ res_b *  li	) / ( 1.0 + li * 2.0 );
-	float	inp_b = (res_r *  li	+ res_g *  li 	+ res_b * 1.0	) / ( 1.0 + li * 2.0 );
-	res_r = inp_r;
-	res_g = inp_g;
-	res_b = inp_b;
-/**/
+	vec4	fc 				= gl_FragCoord;											//	Origin Pixel Coordinates
+	float 	psn				= 4032.0;												//	Texture Precision
+	float 	mnp 			= 1.0/psn;												//	Minimum value of a precise step
+	ivec4	wsize			= wsize_unpack(ub.wsize);								//	Layout Information
+	ivec4 	minfo 			= minfo_unpack(ub.minfo);								//	Mouse State Information
+	float 	div_idx			= floor((fc[0]*wsize[2])/(wsize[0]))
+							+ floor((fc[1]*wsize[2])/(wsize[1]))*wsize[2];
+	float	div_idx_scale 	= ((div_idx+1.0) / (wsize[2]*wsize[2]));
+	float	ub_scale 		= (wsize[2] == 1.0) ? ub.scale * 0.5 : ub.scale;
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Uniform Buffer Unpacking
@@ -428,52 +269,111 @@ void main() {
 		eval4_ubi_f[i] = (((1.0 / (eval4_ubi[i] + 1)) * 2.0) - (1.0 * (1.0 / (eval4_ubi[i] + 1)))) * div_idx_scale * ub_scale; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
-//	Channel Communication
+
+//	UBV: 8 bit
+	uint[48] ubvn = uint[48] (
+		ub.v0,  ub.v1,  ub.v2,  ub.v3,
+		ub.v4,  ub.v5,  ub.v6,  ub.v7,
+		ub.v8,  ub.v9,  ub.v10, ub.v11,
+		ub.v12, ub.v13, ub.v14, ub.v15,
+		ub.v16, ub.v17, ub.v18, ub.v19,
+		ub.v20, ub.v21, ub.v22, ub.v23,
+		ub.v24, ub.v25, ub.v26, ub.v27,
+		ub.v28, ub.v29, ub.v30, ub.v31,
+		ub.v32, ub.v33, ub.v34, ub.v35,
+		ub.v36, ub.v37, ub.v38, ub.v39,
+		ub.v40, ub.v41, ub.v42, ub.v43,
+		ub.v44, ub.v45, ub.v46, ub.v47 );
+
+//	UBI: 8 bit to eval4
+	uint[48*4] 	eval4;
+	for(int i = 0; i < 48; i++) {
+		ivec4 eval4_ivec = eval4_unpack(ubvn[i]);
+		for(int j = 0; j < 4; j++) { eval4[i*4+j] = eval4_ivec[j]; } }
+//	Adjust eval4 values
+	float[48*4] eval4_f;
+	for(int i = 0; i < 48*4; i++) {
+		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * div_idx_scale * ub_scale; }
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Rule Initilisation
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-//	Random
-	float[6] cyw;
-		cyw[0] = eval4_ubi_f[0]  * c4;
-		cyw[1] = eval4_ubi_f[1]  * c4;
-		cyw[2] = eval4_ubi_f[2]  * c4;
-		cyw[3] = eval4_ubi_f[3]  * c4;
-		cyw[4] = eval4_ubi_f[4]  * c4;
-		cyw[5] = eval4_ubi_f[5]  * c4;
-	float 	cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-	float 	cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-	float 	cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
-	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
+//	Origin value references
+	ivec2	origin  = ivec2(0,0);
+	float 	ref_r 	= gdv( origin, 0 );
+	float 	ref_g 	= gdv( origin, 1 );
+	float 	ref_b 	= gdv( origin, 2 );
 
-		cyw[0] = eval4_ubi_f[6]  * c4;
-		cyw[1] = eval4_ubi_f[7]  * c4;
-		cyw[2] = eval4_ubi_f[8]  * c4;
-		cyw[3] = eval4_ubi_f[9]  * c4;
-		cyw[4] = eval4_ubi_f[10] * c4;
-		cyw[5] = eval4_ubi_f[11] * c4;
-			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
-	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
+//	Output Values
+	float 	res_r 	= ref_r;
+	float 	res_g 	= ref_g;
+	float 	res_b 	= ref_b;
 
-//	Cyclic
-		cyw[0] = eval4_ubi_f[15] * cy *  1.0;
-		cyw[1] = eval4_ubi_f[15] * cy * -1.0;
-		cyw[2] = eval4_ubi_f[15] * cy *  1.0;
-		cyw[3] = eval4_ubi_f[15] * cy * -1.0;
-		cyw[4] = eval4_ubi_f[15] * cy *  1.0;
-		cyw[5] = eval4_ubi_f[15] * cy * -1.0;
-			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
-	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
+//	Parameters
+	float s  = mnp *   96.0;
+	float p  = mnp *   24.0;
+	float b  = mnp *   12.0;
 
-	res_r = res_r - n;
-	res_g = res_g - n;
-	res_b = res_b - n;
+//	Get Neighbourhood Values
+	vec3 nhr0 = nhd( ivec2(1,   0), origin, psn, 0.0, 0 );
+	vec3 nhr1 = nhd( ivec2(5,   0), origin, psn, 0.0, 0 );
+	vec3 nhr2 = nhd( ivec2(9,   0), origin, psn, 0.0, 0 );
+	vec3 nhr3 = nhd( ivec2(16,  0), origin, psn, 0.0, 0 );
+	vec3 nhr4 = nhd( ivec2(20,  0), origin, psn, 0.0, 0 );
+	vec3 nhr5 = nhd( ivec2(30,  0), origin, psn, 0.0, 0 );
+	vec3 nhr6 = nhd( ivec2(42,  0), origin, psn, 0.0, 0 );
+
+	float[SCNH_COUNT] nhv_r;
+		nhv_r[0] = nhr0[0] / nhr0[2];
+		nhv_r[1] = nhr1[0] / nhr1[2];
+		nhv_r[2] = nhr2[0] / nhr2[2];
+		nhv_r[3] = nhr3[0] / nhr3[2];
+		nhv_r[4] = nhr4[0] / nhr4[2];
+		nhv_r[5] = nhr5[0] / nhr5[2];
+		nhv_r[6] = nhr6[0] / nhr6[2];
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Transition Functions
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+	for(int i = 0; i < SCNH_COUNT; i++) {
+		nhv_r[i] = (res_r + nhv_r[i] * s) / (1.0 + s); }
+
+	float[SCNH_COUNT] vari_r;
+
+	for(int i = 0; i < SCNH_COUNT; i++) { 
+		if(i == 0) 	{ vari_r[i] = res_r		 - nhv_r[i]; }
+		else 		{ vari_r[i] = nhv_r[i-1] - nhv_r[i]; } }
+
+	int vsn = 0;
+
+	for( int i = 0; i < SCNH_COUNT; i++ ) { if( abs(vari_r[vsn]) > abs(vari_r[i]) ) { vsn = i; } }
+
+	float minvar_r = vari_r[vsn];
+
+	res_r =	 res_r + sign(minvar_r) * s;
+
+	res_r =	 res_r + nhv_r[vsn] * b;
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Blur Application
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Channel Communication
+//	----    ----    ----    ----    ----    ----    ----    ----
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Presentation Filtering
 //	----    ----    ----    ----    ----    ----    ----    ----
+
+	vec3 	n0g 	= nhd( ivec2(1,0), origin, psn, 0.0, 1 );
+	vec3 	n0b 	= nhd( ivec2(2,0), origin, psn, 0.0, 2 );
+	float 	n0gw 	= n0g[0] / n0g[2];
+	float 	n0bw 	= n0b[0] / n0b[2];
+	res_g = ( res_g + n0gw * p * 2.0 + res_r * p * 2.0 ) / (1.0 + p * 4.0);
+	res_b = ( res_b + n0bw * p * 1.0 + res_r * p * 1.0 ) / (1.0 + p * 2.0);
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Output
@@ -484,7 +384,7 @@ void main() {
 
 	vec3 	col = vec3( res_r, res_g, res_b );
 	if(minfo[3] == 3) { col = sym_seed(col, wsize); }
-			col = ( minfo[2] == 1 || minfo[2] == 3 ) ? place(col, minfo) : col;
+			col = ( minfo[2] >= 1 && minfo[2] <= 3) ? place(col, minfo) : col;
 
 	out_col = vec4(col, 1.0);
 
