@@ -38,16 +38,11 @@ Contacts & Networking:
 ---
 
 ![](VKAutomata0770_GFULL.gif)
-![](VKAutomata0750_GFULL.gif)
 ![](VKAutomata0751_GFULL.gif)
-![](VKAutomata0753_GFULL.gif)
 ![](VKAutomata0761_GFULL.gif)
-![](VKAutomata0722_TWIT2.gif)
 ![](VKAutomata0738_TWIT2.gif)
 ![](VKAutomata0731_TWIT6.gif)
 ![](VKAutomata0728_TWIT1.gif)
-![](SCR_36505_1616834608_57.PAM.png)
-![](SCR_115970_1616632320_144.PAM.png)
 ![](SCR_273755_1616892538_385.PAM.png)
 ![](SCR_83433_1616892538_106.PAM.png)
 ![](SCR_414950_1616892538_564.PAM.png)
