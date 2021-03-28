@@ -73,7 +73,8 @@ layout(binding 		=  0) uniform 	UniBuf {
 	uint v36; uint v37; uint v38; uint v39;
 	uint v40; uint v41; uint v42; uint v43;
 	uint v44; uint v45; uint v46; uint v47;
-	float scale; } ub;
+	float scale;
+	float zoom; } ub;
 
 const int MAXSNH = 10;
 const int SCNH_COUNT = 24;
@@ -225,6 +226,12 @@ float reseed(int seed) {
 	float 	r2 = get_lump(fc[0], fc[1],  6.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
 	return clamp((r0+r1)-r2,0.0,1.0); }
 
+float gentle_seed(float val, int seed) {
+	vec4	fc = gl_FragCoord;
+	float 	r0 = get_lump(fc[0], fc[1],  3.0, 19.0 + mod(ub.frame+seed,17.0), 23.0 + mod(ub.frame+seed,43.0));
+	if(r0 >= 0.45 && r0 <= 0.50) { val = reseed(seed); }
+	return val; }
+
 float nh16_t_02(ivec2 nh, vec3[MAXSNH] rings){
 	float e0_sum = 0.0;
 	float e1_sum = 0.0;
@@ -279,47 +286,43 @@ void main() {
 		rings_b[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 2 ); }
 
 //	Parameters
-	float s  = mnp * 16.0 * 192.0;
-	float b  = mnp * 16.0 *  64.0;
-	float c4 = mnp * 16.0 *   8.0;
-	float c8 = mnp * 16.0 *   4.0;
-	float n  = mnp * 16.0 *   4.0;
-	float cy = mnp * 16.0 *  96.0;
-	float li = mnp * 16.0 *   1.0;
+	float s  = mnp * 16.0 * 128.0;
+	float b  = mnp * 16.0 *  48.0;
+	float n  = mnp * 16.0 *  24.0;
+	float cy = mnp *  4.0 *   1.0 * ub.scale;
+	float li = mnp * 16.0 *  24.0;
+	float lu = mnp * 16.0 *  16.0;
 
 //	Get Neighbourhood Values
-	int SCi = 0;
 	float[SCNH_COUNT_CHAN] nhv_r;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI00, SCUI01), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI02, SCUI03), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI04, SCUI05), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI06, SCUI07), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI08, SCUI09), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI10, SCUI11), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI12, SCUI13), rings_r); SCi++;
-		nhv_r[SCi] = nh16_t_02(ivec2(SCUI14, SCUI15), rings_r); SCi++;
+		nhv_r[0] = nh16_t_02(ivec2(SCUI00, SCUI01), rings_r);
+		nhv_r[1] = nh16_t_02(ivec2(SCUI02, SCUI03), rings_r);
+		nhv_r[2] = nh16_t_02(ivec2(SCUI04, SCUI05), rings_r);
+		nhv_r[3] = nh16_t_02(ivec2(SCUI06, SCUI07), rings_r);
+		nhv_r[4] = nh16_t_02(ivec2(SCUI08, SCUI09), rings_g);
+		nhv_r[5] = nh16_t_02(ivec2(SCUI10, SCUI11), rings_g);
+		nhv_r[6] = nh16_t_02(ivec2(SCUI12, SCUI13), rings_b);
+		nhv_r[7] = nh16_t_02(ivec2(SCUI14, SCUI15), rings_b);
 
-		SCi = 0;
 	float[SCNH_COUNT_CHAN] nhv_g;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI16, SCUI17), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI18, SCUI19), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI20, SCUI21), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI22, SCUI23), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI24, SCUI25), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI26, SCUI27), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI28, SCUI29), rings_g); SCi++;
-		nhv_g[SCi] = nh16_t_02(ivec2(SCUI30, SCUI31), rings_g); SCi++;
+		nhv_g[0] = nh16_t_02(ivec2(SCUI16, SCUI17), rings_g);
+		nhv_g[1] = nh16_t_02(ivec2(SCUI18, SCUI19), rings_g);
+		nhv_g[2] = nh16_t_02(ivec2(SCUI20, SCUI21), rings_g);
+		nhv_g[3] = nh16_t_02(ivec2(SCUI22, SCUI23), rings_g);
+		nhv_g[4] = nh16_t_02(ivec2(SCUI24, SCUI25), rings_r);
+		nhv_g[5] = nh16_t_02(ivec2(SCUI26, SCUI27), rings_r);
+		nhv_g[6] = nh16_t_02(ivec2(SCUI28, SCUI29), rings_b);
+		nhv_g[7] = nh16_t_02(ivec2(SCUI30, SCUI31), rings_b);
 
-		SCi = 0;
 	float[SCNH_COUNT_CHAN] nhv_b;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI32, SCUI33), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI34, SCUI35), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI36, SCUI37), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI38, SCUI39), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI40, SCUI41), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI42, SCUI43), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI44, SCUI46), rings_b); SCi++;
-		nhv_b[SCi] = nh16_t_02(ivec2(SCUI46, SCUI47), rings_b); SCi++;
+		nhv_b[0] = nh16_t_02(ivec2(SCUI32, SCUI33), rings_b);
+		nhv_b[1] = nh16_t_02(ivec2(SCUI34, SCUI35), rings_b);
+		nhv_b[2] = nh16_t_02(ivec2(SCUI36, SCUI37), rings_b);
+		nhv_b[3] = nh16_t_02(ivec2(SCUI38, SCUI39), rings_b);
+		nhv_b[4] = nh16_t_02(ivec2(SCUI40, SCUI41), rings_r);
+		nhv_b[5] = nh16_t_02(ivec2(SCUI42, SCUI43), rings_r);
+		nhv_b[6] = nh16_t_02(ivec2(SCUI44, SCUI46), rings_g);
+		nhv_b[7] = nh16_t_02(ivec2(SCUI46, SCUI47), rings_g);
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Uniform Buffer Unpacking
@@ -342,151 +345,233 @@ void main() {
 	for(int i = 0; i < 48; i++) {
 		ivec4 eval4_ivec = eval4_unpack(ubvn[i]);
 		for(int j = 0; j < 4; j++) { eval4[i*4+j] = eval4_ivec[j]; } }
+
 //	Adjust eval4 values
 	float[48*4] eval4_f;
-	float		div_idx_scale 	= ((div_idx+1.0) / (wsize[2]*wsize[2]));
-	float		ub_scale 		= (wsize[2] == 1.0) ? ub.scale * 0.5 : ub.scale;
+	float		fc_scale 	= 0.0;
+	float		ub_scale 	= (wsize[2] == 1.0) ? ub.scale * 0.5 : ub.scale;
+	float 		zm_scale 	= ub.zoom;
+//				zm_scale 	= ((fc[1] / wsize[1]) / 2.0) - 0.5;
+
+	if(wsize[3] == 0) {
+		fc_scale = ((div_idx+1.0) / (wsize[2]*wsize[2])) * ub_scale; }
+	if(wsize[3] == 1) {
+		fc_scale = (((fc[0] / wsize[0]) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+
 	for(int i = 0; i < 48*4; i++) {
-		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * div_idx_scale * ub_scale; }
+		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * fc_scale; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Transition Functions
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	int evof = 0;
-	for(int i = 0; i < (SCNH_COUNT_CHAN/2); i++) {
-		if(nhv_r[i] >= eval4_f[i*4+0+evof] && nhv_r[i] <= eval4_f[i*4+1+evof]) { res_r = res_r + s; }
-		if(nhv_r[i] >= eval4_f[i*4+2+evof] && nhv_r[i] <= eval4_f[i*4+3+evof]) { res_r = res_r - s; } }
+	float res_r_0  = ref_r;
+	float res_r_1  = ref_r;
+	float res_r_2  = ref_r;
+	float res_r_3  = ref_r;
+	float blr_r_0  = 0.0;
+	float blr_r_1  = 0.0;
+	float blr_r_2  = 0.0;
+	float blr_r_3  = 0.0;
 
-		evof = 16;
-	for(int i = 0; i < (SCNH_COUNT_CHAN/2); i++) {
-		if(nhv_g[i] >= eval4_f[i*4+0+evof] && nhv_g[i] <= eval4_f[i*4+1+evof]) { res_g = res_g + s; }
-		if(nhv_g[i] >= eval4_f[i*4+2+evof] && nhv_g[i] <= eval4_f[i*4+3+evof]) { res_g = res_g - s; } }
+	for(int i = 0; i < 2; i++) {
+		blr_r_0 = blr_r_0 + nhv_r[i] * b;
+		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_0 = res_r_0 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_0 = res_r_0 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_0 = res_r_0 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_0 = res_r_0 - s; } }
+	res_r_0 = (res_r_0 + blr_r_0) / (1.0 + b * 2.0);
 
-		evof = 32;
-	for(int i = 0; i < (SCNH_COUNT_CHAN/2); i++) {
-		if(nhv_b[i] >= eval4_f[i*4+0+evof] && nhv_b[i] <= eval4_f[i*4+1+evof]) { res_b = res_b + s; }
-		if(nhv_b[i] >= eval4_f[i*4+2+evof] && nhv_b[i] <= eval4_f[i*4+3+evof]) { res_b = res_b - s; } }
+	for(int i = 2; i < 4; i++) {
+		blr_r_1 = blr_r_1 + nhv_r[i] * b;
+		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_1 = res_r_1 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_1 = res_r_1 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_1 = res_r_1 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_1 = res_r_1 - s; } }
+	res_r_1 = (res_r_1 + blr_r_1) / (1.0 + b * 2.0);
 
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Blur Application
-//	----    ----    ----    ----    ----    ----    ----    ----
+	for(int i = 4; i < 6; i++) {
+		blr_r_2 = blr_r_2 + nhv_r[i] * b;
+		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_2 = res_r_2 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_2 = res_r_2 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_2 = res_r_2 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_2 = res_r_2 - s; } }
+	res_r_2 = (res_r_2 + blr_r_2) / (1.0 + b * 2.0);
 
-	float nhr_blur	=	( 	nh16_t_02( ivec2(1,0), rings_r ) 
-						+ 	nh16_t_02( ivec2(3,2), rings_r )
-						+ 	nh16_t_02( ivec2(6,5), rings_r ) ) / ( 3.0 );
-	float nhg_blur	=	( 	nh16_t_02( ivec2(1,0), rings_g ) 
-						+ 	nh16_t_02( ivec2(3,2), rings_g )
-						+ 	nh16_t_02( ivec2(6,5), rings_g ) ) / ( 3.0 );
-	float nhb_blur	=	( 	nh16_t_02( ivec2(1,0), rings_b ) 
-						+ 	nh16_t_02( ivec2(3,2), rings_b )
-						+ 	nh16_t_02( ivec2(6,5), rings_b ) ) / ( 3.0 );
+	for(int i = 6; i < 8; i++) {
+		blr_r_3 = blr_r_3 + nhv_r[i] * b;
+		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_3 = res_r_3 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_3 = res_r_3 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_3 = res_r_3 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_3 = res_r_3 - s; } }
+	res_r_3 = (res_r_3 + blr_r_3) / (1.0 + b * 2.0);
 
-	res_r = (res_r + nhr_blur * b) / (1.0 + b);
-	res_g = (res_g + nhg_blur * b) / (1.0 + b);
-	res_b = (res_b + nhb_blur * b) / (1.0 + b);
+	float res_g_0  = ref_g;
+	float res_g_1  = ref_g;
+	float res_g_2  = ref_g;
+	float res_g_3  = ref_g;
+	float blr_g_0  = 0.0;
+	float blr_g_1  = 0.0;
+	float blr_g_2  = 0.0;
+	float blr_g_3  = 0.0;
+
+	for(int i = 8; i < 10; i++) {
+		blr_g_0 = blr_g_0 + nhv_g[i-8] * b;
+		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_0 = res_g_0 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_0 = res_g_0 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_0 = res_g_0 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_0 = res_g_0 - s; } }
+	res_g_0 = (res_g_0 + blr_g_0) / (1.0 + b * 2.0);
+
+	for(int i = 10; i < 12; i++) {
+		blr_g_1 = blr_g_1 + nhv_g[i-8] * b;
+		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_1 = res_g_1 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_1 = res_g_1 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_1 = res_g_1 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_1 = res_g_1 - s; } }
+	res_g_1 = (res_g_1 + blr_g_1) / (1.0 + b * 2.0);
+
+	for(int i = 12; i < 14; i++) {
+		blr_g_2 = blr_g_2 + nhv_g[i-8] * b;
+		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_2 = res_g_2 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_2 = res_g_2 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_2 = res_g_2 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_2 = res_g_2 - s; } }
+	res_g_2 = (res_g_2 + blr_g_2) / (1.0 + b * 2.0);
+
+	for(int i = 14; i < 16; i++) {
+		blr_g_3 = blr_g_3 + nhv_g[i-8] * b;
+		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_3 = res_g_3 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_3 = res_g_3 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_3 = res_g_3 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_3 = res_g_3 - s; } }
+	res_g_3 = (res_g_3 + blr_g_3) / (1.0 + b * 2.0);
+
+	float res_b_0  = ref_b;
+	float res_b_1  = ref_b;
+	float res_b_2  = ref_b;
+	float res_b_3  = ref_b;
+	float blr_b_0  = 0.0;
+	float blr_b_1  = 0.0;
+	float blr_b_2  = 0.0;
+	float blr_b_3  = 0.0;
+
+	for(int i = 16; i < 18; i++) {
+		blr_b_0 = blr_b_0 + nhv_b[i-16] * b;
+		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_0 = res_b_0 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_0 = res_b_0 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_0 = res_b_0 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_0 = res_b_0 - s; } }
+	res_b_0 = (res_b_0 + blr_b_0) / (1.0 + b * 2.0);
+
+	for(int i = 18; i < 20; i++) {
+		blr_b_1 = blr_b_1 + nhv_b[i-16] * b;
+		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_1 = res_b_1 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_1 = res_b_1 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_1 = res_b_1 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_1 = res_b_1 - s; } }
+	res_b_1 = (res_b_1 + blr_b_1) / (1.0 + b * 2.0);
+
+	for(int i = 20; i < 22; i++) {
+		blr_b_2 = blr_b_2 + nhv_b[i-16] * b;
+		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_2 = res_b_2 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_2 = res_b_2 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_2 = res_b_2 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_2 = res_b_2 - s; } }
+	res_b_2 = (res_b_2 + blr_b_2) / (1.0 + b * 2.0);
+
+	for(int i = 22; i < 24; i++) {
+		blr_b_3 = blr_b_3 + nhv_b[i-16] * b;
+		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_3 = res_b_3 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_3 = res_b_3 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_3 = res_b_3 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_3 = res_b_3 - s; } }
+	res_b_3 = (res_b_3 + blr_b_3) / (1.0 + b * 2.0);
+
+	int vir = 0;
+	float vari_0r = abs(ref_r - res_r_0);
+	float vari_1r = abs(ref_r - res_r_1);
+	float vari_2r = abs(ref_r - res_r_2);
+	float vari_3r = abs(ref_r - res_r_3);
+	if(vari_0r < vari_1r) { vari_0r = vari_1r; vir = 1; }
+	if(vari_0r < vari_2r) { vari_0r = vari_2r; vir = 2; }
+	if(vari_0r < vari_3r) { vari_0r = vari_3r; vir = 3; }
+	if(vir == 0) { res_r = res_r_0; }
+	if(vir == 1) { res_r = res_r_1; }
+	if(vir == 2) { res_r = res_r_2; }
+	if(vir == 3) { res_r = res_r_3; }
+
+	int vig = 0;
+	float vari_0g = abs(ref_g - res_g_0);
+	float vari_1g = abs(ref_g - res_g_1);
+	float vari_2g = abs(ref_g - res_g_2);
+	float vari_3g = abs(ref_g - res_g_3);
+	if(vari_0g < vari_1g) { vari_0g = vari_1g; vig = 1; }
+	if(vari_0g < vari_2g) { vari_0g = vari_2g; vig = 2; }
+	if(vari_0g < vari_3g) { vari_0g = vari_3g; vig = 3; }
+	if(vig == 0) { res_g = res_g_0; }
+	if(vig == 1) { res_g = res_g_1; }
+	if(vig == 2) { res_g = res_g_2; }
+	if(vig == 3) { res_g = res_g_3; }
+
+	int vib = 0;
+	float vari_0b = abs(ref_b - res_b_0);
+	float vari_1b = abs(ref_b - res_b_1);
+	float vari_2b = abs(ref_b - res_b_2);
+	float vari_3b = abs(ref_b - res_b_3);
+	if(vari_0b < vari_1b) { vari_0b = vari_1b; vib = 1; }
+	if(vari_0b < vari_2b) { vari_0b = vari_2b; vib = 2; }
+	if(vari_0b < vari_3b) { vari_0b = vari_3b; vib = 3; }
+	if(vib == 0) { res_b = res_b_0; }
+	if(vib == 1) { res_b = res_b_1; }
+	if(vib == 2) { res_b = res_b_2; }
+	if(vib == 3) { res_b = res_b_3; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Channel Communication
 //	----    ----    ----    ----    ----    ----    ----    ----
+/*
+	float 	nhr_blur = 0.0;
+	for(int i = 0; i < SCNH_COUNT_CHAN; i++) { nhr_blur = nhr_blur + nhv_r[i]; }
+			nhr_blur = nhr_blur / float(SCNH_COUNT_CHAN);
+
+	float 	nhg_blur = 0.0;
+	for(int i = 0; i < SCNH_COUNT_CHAN; i++) { nhg_blur = nhg_blur + nhv_g[i]; }
+			nhg_blur = nhg_blur / float(SCNH_COUNT_CHAN);
+
+	float 	nhb_blur = 0.0;
+	for(int i = 0; i < SCNH_COUNT_CHAN; i++) { nhb_blur = nhb_blur + nhv_b[i]; }
+			nhb_blur = nhb_blur / float(SCNH_COUNT_CHAN);
 
 //	Interpolate
-	float	inp_r = (res_r * 1.0 	+ res_g *  li 	+ res_b *  li	) / ( 1.0 + li * 2.0 );
-	float	inp_g = (res_r *  li 	+ res_g * 1.0 	+ res_b *  li	) / ( 1.0 + li * 2.0 );
-	float	inp_b = (res_r *  li	+ res_g *  li 	+ res_b * 1.0	) / ( 1.0 + li * 2.0 );
+	float	inp_r = (res_r 	  	* 1.0 	+ nhg_blur 	*  li 	+ nhb_blur 	*  li	) / ( 1.0 + li * 2.0 );
+	float	inp_g = (nhr_blur 	*  li 	+ res_g 	* 1.0 	+ nhb_blur 	*  li	) / ( 1.0 + li * 2.0 );
+	float	inp_b = (nhr_blur 	*  li	+ nhg_blur 	*  li 	+ res_b 	* 1.0	) / ( 1.0 + li * 2.0 );
 	res_r = inp_r;
 	res_g = inp_g;
 	res_b = inp_b;
 /**/
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Uniform Buffer Unpacking
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-//	UBI: 4 bit
-	uint[4] ubin = uint[4] (
-		ub.i0,  ub.i1,  ub.i2,  ub.i3 );
-
-//	UBI: 4 bit to eval8
-	uint[4*8] 	eval8_ubi;
-	for(int i = 0; i < 4; i++) {
-		uint[8] eval8_ivec_ubi = eval8_unpack(ubin[i]);
-		for(int j = 0; j < 8; j++) { eval8_ubi[i*8+j] = eval8_ivec_ubi[j]; } }
-//	Adjust eval8 values
-	float[4*8] eval8_ubi_f;
-	for(int i = 0; i < 4*8; i++) {
-		eval8_ubi_f[i] = (((1.0 / (eval8_ubi[i] + 1)) * 2.0) - (1.0 * (1.0 / (eval8_ubi[i] + 1)))) * div_idx_scale * ub_scale; }
-
-//	UBI: 4 bit to eval4
-	uint[4*4] 	eval4_ubi;
-	for(int i = 0; i < 4; i++) {
-		ivec4 eval4_ivec_ubi = eval4_unpack(ubin[i]);
-		for(int j = 0; j < 4; j++) { eval4_ubi[i*4+j] = eval4_ivec_ubi[j]; } }
-//	Adjust eval4 values
-	float[4*4] eval4_ubi_f;
-	for(int i = 0; i < 4*4; i++) {
-		eval4_ubi_f[i] = (((1.0 / (eval4_ubi[i] + 1)) * 2.0) - (1.0 * (1.0 / (eval4_ubi[i] + 1)))) * div_idx_scale * ub_scale; }
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Channel Communication
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-//	Random
+//	Unterpolate
+/*	float	unp_r = (res_r 	  	* 1.0 	+ res_g 	* -lu 	+ res_b 	* -lu	) / ( 1.0 - lu * 2.0 );
+	float	unp_g = (res_r 		* -lu 	+ res_g 	* 1.0 	+ res_b 	* -lu	) / ( 1.0 - lu * 2.0 );
+	float	unp_b = (res_r 		* -lu	+ res_g 	* -lu 	+ res_b 	* 1.0	) / ( 1.0 - lu * 2.0 );
+	res_r = unp_r;
+	res_g = unp_g;
+	res_b = unp_b;
+/**/
+//	Cyclic
 	float[6] cyw;
-		cyw[0] = eval4_ubi_f[0]  * c4;
-		cyw[1] = eval4_ubi_f[1]  * c4;
-		cyw[2] = eval4_ubi_f[2]  * c4;
-		cyw[3] = eval4_ubi_f[3]  * c4;
-		cyw[4] = eval4_ubi_f[4]  * c4;
-		cyw[5] = eval4_ubi_f[5]  * c4;
-	float 	cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-	float 	cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-	float 	cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
+		cyw[0] = cy *  1.0;
+		cyw[1] = cy * -1.0;
+		cyw[2] = cy *  1.0;
+		cyw[3] = cy * -1.0;
+		cyw[4] = cy *  1.0;
+		cyw[5] = cy * -1.0;
+		float	cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
+		float	cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
+		float	cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
 	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
-
-		cyw[0] = eval4_ubi_f[6]  * c4;
-		cyw[1] = eval4_ubi_f[7]  * c4;
-		cyw[2] = eval4_ubi_f[8]  * c4;
-		cyw[3] = eval4_ubi_f[9]  * c4;
-		cyw[4] = eval4_ubi_f[10] * c4;
-		cyw[5] = eval4_ubi_f[11] * c4;
-			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
-	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
-
-		cyw[0] = eval8_ubi_f[0]  * c8;
-		cyw[1] = eval8_ubi_f[1]  * c8;
-		cyw[2] = eval8_ubi_f[2]  * c8;
-		cyw[3] = eval8_ubi_f[3]  * c8;
-		cyw[4] = eval8_ubi_f[4]  * c8;
-		cyw[5] = eval8_ubi_f[5]  * c8;
-			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
-	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
-
-		cyw[0] = eval8_ubi_f[6]  * c8;
-		cyw[1] = eval8_ubi_f[7]  * c8;
-		cyw[2] = eval8_ubi_f[8]  * c8;
-		cyw[3] = eval8_ubi_f[9]  * c8;
-		cyw[4] = eval8_ubi_f[10] * c8;
-		cyw[5] = eval8_ubi_f[11] * c8;
-			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
-	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
-
-		cyw[0] = eval4_ubi_f[15] * cy *  1.0;
-		cyw[1] = eval4_ubi_f[15] * cy * -1.0;
-		cyw[2] = eval4_ubi_f[15] * cy *  1.0;
-		cyw[3] = eval4_ubi_f[15] * cy * -1.0;
-		cyw[4] = eval4_ubi_f[15] * cy *  1.0;
-		cyw[5] = eval4_ubi_f[15] * cy * -1.0;
-			cyc_r = (res_r * 1.0 	+ res_g * cyw[0] 	+ res_b * cyw[1] ) / (1.0 + (cyw[0]+cyw[1]));
-			cyc_g = (res_r * cyw[3]	+ res_g * 1.0 		+ res_b * cyw[2] ) / (1.0 + (cyw[2]+cyw[3]));
-			cyc_b = (res_r * cyw[4]	+ res_g * cyw[5] 	+ res_b * 1.0	 ) / (1.0 + (cyw[4]+cyw[5]));
-	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
+/**/
 
 	res_r = res_r - n;
 	res_g = res_g - n;
@@ -501,6 +586,7 @@ void main() {
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 	if(ub.frame == 0 || minfo[3] == 1) { res_r = reseed(0); res_g = reseed(1); res_b = reseed(2); }
+	if(minfo[3] == 4 && wsize[3] == 1) { res_r = gentle_seed(res_r, 0); res_g = gentle_seed(res_g, 1); res_b = gentle_seed(res_b, 2); }
 	if(minfo[3] == 2) { res_r = 0.0; res_g = 0.0; res_b = 0.0; }
 
 	vec3 	col = vec3( res_r, res_g, res_b );
