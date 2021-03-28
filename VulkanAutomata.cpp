@@ -142,13 +142,13 @@ struct WSize {
 	uint32_t 	app_w;
 	uint32_t 	app_h;
 	uint32_t 	divs;
-	uint32_t 	ev_fmt; };
+	uint32_t 	mode; };
 uint32_t wsize_pack(WSize ws) {
 	uint32_t packed_ui32 = 
 		( (uint32_t)ws.app_w		  )
 	+ 	( (uint32_t)ws.app_h 	<< 12 )
 	+ 	( (uint32_t)ws.divs 	<< 24 )
-	+ 	( (uint32_t)ws.ev_fmt 	<< 28 );
+	+ 	( (uint32_t)ws.mode 	<< 28 );
 	return packed_ui32; }
 
 struct MInfo {
@@ -215,7 +215,8 @@ struct UniBuf {
 	uint32_t v36; uint32_t v37; uint32_t v38; uint32_t v39;
 	uint32_t v40; uint32_t v41; uint32_t v42; uint32_t v43;
 	uint32_t v44; uint32_t v45; uint32_t v46; uint32_t v47;
-	float 	 scale; };
+	float 	 scale;
+	float 	 zoom; };
 
 struct SpecConstData {
 	uint32_t sc0;  uint32_t sc1;  uint32_t sc2;  uint32_t sc3;
@@ -235,7 +236,8 @@ struct PatternConfigData {
 	uint32_t scd_save[48];
 	uint32_t ubi_save[4];
 	uint32_t ubv_save[48];
-	float	 scl_save; };
+	float	 scl_save;
+	float	 pzm_save; };
 
 int main(void) {
 
@@ -261,8 +263,8 @@ int main(void) {
 	 /**/	hd("STAGE:", "APPLICATION CONFIG");		/**/
 	///////////////////////////////////////////////////
 
-	const uint32_t 	APP_W 			= 512;		//	1920 1536 1280	768	512	384	256
-	const uint32_t 	APP_H 			= 288;		//	1080 864  720	432	288	216	144
+	const uint32_t 	APP_W 			= 384;		//	1920 1536 1280	768	512	384	256
+	const uint32_t 	APP_H 			= 216;		//	1080 864  720	432	288	216	144
 	const long 		FPS 			= 0;		//	2+
 	const int 		TEST_CYCLES 	= 0;		//	0+
 
@@ -1214,7 +1216,7 @@ int main(void) {
 		vkwritedescset[1].pTexelBufferView 		= NULL;
 
 	VkDeviceSize vkdevsize;
-		vkdevsize = sizeof(uint32_t) * (4 + 4 + 48);
+		vkdevsize = sizeof(UniBuf);
 	ov("UniBuf size", vkdevsize);
 
 	VkBufferCreateInfo vkbuff_info;
@@ -1288,7 +1290,7 @@ int main(void) {
 			window_size.app_w	= APP_W;
 			window_size.app_h	= APP_H;
 			window_size.divs	= 1;
-			window_size.ev_fmt  = 4;
+			window_size.mode  	= 0;
 	MInfo 	mouse_info;
 			mouse_info.mouse_x 	= 0;
 			mouse_info.mouse_y 	= 0;
@@ -1313,6 +1315,7 @@ int main(void) {
 		ub.v40 = 0; ub.v41 = 0; ub.v42 = 0; ub.v43 = 0;
 		ub.v44 = 0; ub.v45 = 0; ub.v46 = 0; ub.v47 = 0;
 		ub.scale = float(96.0);
+		ub.zoom  = float(0.0);
 
 	ov("UniBuf Size", sizeof(ub));
 
@@ -1823,6 +1826,9 @@ int main(void) {
 	int  idx 			= 0;
 	int  pause 			= 0;
 
+	int	 panning		= 0;
+	int	 last_mx		= 0;
+
 	int  SCR_count 		= 0;
 	int  SCR_frameskip 	= 8;
 	int  SCR_record 	= 0;
@@ -1832,7 +1838,8 @@ int main(void) {
 	int  SCR_save_count = 0;
 
 	int  current_sec	= time(0);
-	int  fps_report 	= time(0) - 5;
+	int  fps_freq 		= 8;
+	int  fps_report 	= time(0) - fps_freq;
 	int  fp_r_limit 	= 1;
     auto start_loop 	= std::chrono::high_resolution_clock::now();
     auto finish_loop 	= start_loop;
@@ -1876,7 +1883,7 @@ int main(void) {
 	do {
     	start_loop 	= std::chrono::high_resolution_clock::now();
 		current_sec = time(0);
-		if( current_sec - fps_report >= 6) { fps_report = current_sec; }
+		if( current_sec - fps_report >= fps_freq + 1) { fps_report = current_sec; }
 
 		//	UI Controls
 		if(valid) {
@@ -1892,25 +1899,32 @@ int main(void) {
 
 					if( xe.type == 4 || xe.type == 5) {
 						if(xe.type == 4) {
+			
 							//	Set Config Savepoint		MMB
 							if(xe.xbutton.button == 2) {
+								panning = 0;
+								SCR_save = (SCR_save > 150) ? 150 : SCR_save;
 								mouse_info.run_cmd 	= 1;
 								set_scale 			= 1;
 								save_config 		= 1;
 								f_len				= f_len + sizeof(pcd);
 								load_pcd_index		= (f_len / sizeof(pcd)) - 1; }
+
+							if(xe.xbutton.button == 3) { 
+								if(!panning) {
+									panning = 1;
+									last_mx = mouse_info.mouse_x; } }
 							//	Increase Mutation Strength	MWU
-							if(xe.xbutton.button == 4) {
-								mut = ((mut >= 0.002) ? ((mut >= 0.019) ? mut + 0.01 : mut + 0.001) : mut + 0.0001);
-								mut = (mut >= 8.0) ? 8.0 : mut;
-								mut = float(int(round(mut * 10000.0)) / 10000.0);
-								ov("Mutation Rate", mut); }
+							if(xe.xbutton.button == 4) { 
+								mouse_info.run_cmd 	= 4;
+								ub.zoom += float(0.15);
+								ov("Zoom Scale", ub.zoom); }
 							//	Decrease Mutation Strength	MWD
 							if(xe.xbutton.button == 5) {
-								mut = ((mut >= 0.002) ? ((mut >= 0.02) ? mut - 0.01 : mut - 0.001) : mut - 0.0001);
-								mut = (mut <= 0.0001) ? 0.0001 : mut;
-								mut = float(int(round(mut * 10000.0)) / 10000.0);
-								ov("Mutation Rate", mut); }
+								mouse_info.run_cmd 	= 4;
+								ub.zoom -= float(0.15);
+								ub.zoom = (ub.zoom <= 0.0) ? 0.0 : ub.zoom;
+								ov("Zoom Scale", ub.zoom); }
 							//	Load Prev Pattern			TBB
 							if(xe.xbutton.button == 8) {
 								load_config = 1;
@@ -1943,7 +1957,11 @@ int main(void) {
 						|| 	xe.xbutton.button == 8
 						|| 	xe.xbutton.button == 9 	) {
 							if(xe.type == 4) { mouse_info.mouse_c = xe.xbutton.button; }
-							if(xe.type == 5) { mouse_info.mouse_c = 0; } } }
+							if(xe.type == 5) { 
+								mouse_info.mouse_c = 0;
+								if(xe.xbutton.button == 3) {
+//									mouse_info.run_cmd 	= 1;
+									panning = 0; } } } }
 
 					if( xe.type == 2 ) {
 						//	Pause Simulation: 			SPACEBAR
@@ -1952,10 +1970,24 @@ int main(void) {
 							ov("Pause State", ((pause) ? "Paused" : "Running") ); }
 
 						//	Toroidal Subdivisions:		1,2,3,4
-						if( xe.xbutton.button == 10	 ) { window_size.divs = 1; }
-						if( xe.xbutton.button == 11	 ) { window_size.divs = 2; }
-						if( xe.xbutton.button == 12	 ) { window_size.divs = 4; }
-						if( xe.xbutton.button == 13	 ) { window_size.divs = 8; }
+						if( xe.xbutton.button == 10	 ) {
+							if( window_size.divs == 1) {
+								window_size.mode = (window_size.mode == 0) ? 1 : 0;	}
+							window_size.divs 	= 1;
+							mouse_info.run_cmd 	= 1;
+							SCR_save 			= (SCR_save > 150) ? 150 : SCR_save; }
+						if( xe.xbutton.button == 11	 ) { 
+							window_size.divs 	= 2;
+							window_size.mode 	= 0;
+							mouse_info.run_cmd 	= 1; }
+						if( xe.xbutton.button == 12	 ) { 
+							window_size.divs 	= 4;
+							window_size.mode 	= 0;
+							mouse_info.run_cmd 	= 1; }
+						if( xe.xbutton.button == 13	 ) { 
+							window_size.divs 	= 8;
+							window_size.mode 	= 0;
+							mouse_info.run_cmd 	= 1; }
 
 						//	Recording Toggle:			Numpad ENTER
 						if( xe.xbutton.button == 104 ) {
@@ -1987,21 +2019,46 @@ int main(void) {
 							mouse_info.run_cmd 	= 1;
 							do_mutate 			= 1; }
 
-						//	Mutate						C
+						//	Mutate Params				C
 						if( xe.xbutton.button == 54 ) {
 							update_ubiv 		= 1;
 							mouse_info.run_cmd 	= 1;
 							do_mutate 			= 2; }
 
+						//	Load and Mutate	Params		V
+						if( xe.xbutton.button == 55 ) {
+							load_config 		= 1;
+							update_ubiv 		= 1;
+							mouse_info.run_cmd 	= 1;
+							do_mutate 			= 2; }
+
+						//	Increase Zoom				ARROW UP
+						if( xe.xbutton.button == 111 ) {
+							mut = ((mut >= 0.002) ? ((mut >= 0.019) ? ((mut >= 1.0) ? mut + 0.5 : mut + 0.01 ) : mut + 0.001) : mut + 0.0001);
+							mut = (mut >= 32.0) ? 32.0 : mut;
+							mut = float(int(round(mut * 10000.0)) / 10000.0);
+							ov("Mutation Rate", mut); }
+
+						//	Decrease Zoom				ARROW DOWN
+						if( xe.xbutton.button == 116 ) {
+							mut = ((mut >= 0.002) ? ((mut >= 0.02) ? ((mut >= 1.5) ? mut - 0.5 : mut - 0.01 ) : mut - 0.001) : mut - 0.0001);
+							mut = (mut <= 0.0001) ? 0.0001 : mut;
+							mut = float(int(round(mut * 10000.0)) / 10000.0);
+							ov("Mutation Rate", mut); }
+
 						//	Randomise all values		R
 						if( xe.xbutton.button == 27 ) {
-							ub.scale 			= 128.0;
+							ub.zoom				= 0.0;
+							if(window_size.mode == 0) { ub.scale = (float(rand()%4096) / 32.0) + 16.0; }
+							if(window_size.mode == 1) { ub.scale = 192.0; }
 							update_ubiv 		= 1;
 							update_sc 			= 1;
 							mouse_info.run_cmd 	= 1; }
 
 						//	Reseed						LSHIFT
-						if( xe.xbutton.button == 50 ) { mouse_info.run_cmd 	= 1; }
+						if( xe.xbutton.button == 50 ) {
+							mouse_info.run_cmd 	= 1;
+							SCR_save = (SCR_save > 150) ? 150 : SCR_save; }
 
 						//	Clear						X
 						if( xe.xbutton.button == 53 ) { mouse_info.run_cmd 	= 2; }
@@ -2011,6 +2068,7 @@ int main(void) {
 
 						//	Snap to div scale			F
 						if( xe.xbutton.button == 41 ) { 
+							SCR_save = (SCR_save > 150) ? 150 : SCR_save;
 							mouse_info.run_cmd 	= 1;
 							set_scale 			= 1; }
 
@@ -2046,7 +2104,7 @@ int main(void) {
 							for(int i = 0; i < 48; i++) {
 								for(int j = 0; j < 4; j++) { ev4[j] = rand()%256; }
 								ubv[i] = eval4_pack(ev4); } }
-						SCR_save = 600;
+						SCR_save = (SCR_save > 600) ? 600 : SCR_save;
 						ov("Key", xe.xbutton.button); } } }
 
 			if(load_config) {
@@ -2055,52 +2113,75 @@ int main(void) {
 				update_ubiv 		= 1;
 				update_sc 			= 1;
 				ub.scale 			= pcd.scl_save;
+				ub.zoom 			= pcd.pzm_save;
 				for(int i = 0; i < SPCONST_ENTRIES; i++) { sce[i] = pcd.scd_save[i]; }
 				for(int i = 0; i < 4;  i++) { ubi[i] = pcd.ubi_save[i]; }
 				for(int i = 0; i < 48; i++) { ubv[i] = pcd.ubv_save[i]; } }
 
+			float mutscl = mut * 1.0;
+
 			if(do_mutate == 1) {
 				do_mutate = 0;
+				if(window_size.mode == 0) { ub.scale = ub.scale * (1.0 + ((float(rand()%65536) / 65536.0) - 0.5) * mutscl); }
 				for(int i = 0; i < 4; i++) {
 					eval8_unpack(ubi[i], ev8);
 					for(int j = 0; j < 8; j++) {
-						if(rand()%4 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mut)+1) - rand()%(int(16.0*mut*0.5)+1)))%16; }
+						if(rand()%8 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
 						if(rand()%32 == 0) { ev8[j] = rand()%16; } }
 					ubi[i] = eval8_pack(ev8); }
 				for(int i = 0; i < 48; i++) {
 					eval4_unpack(ubv[i], ev4);
 					for(int j = 0; j < 4; j++) {
-						if(rand()%12 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mut)+1) - rand()%(int(256.0*mut*0.5)+1)))%256; }
+						if(rand()%16 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mutscl)+1) - rand()%(int(256.0*mutscl*0.5)+1)))%256; }
 						if(rand()%128 == 0) { ev4[j] = rand()%256; } }
 					ubv[i] = eval4_pack(ev4); }
 				for(int i = 0; i < SPCONST_ENTRIES; i++) { 
-					if(rand()%4  == 0) { sce[i] = (sce[i] + (rand()%(int(16.0*mut)+1) - rand()%(int(16.0*mut*0.5)+1)))%16; }
+					if(rand()%8  == 0) { sce[i] = (sce[i] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
 					if(rand()%64 == 0) { sce[i] = rand()%16; } } }
 
 			if(do_mutate == 2) {
 				do_mutate = 0;
+				if(window_size.mode == 0) { ub.scale = ub.scale * (1.0 + ((float(rand()%65536) / 65536.0) - 0.5) * mutscl); }
 				for(int i = 0; i < 4; i++) {
 					eval8_unpack(ubi[i], ev8);
 					for(int j = 0; j < 8; j++) {
-						if(rand()%4 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mut)+1) - rand()%(int(16.0*mut*0.5)+1)))%16; }
+						if(rand()%8 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
 						if(rand()%32 == 0) { ev8[j] = rand()%16; } }
 					ubi[i] = eval8_pack(ev8); }
 				for(int i = 0; i < 48; i++) {
 					eval4_unpack(ubv[i], ev4);
 					for(int j = 0; j < 4; j++) {
-						if(rand()%12 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mut)+1) - rand()%(int(256.0*mut*0.5)+1)))%256; }
-						if(rand()%64 == 0) { ev4[j] = rand()%256; } }
+						if(rand()%16 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mutscl)+1) - rand()%(int(256.0*mutscl*0.5)+1)))%256; }
+						if(rand()%128 == 0) { ev4[j] = rand()%256; } }
 					ubv[i] = eval4_pack(ev4); } }
 
 			if(set_scale) {
 						set_scale 		= 0;
+				float	xscale			= float(mouse_info.mouse_x) / float(window_size.app_w);
 				int		div_idx			= floor((mouse_info.mouse_x*window_size.divs)/(window_size.app_w))
 										+ floor((mouse_info.mouse_y*window_size.divs)/(window_size.app_h))*window_size.divs;
 				float 	div_idx_scale 	= float(div_idx+1.0) / float(window_size.divs*window_size.divs);
-						ub.scale 		= ub.scale * div_idx_scale * ((window_size.divs == 1) ? 1.0 : 2.0);
+
+				if(window_size.mode == 0) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) * div_idx_scale; }
+				if(window_size.mode == 1) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) 
+													 + ub.scale * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + ub.zoom)); }
+
+				ov("Zoom", 				ub.zoom );
+				ov("X Scale", 			xscale);
 				ov("Div Index", 		div_idx);
 				ov("Div Index Scale", 	div_idx_scale);
 				ov("UB Scale", 			ub.scale); }
+
+			if(panning && window_size.mode == 1) {
+				int 	mx_offset 	= mouse_info.mouse_x - last_mx;
+				float	xscale		= float((window_size.app_w / 2.0) - float(mx_offset)) / float(window_size.app_w);
+				if(window_size.mode == 1) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) 
+													 + ub.scale * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + ub.zoom)); }
+				last_mx = mouse_info.mouse_x;
+				if(mx_offset != 0) { 
+					mouse_info.run_cmd 	= 4;
+					ov("MX Offset", mx_offset );
+					ov("MX Offset", float(mx_offset) / float(window_size.app_w) ); } }
 
 			ub.minfo = minfo_pack(mouse_info);
 
@@ -2144,6 +2225,8 @@ int main(void) {
 				va("vkCreateGraphicsPipelines", &vkres, vkpipe_work[1],
 					vkCreateGraphicsPipelines(vkld[0], VK_NULL_HANDLE, 1, &vkgfxpipe_info_work[1], NULL, &vkpipe_work[1]) );
 
+				if(loglevel != 0) { loglevel = loglevel * -1; }
+
 				for(int i = 0; i < 2; i++) {
 					vr("vkBeginCommandBuffer", &vkres, 
 						vkBeginCommandBuffer(vkcombuf_work[i], &vkcombufbegin_info[i]) );
@@ -2171,6 +2254,7 @@ int main(void) {
 					vr("vkEndCommandBuffer", &vkres, 
 						vkEndCommandBuffer(vkcombuf_work[i]) ); }
 
+				if(loglevel != 0) { loglevel = loglevel * -1; }
 				if(loglevel != 0) { loglevel = loglevel * -1; }	}
 
 			if(save_config) {
@@ -2202,6 +2286,7 @@ int main(void) {
 				pcd.ubv_save[40] = ub.v40; pcd.ubv_save[41] = ub.v41; pcd.ubv_save[42] = ub.v42; pcd.ubv_save[43] = ub.v43;
 				pcd.ubv_save[44] = ub.v44; pcd.ubv_save[45] = ub.v45; pcd.ubv_save[46] = ub.v46; pcd.ubv_save[47] = ub.v47;
 				pcd.scl_save	 = ub.scale;
+				pcd.pzm_save	 = ub.zoom;
 
 				std::string 	savefile = "fbk/save_" + timestamp + ".vkpat";
 				std::ofstream 	fout_local(savefile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
@@ -2217,8 +2302,8 @@ int main(void) {
 			rv("SystemCLI: Make Thumbnail Image");
 				int thumbnail_index = (SCR_count / 20) + 150;
 					thumbnail_index = (thumbnail_index < SCR_count) ? thumbnail_index : SCR_count / 2;
-				std::string thumbnail_image 	= "out/PPM" + std::to_string(thumbnail_index) + ".PAM";
-				std::string first_image 		= "out/PPM" + std::to_string(0) + ".PAM";
+				std::string thumbnail_image 	= "out/IMG" + std::to_string(thumbnail_index) + ".PAM";
+				std::string first_image 		= "out/IMG" + std::to_string(0) + ".PAM";
 				std::string cli_cmd_thumb 		= "cp '" + thumbnail_image + "' '" + first_image + "'";
 				system(cli_cmd_thumb.c_str());
 
@@ -2227,7 +2312,7 @@ int main(void) {
 
 			rv("SystemCLI: Remove Output Images");
 				for(int i = 0; i < SCR_count; i++) {
-					std::string imgfile = "out/PPM" + std::to_string(i) + ".PAM";
+					std::string imgfile = "out/IMG" + std::to_string(i) + ".PAM";
 					std::string cli_cmd_remove 	= "rm '" + imgfile + "'";
 					system(cli_cmd_remove.c_str()); }
 
