@@ -357,6 +357,12 @@ void main() {
 		fc_scale = ((div_idx+1.0) / (wsize[2]*wsize[2])) * ub_scale; }
 	if(wsize[3] == 1) {
 		fc_scale = (((fc[0] / wsize[0]) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+	if(wsize[3] == 2) {
+		float distx = (fc[0]-(wsize[0]/2)) * (fc[0]-(wsize[0]/2));
+		float disty = (fc[1]-(wsize[1]/2)) * (fc[1]-(wsize[1]/2));
+		float dist  = sqrt(distx+disty);
+		float range = sqrt(((wsize[0]/2)*(wsize[0]/2))+((wsize[1]/2)*(wsize[1]/2))) * 0.75;
+		fc_scale = (((dist/range) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
 
 	for(int i = 0; i < 48*4; i++) {
 		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * fc_scale; }
@@ -585,9 +591,12 @@ void main() {
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	if(ub.frame == 0 || minfo[3] == 1) { res_r = reseed(0); res_g = reseed(1); res_b = reseed(2); }
-	if(minfo[3] == 4 && wsize[3] == 1) { res_r = gentle_seed(res_r, 0); res_g = gentle_seed(res_g, 1); res_b = gentle_seed(res_b, 2); }
-	if(minfo[3] == 2) { res_r = 0.0; res_g = 0.0; res_b = 0.0; }
+	if(ub.frame == 0 || minfo[3] == 1) { 
+		res_r = reseed(0); res_g = reseed(1); res_b = reseed(2); }
+	if(minfo[3] == 4 && (wsize[3] == 1 || wsize[3] == 2)) { 
+		res_r = gentle_seed(res_r, 0); res_g = gentle_seed(res_g, 1); res_b = gentle_seed(res_b, 2); }
+	if(minfo[3] == 2) { 
+		res_r = 0.0; res_g = 0.0; res_b = 0.0; }
 
 	vec3 	col = vec3( res_r, res_g, res_b );
 	if(minfo[3] == 3) { col = sym_seed(col, wsize); }

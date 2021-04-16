@@ -56,6 +56,7 @@ layout(constant_id 	= 46) const 	uint SCUI46 = 0;
 layout(constant_id 	= 47) const 	uint SCUI47 = 0;
 layout(location 	=  0) out 		vec4 out_col;
 layout(binding 		=  1) uniform 	sampler2D txdata;
+layout(binding 		=  2) uniform 	sampler2D txpara;
 layout(binding 		=  0) uniform 	UniBuf {
 	uint wsize;
 	uint frame;
@@ -134,6 +135,18 @@ float gdv(ivec2 off, int v) {
 	vec4 	pxdata 	= texelFetch( txdata, ivec2(cx, cy), 0);
 	return 	pxdata[v]; }
 
+float para_val(ivec2 off, int v) {
+//	Get Div Value: Return the value of a specified pixel
+//		x, y : 	Relative integer-spaced coordinates to origin [ 0.0, 0.0 ]
+//		v	 :	Colour channel [ 0, 1, 2 ]
+	ivec4	dm		= wsize_unpack(ub.wsize);
+	vec4 	fc 		= gl_FragCoord;
+	vec2	dc		= vec2( dm[0]/dm[2], dm[1]/dm[2] );
+	float	cx		= mod(fc[0]+off[0], dc[0]) + floor(fc[0]/dc[0])*dc[0];
+	float	cy		= mod(fc[1]+off[1], dc[1]) + floor(fc[1]/dc[1])*dc[1];
+	vec4 	pxdata 	= texelFetch( txpara, ivec2(cx, cy), 0);
+	return 	pxdata[v]; }
+
 vec3 nhd( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
 //	Neighbourhood: Return information about the specified group of pixels
 	float dist 		= 0.0;
@@ -146,6 +159,25 @@ vec3 nhd( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
 			dist = round(sqrt(i*i+j*j));
 			if( dist <= nbhd[0] && dist > nbhd[1] && dist != 0.0 ) {
 				cval = gdv(ivec2(i+ofst[0],j+ofst[1]),col);
+				c_total += psn;
+				if( cval > thr ) {
+					c_valid += psn;
+					cval = psn * cval;
+					c_value += cval-fract(cval); } } } }
+	return vec3( c_value, c_valid, c_total ); }
+
+vec3 nhd_para( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
+//	Neighbourhood: Return information about the specified group of pixels
+	float dist 		= 0.0;
+	float cval 		= 0.0;
+	float c_total 	= 0.0;
+	float c_valid 	= 0.0;
+	float c_value 	= 0.0;
+	for(float i = -nbhd[0]; i <= nbhd[0]; i+=1.0) {
+		for(float j = -nbhd[0]; j <= nbhd[0]; j+=1.0) {
+			dist = round(sqrt(i*i+j*j));
+			if( dist <= nbhd[0] && dist > nbhd[1] && dist != 0.0 ) {
+				cval = para_val(ivec2(i+ofst[0],j+ofst[1]),col);
 				c_total += psn;
 				if( cval > thr ) {
 					c_valid += psn;
@@ -221,10 +253,11 @@ float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
 	return xcaf; }
 float reseed(int seed) {
 	vec4	fc = gl_FragCoord;
-	float 	r0 = get_lump(fc[0], fc[1],  2.0, 19.0 + mod(ub.frame+seed,17.0), 23.0 + mod(ub.frame+seed,43.0));
-	float 	r1 = get_lump(fc[0], fc[1], 14.0, 13.0 + mod(ub.frame+seed,29.0), 17.0 + mod(ub.frame+seed,31.0));
-	float 	r2 = get_lump(fc[0], fc[1],  6.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
-	return clamp((r0+r1)-r2,0.0,1.0); }
+	float 	r0 = get_lump(fc[0], fc[1],  6.0, 19.0 + mod(ub.frame+seed,17.0), 23.0 + mod(ub.frame+seed,43.0));
+	float 	r1 = get_lump(fc[0], fc[1], 24.0, 13.0 + mod(ub.frame+seed,29.0), 17.0 + mod(ub.frame+seed,31.0));
+	float 	r2 = get_lump(fc[0], fc[1], 12.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
+	float 	r3 = get_lump(fc[0], fc[1], 18.0, 29.0 + mod(ub.frame+seed, 7.0), 61.0 + mod(ub.frame+seed,28.0));
+	return clamp( sqrt((r0+r1)*r3*2.0)-r2 , 0.0, 1.0); }
 
 float gentle_seed(float val, int seed) {
 	vec4	fc = gl_FragCoord;
@@ -237,7 +270,7 @@ float nh16_t_02(ivec2 nh, vec3[MAXSNH] rings){
 	float e1_sum = 0.0;
 	if(nh[0] == 0) { nh[0] = 1; }
 	if(nh[0] > MAXSNH) { nh[0] = MAXSNH; }
-	if(nh[0] <= nh[1]) { nh[1] = nh[0] - 1; }
+	if(nh[0] <= nh[1]) { nh[1] = 0; }
 	for(int i = nh[1]; i < nh[0]; i++) {
 		e0_sum = e0_sum + rings[i][0];
 		e1_sum = e1_sum + rings[i][2]; }
@@ -267,6 +300,10 @@ void main() {
 	float 	ref_g 	= gdv( origin, 1 );
 	float 	ref_b 	= gdv( origin, 2 );
 
+	float	par_r	= para_val( origin, 0 );
+	float	par_g	= para_val( origin, 1 );
+	float	par_b	= para_val( origin, 2 );
+
 //	Output Values
 	float 	res_r 	= ref_r;
 	float 	res_g 	= ref_g;
@@ -286,11 +323,11 @@ void main() {
 		rings_b[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 2 ); }
 
 //	Parameters
-	float s  = mnp * 16.0 * 128.0;
-	float b  = mnp * 16.0 *  48.0;
-	float n  = mnp * 16.0 *  24.0;
-	float cy = mnp *  4.0 *   1.0 * ub.scale;
-	float li = mnp * 16.0 *  24.0;
+	float s  = mnp * 16.0 *  64.0;
+	float b  = mnp * 16.0 *  24.0;
+	float n  = mnp * 16.0 *  16.0;
+	float cy = mnp * 16.0 *   1.0 * ub.scale;
+	float li = mnp * 16.0 *  32.0;
 	float lu = mnp * 16.0 *  16.0;
 
 //	Get Neighbourhood Values
@@ -321,7 +358,7 @@ void main() {
 		nhv_b[3] = nh16_t_02(ivec2(SCUI38, SCUI39), rings_b);
 		nhv_b[4] = nh16_t_02(ivec2(SCUI40, SCUI41), rings_r);
 		nhv_b[5] = nh16_t_02(ivec2(SCUI42, SCUI43), rings_r);
-		nhv_b[6] = nh16_t_02(ivec2(SCUI44, SCUI46), rings_g);
+		nhv_b[6] = nh16_t_02(ivec2(SCUI44, SCUI45), rings_g);
 		nhv_b[7] = nh16_t_02(ivec2(SCUI46, SCUI47), rings_g);
 
 //	----    ----    ----    ----    ----    ----    ----    ----
@@ -353,10 +390,32 @@ void main() {
 	float 		zm_scale 	= ub.zoom;
 //				zm_scale 	= ((fc[1] / wsize[1]) / 2.0) - 0.5;
 
-	if(wsize[3] == 0) {
+	if(wsize[3] == 0 || wsize[3] == 3) {
 		fc_scale = ((div_idx+1.0) / (wsize[2]*wsize[2])) * ub_scale; }
 	if(wsize[3] == 1) {
 		fc_scale = (((fc[0] / wsize[0]) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+	if(wsize[3] == 2) {
+		float distx = (fc[0]-(wsize[0]/2)) * (fc[0]-(wsize[0]/2));
+		float disty = (fc[1]-(wsize[1]/2)) * (fc[1]-(wsize[1]/2));
+		float dist  = sqrt(distx+disty);
+		float range = sqrt(((wsize[0]/2)*(wsize[0]/2))+((wsize[1]/2)*(wsize[1]/2))) * 0.75;
+		fc_scale = (((dist/range) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+
+	vec3 	para_nh_r 	= nhd_para(ivec2(8,0), origin, psn, 0.0, 0);
+	float	para_r_avg 	= para_nh_r[0] / para_nh_r[2];
+			para_r_avg 	= para_r_avg * 2.0;
+
+	vec3 	para_nh_g 	= nhd_para(ivec2(8,0), origin, psn, 0.0, 1);
+	float	para_g_avg 	= para_nh_g[0] / para_nh_g[2];
+			para_g_avg 	= para_g_avg * 2.0;
+
+	vec3 	para_nh_b 	= nhd_para(ivec2(8,0), origin, psn, 0.0, 2);
+	float	para_b_avg 	= para_nh_b[0] / para_nh_b[2];
+			para_b_avg 	= para_b_avg * 2.0;
+
+//	para_r_avg = par_r * 2.0;
+
+	if(wsize[3] != 0 || (wsize[3] == 0 && wsize[2] != 1)) { para_r_avg = 1.0; para_g_avg = 1.0; para_b_avg = 1.0; }
 
 	for(int i = 0; i < 48*4; i++) {
 		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * fc_scale; }
@@ -376,34 +435,34 @@ void main() {
 
 	for(int i = 0; i < 2; i++) {
 		blr_r_0 = blr_r_0 + nhv_r[i] * b;
-		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_0 = res_r_0 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_0 = res_r_0 - s; }
-		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_0 = res_r_0 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_0 = res_r_0 - s; } }
+		if(nhv_r[i] >= eval4_f[i*8+0] * para_r_avg && nhv_r[i] <= eval4_f[i*8+1] * para_r_avg) { res_r_0 = res_r_0 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] * para_r_avg && nhv_r[i] <= eval4_f[i*8+3] * para_r_avg) { res_r_0 = res_r_0 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] * para_r_avg && nhv_r[i] <= eval4_f[i*8+5] * para_r_avg) { res_r_0 = res_r_0 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] * para_r_avg && nhv_r[i] <= eval4_f[i*8+7] * para_r_avg) { res_r_0 = res_r_0 - s; } }
 	res_r_0 = (res_r_0 + blr_r_0) / (1.0 + b * 2.0);
 
 	for(int i = 2; i < 4; i++) {
 		blr_r_1 = blr_r_1 + nhv_r[i] * b;
-		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_1 = res_r_1 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_1 = res_r_1 - s; }
-		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_1 = res_r_1 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_1 = res_r_1 - s; } }
+		if(nhv_r[i] >= eval4_f[i*8+0] * para_r_avg && nhv_r[i] <= eval4_f[i*8+1] * para_r_avg) { res_r_1 = res_r_1 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] * para_r_avg && nhv_r[i] <= eval4_f[i*8+3] * para_r_avg) { res_r_1 = res_r_1 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] * para_r_avg && nhv_r[i] <= eval4_f[i*8+5] * para_r_avg) { res_r_1 = res_r_1 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] * para_r_avg && nhv_r[i] <= eval4_f[i*8+7] * para_r_avg) { res_r_1 = res_r_1 - s; } }
 	res_r_1 = (res_r_1 + blr_r_1) / (1.0 + b * 2.0);
 
 	for(int i = 4; i < 6; i++) {
 		blr_r_2 = blr_r_2 + nhv_r[i] * b;
-		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_2 = res_r_2 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_2 = res_r_2 - s; }
-		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_2 = res_r_2 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_2 = res_r_2 - s; } }
+		if(nhv_r[i] >= eval4_f[i*8+0] * para_r_avg && nhv_r[i] <= eval4_f[i*8+1] * para_r_avg) { res_r_2 = res_r_2 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] * para_r_avg && nhv_r[i] <= eval4_f[i*8+3] * para_r_avg) { res_r_2 = res_r_2 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] * para_r_avg && nhv_r[i] <= eval4_f[i*8+5] * para_r_avg) { res_r_2 = res_r_2 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] * para_r_avg && nhv_r[i] <= eval4_f[i*8+7] * para_r_avg) { res_r_2 = res_r_2 - s; } }
 	res_r_2 = (res_r_2 + blr_r_2) / (1.0 + b * 2.0);
 
 	for(int i = 6; i < 8; i++) {
 		blr_r_3 = blr_r_3 + nhv_r[i] * b;
-		if(nhv_r[i] >= eval4_f[i*8+0] && nhv_r[i] <= eval4_f[i*8+1]) { res_r_3 = res_r_3 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+2] && nhv_r[i] <= eval4_f[i*8+3]) { res_r_3 = res_r_3 - s; }
-		if(nhv_r[i] >= eval4_f[i*8+4] && nhv_r[i] <= eval4_f[i*8+5]) { res_r_3 = res_r_3 + s; }
-		if(nhv_r[i] >= eval4_f[i*8+6] && nhv_r[i] <= eval4_f[i*8+7]) { res_r_3 = res_r_3 - s; } }
+		if(nhv_r[i] >= eval4_f[i*8+0] * para_r_avg && nhv_r[i] <= eval4_f[i*8+1] * para_r_avg) { res_r_3 = res_r_3 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+2] * para_r_avg && nhv_r[i] <= eval4_f[i*8+3] * para_r_avg) { res_r_3 = res_r_3 - s; }
+		if(nhv_r[i] >= eval4_f[i*8+4] * para_r_avg && nhv_r[i] <= eval4_f[i*8+5] * para_r_avg) { res_r_3 = res_r_3 + s; }
+		if(nhv_r[i] >= eval4_f[i*8+6] * para_r_avg && nhv_r[i] <= eval4_f[i*8+7] * para_r_avg) { res_r_3 = res_r_3 - s; } }
 	res_r_3 = (res_r_3 + blr_r_3) / (1.0 + b * 2.0);
 
 	float res_g_0  = ref_g;
@@ -417,34 +476,34 @@ void main() {
 
 	for(int i = 8; i < 10; i++) {
 		blr_g_0 = blr_g_0 + nhv_g[i-8] * b;
-		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_0 = res_g_0 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_0 = res_g_0 - s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_0 = res_g_0 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_0 = res_g_0 - s; } }
+		if(nhv_g[i-8] >= eval4_f[i*8+0] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+1] * para_g_avg) { res_g_0 = res_g_0 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+3] * para_g_avg) { res_g_0 = res_g_0 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+5] * para_g_avg) { res_g_0 = res_g_0 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+7] * para_g_avg) { res_g_0 = res_g_0 - s; } }
 	res_g_0 = (res_g_0 + blr_g_0) / (1.0 + b * 2.0);
 
 	for(int i = 10; i < 12; i++) {
 		blr_g_1 = blr_g_1 + nhv_g[i-8] * b;
-		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_1 = res_g_1 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_1 = res_g_1 - s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_1 = res_g_1 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_1 = res_g_1 - s; } }
+		if(nhv_g[i-8] >= eval4_f[i*8+0] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+1] * para_g_avg) { res_g_1 = res_g_1 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+3] * para_g_avg) { res_g_1 = res_g_1 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+5] * para_g_avg) { res_g_1 = res_g_1 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+7] * para_g_avg) { res_g_1 = res_g_1 - s; } }
 	res_g_1 = (res_g_1 + blr_g_1) / (1.0 + b * 2.0);
 
 	for(int i = 12; i < 14; i++) {
 		blr_g_2 = blr_g_2 + nhv_g[i-8] * b;
-		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_2 = res_g_2 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_2 = res_g_2 - s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_2 = res_g_2 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_2 = res_g_2 - s; } }
+		if(nhv_g[i-8] >= eval4_f[i*8+0] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+1] * para_g_avg) { res_g_2 = res_g_2 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+3] * para_g_avg) { res_g_2 = res_g_2 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+5] * para_g_avg) { res_g_2 = res_g_2 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+7] * para_g_avg) { res_g_2 = res_g_2 - s; } }
 	res_g_2 = (res_g_2 + blr_g_2) / (1.0 + b * 2.0);
 
 	for(int i = 14; i < 16; i++) {
 		blr_g_3 = blr_g_3 + nhv_g[i-8] * b;
-		if(nhv_g[i-8] >= eval4_f[i*8+0] && nhv_g[i-8] <= eval4_f[i*8+1]) { res_g_3 = res_g_3 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+2] && nhv_g[i-8] <= eval4_f[i*8+3]) { res_g_3 = res_g_3 - s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+4] && nhv_g[i-8] <= eval4_f[i*8+5]) { res_g_3 = res_g_3 + s; }
-		if(nhv_g[i-8] >= eval4_f[i*8+6] && nhv_g[i-8] <= eval4_f[i*8+7]) { res_g_3 = res_g_3 - s; } }
+		if(nhv_g[i-8] >= eval4_f[i*8+0] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+1] * para_g_avg) { res_g_3 = res_g_3 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+2] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+3] * para_g_avg) { res_g_3 = res_g_3 - s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+4] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+5] * para_g_avg) { res_g_3 = res_g_3 + s; }
+		if(nhv_g[i-8] >= eval4_f[i*8+6] * para_g_avg && nhv_g[i-8] <= eval4_f[i*8+7] * para_g_avg) { res_g_3 = res_g_3 - s; } }
 	res_g_3 = (res_g_3 + blr_g_3) / (1.0 + b * 2.0);
 
 	float res_b_0  = ref_b;
@@ -458,34 +517,34 @@ void main() {
 
 	for(int i = 16; i < 18; i++) {
 		blr_b_0 = blr_b_0 + nhv_b[i-16] * b;
-		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_0 = res_b_0 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_0 = res_b_0 - s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_0 = res_b_0 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_0 = res_b_0 - s; } }
+		if(nhv_b[i-16] >= eval4_f[i*8+0] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+1] * para_b_avg) { res_b_0 = res_b_0 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+3] * para_b_avg) { res_b_0 = res_b_0 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+5] * para_b_avg) { res_b_0 = res_b_0 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+7] * para_b_avg) { res_b_0 = res_b_0 - s; } }
 	res_b_0 = (res_b_0 + blr_b_0) / (1.0 + b * 2.0);
 
 	for(int i = 18; i < 20; i++) {
 		blr_b_1 = blr_b_1 + nhv_b[i-16] * b;
-		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_1 = res_b_1 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_1 = res_b_1 - s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_1 = res_b_1 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_1 = res_b_1 - s; } }
+		if(nhv_b[i-16] >= eval4_f[i*8+0] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+1] * para_b_avg) { res_b_1 = res_b_1 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+3] * para_b_avg) { res_b_1 = res_b_1 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+5] * para_b_avg) { res_b_1 = res_b_1 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+7] * para_b_avg) { res_b_1 = res_b_1 - s; } }
 	res_b_1 = (res_b_1 + blr_b_1) / (1.0 + b * 2.0);
 
 	for(int i = 20; i < 22; i++) {
 		blr_b_2 = blr_b_2 + nhv_b[i-16] * b;
-		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_2 = res_b_2 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_2 = res_b_2 - s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_2 = res_b_2 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_2 = res_b_2 - s; } }
+		if(nhv_b[i-16] >= eval4_f[i*8+0] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+1] * para_b_avg) { res_b_2 = res_b_2 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+3] * para_b_avg) { res_b_2 = res_b_2 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+5] * para_b_avg) { res_b_2 = res_b_2 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+7] * para_b_avg) { res_b_2 = res_b_2 - s; } }
 	res_b_2 = (res_b_2 + blr_b_2) / (1.0 + b * 2.0);
 
 	for(int i = 22; i < 24; i++) {
 		blr_b_3 = blr_b_3 + nhv_b[i-16] * b;
-		if(nhv_b[i-16] >= eval4_f[i*8+0] && nhv_b[i-16] <= eval4_f[i*8+1]) { res_b_3 = res_b_3 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+2] && nhv_b[i-16] <= eval4_f[i*8+3]) { res_b_3 = res_b_3 - s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+4] && nhv_b[i-16] <= eval4_f[i*8+5]) { res_b_3 = res_b_3 + s; }
-		if(nhv_b[i-16] >= eval4_f[i*8+6] && nhv_b[i-16] <= eval4_f[i*8+7]) { res_b_3 = res_b_3 - s; } }
+		if(nhv_b[i-16] >= eval4_f[i*8+0] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+1] * para_b_avg) { res_b_3 = res_b_3 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+2] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+3] * para_b_avg) { res_b_3 = res_b_3 - s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+4] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+5] * para_b_avg) { res_b_3 = res_b_3 + s; }
+		if(nhv_b[i-16] >= eval4_f[i*8+6] * para_b_avg && nhv_b[i-16] <= eval4_f[i*8+7] * para_b_avg) { res_b_3 = res_b_3 - s; } }
 	res_b_3 = (res_b_3 + blr_b_3) / (1.0 + b * 2.0);
 
 	int vir = 0;
@@ -527,40 +586,8 @@ void main() {
 	if(vib == 2) { res_b = res_b_2; }
 	if(vib == 3) { res_b = res_b_3; }
 
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Channel Communication
-//	----    ----    ----    ----    ----    ----    ----    ----
-/*
-	float 	nhr_blur = 0.0;
-	for(int i = 0; i < SCNH_COUNT_CHAN; i++) { nhr_blur = nhr_blur + nhv_r[i]; }
-			nhr_blur = nhr_blur / float(SCNH_COUNT_CHAN);
-
-	float 	nhg_blur = 0.0;
-	for(int i = 0; i < SCNH_COUNT_CHAN; i++) { nhg_blur = nhg_blur + nhv_g[i]; }
-			nhg_blur = nhg_blur / float(SCNH_COUNT_CHAN);
-
-	float 	nhb_blur = 0.0;
-	for(int i = 0; i < SCNH_COUNT_CHAN; i++) { nhb_blur = nhb_blur + nhv_b[i]; }
-			nhb_blur = nhb_blur / float(SCNH_COUNT_CHAN);
-
-//	Interpolate
-	float	inp_r = (res_r 	  	* 1.0 	+ nhg_blur 	*  li 	+ nhb_blur 	*  li	) / ( 1.0 + li * 2.0 );
-	float	inp_g = (nhr_blur 	*  li 	+ res_g 	* 1.0 	+ nhb_blur 	*  li	) / ( 1.0 + li * 2.0 );
-	float	inp_b = (nhr_blur 	*  li	+ nhg_blur 	*  li 	+ res_b 	* 1.0	) / ( 1.0 + li * 2.0 );
-	res_r = inp_r;
-	res_g = inp_g;
-	res_b = inp_b;
-/**/
-//	Unterpolate
-/*	float	unp_r = (res_r 	  	* 1.0 	+ res_g 	* -lu 	+ res_b 	* -lu	) / ( 1.0 - lu * 2.0 );
-	float	unp_g = (res_r 		* -lu 	+ res_g 	* 1.0 	+ res_b 	* -lu	) / ( 1.0 - lu * 2.0 );
-	float	unp_b = (res_r 		* -lu	+ res_g 	* -lu 	+ res_b 	* 1.0	) / ( 1.0 - lu * 2.0 );
-	res_r = unp_r;
-	res_g = unp_g;
-	res_b = unp_b;
-/**/
 //	Cyclic
-	float[6] cyw;
+/*	float[6] cyw;
 		cyw[0] = cy *  1.0;
 		cyw[1] = cy * -1.0;
 		cyw[2] = cy *  1.0;
@@ -573,9 +600,33 @@ void main() {
 	res_r = cyc_r; res_g = cyc_g; res_b = cyc_b;
 /**/
 
+//	Interpolate
+/*	vec3 nhdt_rb = nhd(ivec2(1,0), origin, psn, 0.0, 0);
+	vec3 nhdt_gb = nhd(ivec2(1,0), origin, psn, 0.0, 1);
+	vec3 nhdt_bb = nhd(ivec2(1,0), origin, psn, 0.0, 2);
+	float dt_rb = nhdt_rb[0] / nhdt_rb[2];
+	float dt_gb = nhdt_gb[0] / nhdt_gb[2];
+	float dt_bb = nhdt_bb[0] / nhdt_bb[2];
+	float	inp_r = (res_r 	* 1.0 	+ dt_gb *  li 	+ dt_bb *  li	) / ( 1.0 + li * 2.0 );
+	float	inp_g = (dt_rb 	*  li 	+ res_g * 1.0 	+ dt_bb	*  li	) / ( 1.0 + li * 2.0 );
+	float	inp_b = (dt_rb 	*  li	+ dt_gb *  li 	+ res_b * 1.0	) / ( 1.0 + li * 2.0 );
+	res_r = inp_r;
+	res_g = inp_g;
+	res_b = inp_b;
+/**/
+//	Unterpolate
+/*	float	unp_r = (res_r 	  	* 1.0 	+ res_g 	* -lu 	+ res_b 	* -lu	) / ( 1.0 - lu * 2.0 );
+	float	unp_g = (res_r 		* -lu 	+ res_g 	* 1.0 	+ res_b 	* -lu	) / ( 1.0 - lu * 2.0 );
+	float	unp_b = (res_r 		* -lu	+ res_g 	* -lu 	+ res_b 	* 1.0	) / ( 1.0 - lu * 2.0 );
+	res_r = unp_r;
+	res_g = unp_g;
+	res_b = unp_b;
+/**/
+
 	res_r = res_r - n;
 	res_g = res_g - n;
 	res_b = res_b - n;
+
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Presentation Filtering
@@ -585,15 +636,26 @@ void main() {
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	if(ub.frame == 0 || minfo[3] == 1) { res_r = reseed(0); res_g = reseed(1); res_b = reseed(2); }
-	if(minfo[3] == 4 && wsize[3] == 1) { res_r = gentle_seed(res_r, 0); res_g = gentle_seed(res_g, 1); res_b = gentle_seed(res_b, 2); }
-	if(minfo[3] == 2) { res_r = 0.0; res_g = 0.0; res_b = 0.0; }
+	if(ub.frame == 0 || minfo[3] == 1) { 
+		res_r = reseed(0); res_g = reseed(1); res_b = reseed(2); }
+
+	if(minfo[3] == 2) { 
+		res_r = 0.0; res_g = 0.0; res_b = 0.0; }
 
 	vec3 	col = vec3( res_r, res_g, res_b );
 	if(minfo[3] == 3) { col = sym_seed(col, wsize); }
 			col = ( minfo[2] == 1 || minfo[2] == 3 ) ? place(col, minfo) : col;
 
-	out_col = vec4(col, 1.0);
+	if(minfo[3] == 14) {
+		int subwindow = 3;
+		if(fc[0] > (wsize[0]/subwindow)*(subwindow-1) && fc[1] > (wsize[1]/subwindow)*(subwindow-1)) {
+			float wsx = ((fc[0]) * (subwindow-1)) + wsize[0];
+			float wsy = ((fc[1]) * (subwindow-1)) + wsize[1];
+			col[0] = para_val( ivec2(wsx, wsy), 0 );
+			col[1] = para_val( ivec2(wsx, wsy), 1 );
+			col[2] = para_val( ivec2(wsx, wsy), 2 ); } }
+
+	out_col = vec4(col[0], col[1], col[2], 1.0);
 
 }
 
