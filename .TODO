@@ -1,0 +1,9 @@
+Convert: BGR format
+Mode: X/Y Scale selection
+Application: Shader & Savefile Selection
+Application: User Interface & Menu
+Is uniform buffer or reading from a 1D texture faster?
+UserConfig.ini
+Test on other systems
+Error handling for IO
+Optional modes for IO

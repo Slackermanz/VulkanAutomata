@@ -56,6 +56,7 @@ layout(constant_id 	= 46) const 	uint SCUI46 = 0;
 layout(constant_id 	= 47) const 	uint SCUI47 = 0;
 layout(location 	=  0) out 		vec4 out_col;
 layout(binding 		=  1) uniform 	sampler2D txdata;
+layout(binding 		=  2) uniform 	sampler2D txpara;
 layout(binding 		=  0) uniform 	UniBuf {
 	uint wsize;
 	uint frame;
@@ -76,7 +77,7 @@ layout(binding 		=  0) uniform 	UniBuf {
 	float scale;
 	float zoom; } ub;
 
-const int MAXSNH = 16;
+const int MAXSNH = 12;
 const int SCNH_COUNT = 24;
 
 ivec4 wsize_unpack(uint ui32) {
@@ -133,6 +134,18 @@ float gdv(ivec2 off, int v) {
 	vec4 	pxdata 	= texelFetch( txdata, ivec2(cx, cy), 0);
 	return 	pxdata[v]; }
 
+float para_val(ivec2 off, int v) {
+//	Get Div Value: Return the value of a specified pixel
+//		x, y : 	Relative integer-spaced coordinates to origin [ 0.0, 0.0 ]
+//		v	 :	Colour channel [ 0, 1, 2 ]
+	ivec4	dm		= wsize_unpack(ub.wsize);
+	vec4 	fc 		= gl_FragCoord;
+	vec2	dc		= vec2( dm[0]/dm[2], dm[1]/dm[2] );
+	float	cx		= mod(fc[0]+off[0], dc[0]) + floor(fc[0]/dc[0])*dc[0];
+	float	cy		= mod(fc[1]+off[1], dc[1]) + floor(fc[1]/dc[1])*dc[1];
+	vec4 	pxdata 	= texelFetch( txpara, ivec2(cx, cy), 0);
+	return 	pxdata[v]; }
+
 vec3 nhd( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
 //	Neighbourhood: Return information about the specified group of pixels
 	float dist 		= 0.0;
@@ -145,6 +158,25 @@ vec3 nhd( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
 			dist = round(sqrt(i*i+j*j));
 			if( dist <= nbhd[0] && dist > nbhd[1] && dist != 0.0 ) {
 				cval = gdv(ivec2(i+ofst[0],j+ofst[1]),col);
+				c_total += psn;
+				if( cval > thr ) {
+					c_valid += psn;
+					cval = psn * cval;
+					c_value += cval-fract(cval); } } } }
+	return vec3( c_value, c_valid, c_total ); }
+
+vec3 nhd_para( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
+//	Neighbourhood: Return information about the specified group of pixels
+	float dist 		= 0.0;
+	float cval 		= 0.0;
+	float c_total 	= 0.0;
+	float c_valid 	= 0.0;
+	float c_value 	= 0.0;
+	for(float i = -nbhd[0]; i <= nbhd[0]; i+=1.0) {
+		for(float j = -nbhd[0]; j <= nbhd[0]; j+=1.0) {
+			dist = round(sqrt(i*i+j*j));
+			if( dist <= nbhd[0] && dist > nbhd[1] && dist != 0.0 ) {
+				cval = para_val(ivec2(i+ofst[0],j+ofst[1]),col);
 				c_total += psn;
 				if( cval > thr ) {
 					c_valid += psn;
@@ -221,8 +253,8 @@ float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
 float reseed(int seed) {
 	vec4	fc = gl_FragCoord;
 	float 	r0 = get_lump(fc[0], fc[1],  2.0, 19.0 + mod(ub.frame+seed,17.0), 23.0 + mod(ub.frame+seed,43.0));
-	float 	r1 = get_lump(fc[0], fc[1], 12.0, 13.0 + mod(ub.frame+seed,29.0), 17.0 + mod(ub.frame+seed,31.0));
-	float 	r2 = get_lump(fc[0], fc[1],  8.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
+	float 	r1 = get_lump(fc[0], fc[1], 14.0, 13.0 + mod(ub.frame+seed,29.0), 17.0 + mod(ub.frame+seed,31.0));
+	float 	r2 = get_lump(fc[0], fc[1],  6.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
 	return clamp((r0+r1)-r2,0.0,1.0); }
 
 float gentle_seed(float val, int seed) {
@@ -266,6 +298,10 @@ void main() {
 	float 	ref_g 	= gdv( origin, 1 );
 	float 	ref_b 	= gdv( origin, 2 );
 
+	float	par_r	= para_val( origin, 0 );
+	float	par_g	= para_val( origin, 1 );
+	float	par_b	= para_val( origin, 2 );
+
 //	Output Values
 	float 	res_r 	= ref_r;
 	float 	res_g 	= ref_g;
@@ -277,10 +313,10 @@ void main() {
 		rings_r[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 0 ); }
 
 //	Parameters
-	float s  = mnp * 16.0 *  96.0;
-	float b  = mnp * 16.0 *  24.0;
-	float n  = mnp * 16.0 *   2.0;
-	float p  = mnp * 16.0 *  64.0;
+	float s  = mnp *  8.0 *  96.0;
+	float b  = mnp *  8.0 *  24.0;
+	float n  = mnp *  8.0 *   6.0;
+	float p  = mnp *  8.0 *  64.0;
 
 //	Get Neighbourhood Values
 	float[SCNH_COUNT] nhv_r;
@@ -342,9 +378,22 @@ void main() {
 		fc_scale = ((div_idx+1.0) / (wsize[2]*wsize[2])) * ub_scale; }
 	if(wsize[3] == 1) {
 		fc_scale = (((fc[0] / wsize[0]) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+	if(wsize[3] == 2) {
+		float distx = (fc[0]-(wsize[0]/2)) * (fc[0]-(wsize[0]/2));
+		float disty = (fc[1]-(wsize[1]/2)) * (fc[1]-(wsize[1]/2));
+		float dist  = sqrt(distx+disty);
+		float range = sqrt(((wsize[0]/2)*(wsize[0]/2))+((wsize[1]/2)*(wsize[1]/2))) * 0.75;
+		fc_scale = (((dist/range) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+
+	vec3 	para_nh_r 	= nhd_para(ivec2(8,0), origin, psn, 0.0, 0);
+	float	para_r_avg 	= para_nh_r[0] / para_nh_r[2];
+//			para_r_avg	= para_val(origin, 0);
+			para_r_avg 	= para_r_avg * 2.0 + 0.0;
+
+	if(wsize[3] == 1) { para_r_avg = 1.0; }
 
 	for(int i = 0; i < 48*4; i++) {
-		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * fc_scale; }
+		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * fc_scale * para_r_avg; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Transition Functions
@@ -529,15 +578,33 @@ void main() {
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	if(ub.frame == 0 || minfo[3] == 1) { res_r = reseed(0); res_g = 0.0; res_b = 0.0; }
-	if(minfo[3] == 4 && wsize[3] == 1) { res_r = gentle_seed(res_r, 0); }
-	if(minfo[3] == 2) { res_r = 0.0; res_g = 0.0; res_b = 0.0; }
+	if(ub.frame == 0 || minfo[3] == 1) { 
+		res_r = reseed(0); res_g = reseed(1); res_b = reseed(2); }
+	if(minfo[3] == 4 && (wsize[3] == 1 || wsize[3] == 2)) { 
+		res_r = gentle_seed(res_r, 0); res_g = gentle_seed(res_g, 1); res_b = gentle_seed(res_b, 2); }
+	if(minfo[3] == 2) { 
+		res_r = 0.0; res_g = 0.0; res_b = 0.0; }
 
 	vec3 	col = vec3( res_r, res_g, res_b );
 	if(minfo[3] == 3) { col = sym_seed(col, wsize); }
 			col = ( minfo[2] == 1 || minfo[2] == 3 ) ? place(col, minfo) : col;
 
-	out_col = vec4(col, 1.0);
+/*	col[1] = par_r;
+	col[2] = par_r;
+	int subwindow = 3;
+	if(fc[0] > (wsize[0]/subwindow)*(subwindow-1) && fc[1] > (wsize[1]/subwindow)*(subwindow-1)) {
+
+		float wsx = ((fc[0]) * (subwindow-1)) + wsize[0];
+		float wsy = ((fc[1]) * (subwindow-1)) + wsize[1];
+
+		col[0] = para_val( ivec2(wsx, wsy), 0 );
+		col[1] = para_val( ivec2(wsx, wsy), 1 );
+		col[2] = para_val( ivec2(wsx, wsy), 2 ); }
+/**/
+
+
+//	out_col = vec4(par_r, par_r, par_r, 1.0);
+	out_col = vec4(col[0], col[1], col[2], 1.0);
 
 }
 

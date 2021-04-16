@@ -56,6 +56,7 @@ layout(constant_id 	= 46) const 	uint SCUI46 = 0;
 layout(constant_id 	= 47) const 	uint SCUI47 = 0;
 layout(location 	=  0) out 		vec4 out_col;
 layout(binding 		=  1) uniform 	sampler2D txdata;
+layout(binding 		=  2) uniform 	sampler2D txpara;
 layout(binding 		=  0) uniform 	UniBuf {
 	uint wsize;
 	uint frame;
@@ -76,8 +77,9 @@ layout(binding 		=  0) uniform 	UniBuf {
 	float scale;
 	float zoom; } ub;
 
-const int MAXSNH = 16;
+const int MAXSNH = 10;
 const int SCNH_COUNT = 24;
+const int SCNH_COUNT_CHAN =  8;
 
 ivec4 wsize_unpack(uint ui32) {
 	ivec4 	wsize;
@@ -133,6 +135,18 @@ float gdv(ivec2 off, int v) {
 	vec4 	pxdata 	= texelFetch( txdata, ivec2(cx, cy), 0);
 	return 	pxdata[v]; }
 
+float para_val(ivec2 off, int v) {
+//	Get Div Value: Return the value of a specified pixel
+//		x, y : 	Relative integer-spaced coordinates to origin [ 0.0, 0.0 ]
+//		v	 :	Colour channel [ 0, 1, 2 ]
+	ivec4	dm		= wsize_unpack(ub.wsize);
+	vec4 	fc 		= gl_FragCoord;
+	vec2	dc		= vec2( dm[0]/dm[2], dm[1]/dm[2] );
+	float	cx		= mod(fc[0]+off[0], dc[0]) + floor(fc[0]/dc[0])*dc[0];
+	float	cy		= mod(fc[1]+off[1], dc[1]) + floor(fc[1]/dc[1])*dc[1];
+	vec4 	pxdata 	= texelFetch( txpara, ivec2(cx, cy), 0);
+	return 	pxdata[v]; }
+
 vec3 nhd( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
 //	Neighbourhood: Return information about the specified group of pixels
 	float dist 		= 0.0;
@@ -145,6 +159,25 @@ vec3 nhd( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
 			dist = round(sqrt(i*i+j*j));
 			if( dist <= nbhd[0] && dist > nbhd[1] && dist != 0.0 ) {
 				cval = gdv(ivec2(i+ofst[0],j+ofst[1]),col);
+				c_total += psn;
+				if( cval > thr ) {
+					c_valid += psn;
+					cval = psn * cval;
+					c_value += cval-fract(cval); } } } }
+	return vec3( c_value, c_valid, c_total ); }
+
+vec3 nhd_para( ivec2 nbhd, ivec2 ofst, float psn, float thr, int col ) {
+//	Neighbourhood: Return information about the specified group of pixels
+	float dist 		= 0.0;
+	float cval 		= 0.0;
+	float c_total 	= 0.0;
+	float c_valid 	= 0.0;
+	float c_value 	= 0.0;
+	for(float i = -nbhd[0]; i <= nbhd[0]; i+=1.0) {
+		for(float j = -nbhd[0]; j <= nbhd[0]; j+=1.0) {
+			dist = round(sqrt(i*i+j*j));
+			if( dist <= nbhd[0] && dist > nbhd[1] && dist != 0.0 ) {
+				cval = para_val(ivec2(i+ofst[0],j+ofst[1]),col);
 				c_total += psn;
 				if( cval > thr ) {
 					c_valid += psn;
@@ -220,10 +253,11 @@ float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
 	return xcaf; }
 float reseed(int seed) {
 	vec4	fc = gl_FragCoord;
-	float 	r0 = get_lump(fc[0], fc[1],  2.0, 19.0 + mod(ub.frame+seed,17.0), 23.0 + mod(ub.frame+seed,43.0));
-	float 	r1 = get_lump(fc[0], fc[1], 12.0, 13.0 + mod(ub.frame+seed,29.0), 17.0 + mod(ub.frame+seed,31.0));
-	float 	r2 = get_lump(fc[0], fc[1],  8.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
-	return clamp((r0+r1)-r2,0.0,1.0); }
+	float 	r0 = get_lump(fc[0], fc[1],  6.0, 19.0 + mod(ub.frame+seed,17.0), 23.0 + mod(ub.frame+seed,43.0));
+	float 	r1 = get_lump(fc[0], fc[1], 24.0, 13.0 + mod(ub.frame+seed,29.0), 17.0 + mod(ub.frame+seed,31.0));
+	float 	r2 = get_lump(fc[0], fc[1], 12.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
+	float 	r3 = get_lump(fc[0], fc[1], 18.0, 29.0 + mod(ub.frame+seed, 7.0), 61.0 + mod(ub.frame+seed,28.0));
+	return clamp( sqrt((r0+r1)*r3*2.0)-r2 , 0.0, 1.0); }
 
 float gentle_seed(float val, int seed) {
 	vec4	fc = gl_FragCoord;
@@ -236,7 +270,7 @@ float nh16_t_02(ivec2 nh, vec3[MAXSNH] rings){
 	float e1_sum = 0.0;
 	if(nh[0] == 0) { nh[0] = 1; }
 	if(nh[0] > MAXSNH) { nh[0] = MAXSNH; }
-	if(nh[0] <= nh[1]) { nh[1] = nh[0] - 1; }
+	if(nh[0] <= nh[1]) { nh[1] = 0; }
 	for(int i = nh[1]; i < nh[0]; i++) {
 		e0_sum = e0_sum + rings[i][0];
 		e1_sum = e1_sum + rings[i][2]; }
@@ -249,7 +283,7 @@ void main() {
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 	vec4	fc 		= gl_FragCoord;				//	Origin Pixel Coordinates
-	float 	psn		= 16384.0;					//	Texture Precision
+	float 	psn		= 65536.0;					//	Texture Precision
 	float 	mnp 	= 1.0 / psn;				//	Minimum value of a precise step
 	ivec4	wsize	= wsize_unpack(ub.wsize);	//	Layout Information
 	ivec4 	minfo 	= minfo_unpack(ub.minfo);	//	Mouse State Information
@@ -266,6 +300,10 @@ void main() {
 	float 	ref_g 	= gdv( origin, 1 );
 	float 	ref_b 	= gdv( origin, 2 );
 
+	float	par_r	= para_val( origin, 0 );
+	float	par_g	= para_val( origin, 1 );
+	float	par_b	= para_val( origin, 2 );
+
 //	Output Values
 	float 	res_r 	= ref_r;
 	float 	res_g 	= ref_g;
@@ -276,11 +314,21 @@ void main() {
 	for(int i = 0; i < MAXSNH; i++) {
 		rings_r[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 0 ); }
 
+	vec3[MAXSNH] rings_g;
+	for(int i = 0; i < MAXSNH; i++) {
+		rings_g[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 1 ); }
+
+	vec3[MAXSNH] rings_b;
+	for(int i = 0; i < MAXSNH; i++) {
+		rings_b[i] = nhd( ivec2(i+1, i), origin, psn, 0.0, 2 ); }
+
 //	Parameters
-	float s  = mnp * 16.0 *  96.0;
+	float s  = mnp * 16.0 *  64.0;
 	float b  = mnp * 16.0 *  24.0;
-	float n  = mnp * 16.0 *   2.0;
-	float p  = mnp * 16.0 *  64.0;
+	float n  = mnp * 16.0 *   8.0;
+	float cy = mnp * 16.0 *   1.0 * ub.scale;
+	float li = mnp * 16.0 *  32.0;
+	float lu = mnp * 16.0 *  16.0;
 
 //	Get Neighbourhood Values
 	float[SCNH_COUNT] nhv_r;
@@ -338,13 +386,35 @@ void main() {
 	float 		zm_scale 	= ub.zoom;
 //				zm_scale 	= ((fc[1] / wsize[1]) / 2.0) - 0.5;
 
-	if(wsize[3] == 0) {
+	if(wsize[3] == 0 || wsize[3] == 3) {
 		fc_scale = ((div_idx+1.0) / (wsize[2]*wsize[2])) * ub_scale; }
 	if(wsize[3] == 1) {
 		fc_scale = (((fc[0] / wsize[0]) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+	if(wsize[3] == 2) {
+		float distx = (fc[0]-(wsize[0]/2)) * (fc[0]-(wsize[0]/2));
+		float disty = (fc[1]-(wsize[1]/2)) * (fc[1]-(wsize[1]/2));
+		float dist  = sqrt(distx+disty);
+		float range = sqrt(((wsize[0]/2)*(wsize[0]/2))+((wsize[1]/2)*(wsize[1]/2))) * 0.75;
+		fc_scale = (((dist/range) + zm_scale) * (ub_scale / (1.0 + zm_scale * 2.0))) * 2.0; }
+
+	vec3 	para_nh_r 	= nhd_para(ivec2(8,0), origin, psn, 0.0, 0);
+	float	para_r_avg 	= para_nh_r[0] / para_nh_r[2];
+			para_r_avg 	= para_r_avg * 2.0;
+
+	vec3 	para_nh_g 	= nhd_para(ivec2(8,0), origin, psn, 0.0, 1);
+	float	para_g_avg 	= para_nh_g[0] / para_nh_g[2];
+			para_g_avg 	= para_g_avg * 2.0;
+
+	vec3 	para_nh_b 	= nhd_para(ivec2(8,0), origin, psn, 0.0, 2);
+	float	para_b_avg 	= para_nh_b[0] / para_nh_b[2];
+			para_b_avg 	= para_b_avg * 2.0;
+
+//	para_r_avg = par_r * 2.0;
+
+	if(wsize[3] == 1 || wsize[3] == 3 || (wsize[3] == 0 && wsize[2] != 1)) { para_r_avg = 1.0; para_g_avg = 1.0; para_b_avg = 1.0; }
 
 	for(int i = 0; i < 48*4; i++) {
-		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * fc_scale; }
+		eval4_f[i] = (((1.0 / eval4[i]) * 1.5) - (0.3 * (1.0 / eval4[i]))) * fc_scale * para_r_avg; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Transition Functions
@@ -474,30 +544,30 @@ void main() {
 
 	int vir = 0;
 
-	float vari_0r 	= abs(ref_r - res_r_0);
-	float vari_1r 	= abs(ref_r - res_r_1);
-	float vari_2r 	= abs(ref_r - res_r_2);
-	float vari_3r 	= abs(ref_r - res_r_3);
-	float vari_4r 	= abs(ref_r - res_r_4);
-	float vari_5r 	= abs(ref_r - res_r_5);
-	float vari_6r 	= abs(ref_r - res_r_6);
-	float vari_7r 	= abs(ref_r - res_r_7);
-	float vari_8r  	= abs(ref_r - res_r_8);
-	float vari_9r  	= abs(ref_r - res_r_9);
-	float vari_10r 	= abs(ref_r - res_r_10);
-	float vari_11r 	= abs(ref_r - res_r_11);
+	float vari_0r 	= (ref_r - res_r_0);
+	float vari_1r 	= (ref_r - res_r_1);
+	float vari_2r 	= (ref_r - res_r_2);
+	float vari_3r 	= (ref_r - res_r_3);
+	float vari_4r 	= (ref_r - res_r_4);
+	float vari_5r 	= (ref_r - res_r_5);
+	float vari_6r 	= (ref_r - res_r_6);
+	float vari_7r 	= (ref_r - res_r_7);
+	float vari_8r  	= (ref_r - res_r_8);
+	float vari_9r  	= (ref_r - res_r_9);
+	float vari_10r 	= (ref_r - res_r_10);
+	float vari_11r 	= (ref_r - res_r_11);
 
-	if(vari_0r < vari_1r) 	{ vari_0r = vari_1r;  vir = 1; }
-	if(vari_0r < vari_2r) 	{ vari_0r = vari_2r;  vir = 2; }
-	if(vari_0r < vari_3r) 	{ vari_0r = vari_3r;  vir = 3; }
-	if(vari_0r < vari_4r) 	{ vari_0r = vari_4r;  vir = 4; }
-	if(vari_0r < vari_5r) 	{ vari_0r = vari_5r;  vir = 5; }
-	if(vari_0r < vari_6r) 	{ vari_0r = vari_6r;  vir = 6; }
-	if(vari_0r < vari_7r) 	{ vari_0r = vari_7r;  vir = 7; }
-	if(vari_0r < vari_8r) 	{ vari_0r = vari_8r;  vir = 8; }
-	if(vari_0r < vari_9r) 	{ vari_0r = vari_9r;  vir = 9; }
-	if(vari_0r < vari_10r) 	{ vari_0r = vari_10r; vir = 10; }
-	if(vari_0r < vari_11r) 	{ vari_0r = vari_11r; vir = 11; }
+	if(abs(vari_0r) < abs(vari_1r)) 	{ vari_0r = vari_1r;  vir = 1; }
+	if(abs(vari_0r) < abs(vari_2r)) 	{ vari_0r = vari_2r;  vir = 2; }
+	if(abs(vari_0r) < abs(vari_3r)) 	{ vari_0r = vari_3r;  vir = 3; }
+	if(abs(vari_0r) < abs(vari_4r)) 	{ vari_0r = vari_4r;  vir = 4; }
+	if(abs(vari_0r) < abs(vari_5r)) 	{ vari_0r = vari_5r;  vir = 5; }
+	if(abs(vari_0r) < abs(vari_6r)) 	{ vari_0r = vari_6r;  vir = 6; }
+	if(abs(vari_0r) < abs(vari_7r)) 	{ vari_0r = vari_7r;  vir = 7; }
+	if(abs(vari_0r) < abs(vari_8r)) 	{ vari_0r = vari_8r;  vir = 8; }
+	if(abs(vari_0r) < abs(vari_9r)) 	{ vari_0r = vari_9r;  vir = 9; }
+	if(abs(vari_0r) < abs(vari_10r)) 	{ vari_0r = vari_10r; vir = 10; }
+	if(abs(vari_0r) < abs(vari_11r)) 	{ vari_0r = vari_11r; vir = 11; }
 
 	if(vir == 0) 	{ res_r = res_r_0; }
 	if(vir == 1) 	{ res_r = res_r_1; }
@@ -513,31 +583,33 @@ void main() {
 	if(vir == 11) 	{ res_r = res_r_11; }
 
 	res_r = res_r - n;
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Presentation Filtering
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-	vec3 	n0g 	= nhd( ivec2(1,0), origin, psn, 0.0, 1 );
-	vec3 	n0b 	= nhd( ivec2(2,0), origin, psn, 0.0, 2 );
-	float 	n0gw 	= n0g[0] / n0g[2];
-	float 	n0bw 	= n0b[0] / n0b[2];
-	res_g = ( res_g + n0gw * p * 2.0 + res_r * p * 2.0 ) / (1.0 + p * 4.0);
-	res_b = ( res_b + n0bw * p * 1.0 + res_r * p * 1.0 ) / (1.0 + p * 2.0);
+	res_g = res_r;
+	res_b = res_r;
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	if(ub.frame == 0 || minfo[3] == 1) { res_r = reseed(0); res_g = 0.0; res_b = 0.0; }
-	if(minfo[3] == 4 && wsize[3] == 1) { res_r = gentle_seed(res_r, 0); }
-	if(minfo[3] == 2) { res_r = 0.0; res_g = 0.0; res_b = 0.0; }
+	if(ub.frame == 0 || minfo[3] == 1) { 
+		res_r = reseed(0); res_g = reseed(1); res_b = reseed(2); }
+
+	if(minfo[3] == 2) { 
+		res_r = 0.0; res_g = 0.0; res_b = 0.0; }
 
 	vec3 	col = vec3( res_r, res_g, res_b );
 	if(minfo[3] == 3) { col = sym_seed(col, wsize); }
 			col = ( minfo[2] == 1 || minfo[2] == 3 ) ? place(col, minfo) : col;
 
-	out_col = vec4(col, 1.0);
+	if(minfo[3] == 14) {
+		int subwindow = 3;
+		if(fc[0] > (wsize[0]/subwindow)*(subwindow-1) && fc[1] > (wsize[1]/subwindow)*(subwindow-1)) {
+			float wsx = ((fc[0]) * (subwindow-1)) + wsize[0];
+			float wsy = ((fc[1]) * (subwindow-1)) + wsize[1];
+			col[0] = para_val( ivec2(wsx, wsy), 0 );
+			col[1] = para_val( ivec2(wsx, wsy), 1 );
+			col[2] = para_val( ivec2(wsx, wsy), 2 ); } }
+
+	out_col = vec4(col[0], col[1], col[2], 1.0);
 
 }
 
