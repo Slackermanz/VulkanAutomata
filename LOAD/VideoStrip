@@ -1,0 +1,1 @@
+ffmpeg -i video.mp4 -vf scale=512:288 IMG%00d.PAM
