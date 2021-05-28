@@ -5,27 +5,28 @@ GPU-Accelerated Cellular Automata Render Engine using the Vulkan API
 
 Contacts & Networking:
 
-  https://slackermanz.com
+ - Website: https://slackermanz.com
 
-  Discord:    Slackermanz#3405
+ - Discord: Slackermanz#3405
 
-  Github:     https://github.com/Slackermanz
+ - Github: https://github.com/Slackermanz
 
-  Twitter:    https://twitter.com/slackermanz
+ - Twitter: https://twitter.com/slackermanz
 
-  YouTube:    https://www.youtube.com/c/slackermanz
+ - YouTube: https://www.youtube.com/c/slackermanz
 
-  Shadertoy:  https://www.shadertoy.com/user/SlackermanzCA
+ - Shadertoy: https://www.shadertoy.com/user/SlackermanzCA
 
-  Reddit:     https://old.reddit.com/user/slackermanz
+ - Reddit: https://old.reddit.com/user/slackermanz
 
 ---
 
-  Communities:
+Communities:
 
-    Reddit:     https://old.reddit.com/r/cellular_automata
+ - Reddit: https://old.reddit.com/r/cellular_automata
 
-    Discord:    https://discord.com/invite/J3phjtD
+ - Emergence Discord: https://discord.com/invite/J3phjtD
 
-    Discord:    https://discord.gg/BCuYCEn
+ - ConwayLifeLounge Discord: https://discord.gg/BCuYCEn
+
 
