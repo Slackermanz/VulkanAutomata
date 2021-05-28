@@ -167,7 +167,7 @@ void main() {
 	res_c[1] = res_c[0];
 	res_c[2] = res_c[0];
 
-	if(ub.v61 <= 200 || mc == 1) {
+	if(ub.v61 <= 0 || mc == 1) {
 		res_c[0] = reseed(0); 
 		res_c[1] = reseed(1); 
 		res_c[2] = reseed(2); }
