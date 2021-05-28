@@ -10,9 +10,9 @@
 	echo "  ./glslc -O ./dat/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv"
 	./glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
 	echo ""
-	echo "  g++ VulkanAutomata.cpp -fconcepts -lX11 -L/home/pseudo/vulkan-sdk/1.2.170.0/x86_64/lib/ -lvulkan -o ./app/RunVkAuto"
+	echo "  g++ VulkanAutomata.cpp -fconcepts -L/home/pseudo/vulkan-sdk/1.2.170.0/x86_64/lib/ -lvulkan -o ./app/RunVkAuto"
 	echo ""
-	g++ VulkanAutomata.cpp -fconcepts -lX11 -L/home/pseudo/vulkan-sdk/1.2.170.0/x86_64/lib/ -lvulkan -o ./app/RunVkAuto
+	g++ VulkanAutomata.cpp -fconcepts -L/home/pseudo/vulkan-sdk/1.2.170.0/x86_64/lib/ -lvulkan -o ./app/RunVkAuto
 	echo ""
 	echo "  BEGIN ./app/VulkanAutomata"
 	echo ""
