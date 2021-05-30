@@ -1,5 +1,10 @@
 #!/bin/bash
-	logfn="./vbk/VkAutoLog"$(date +%s)".log"
-	script -q -c './buildrun.sh' $logfn
-	echo '    file://'$(realpath $logfn)
-	echo " "
+	if [$1 == ""]
+	then 
+		echo "No Vulkan SDK folder specified!"
+	else
+		logfn="./vbk/VkAutoLog"$(date +%s)".log"
+		script -q -c "./buildrun.sh $1" $logfn
+		echo '    file://'$(realpath $logfn)
+		echo " "
+	fi

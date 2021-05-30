@@ -16,14 +16,11 @@
 //			Discord:	https://discord.com/invite/J3phjtD
 //			Discord:	https://discord.gg/BCuYCEn
 //
-//	Lenia test code based on the work of Bert Chan:
-//		Twitter:	https://twitter.com/BertChakovsky
-//		Github:		https://github.com/Chakazul/Lenia
-//
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 #version 460
 #define PI 3.14159265359
+const uint MAX_RADIUS = 16;
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -41,6 +38,10 @@ layout(binding 		=  0) uniform 	UniBuf {
 
 uint u32_upk(uint u32, uint bts, uint off) { return (u32 >> off) & ((1 << bts)-1); }
 
+float  tp(uint n, float s) 			{ return ((n+1)/256.0) * ((s*0.5)/128.0); }
+float utp(uint v, uint  w, uint o) 	{ return tp(u32_upk(v,w,w*o), 105.507401); }
+float bsn(uint v, uint  o) 			{ return u32_upk(v,1,o)*2-1.0; }
+
 vec3 gdc( ivec2 of, sampler2D tx ) {
 	const	float 	fx 		= gl_FragCoord[0];
 	const	float 	fy 		= gl_FragCoord[1];
@@ -57,8 +58,6 @@ float gdv( ivec2 of, sampler2D tx, int c ) {
 	const	vec3 pxdata = gdc( of, tx );
 	return 	pxdata[c]; }
 
-float bell(float x, float m, float s) { return exp(-(x-m)*(x-m)/s/s/2.0); }  // bell-shaped curve
-
 vec2 nbhd( ivec2 r, sampler2D tx, int c ) {
 	const	uint	tmx = 65536u;
 	const	uint	chk = 2147483648u / (
@@ -72,12 +71,18 @@ vec2 nbhd( ivec2 r, sampler2D tx, int c ) {
 	for(float i = -r[0]; i <= r[0]; i+=1.0) {
 		for(float j = -r[0]; j <= r[0]; j+=1.0) {
 					d = round(sqrt(i*i+j*j));
-			float	w = bell(d/r[0], 0.5, 0.15);
+			float	w = 1.0;
 			if( d <= r[0] && d > r[1] ) {
 				t  = gdv( ivec2(i,j), tx, c ) * w * psn;
 				a += t - fract(t);
 				b += w * psn; } } }
 	return vec2(a, b); }
+
+float bitring(vec2[MAX_RADIUS] rings, uint bits) {
+	float sum = 0.0; float tot = 0.0;
+	for(int i = 0; i < MAX_RADIUS; i++) {
+		if(u32_upk(bits, 1, i) == 1) { sum += rings[i][0]; tot += rings[i][1]; } }
+	return sum / tot; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -122,52 +127,75 @@ void main() {
 //	Shader Setup
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	const	float	fx 		= gl_FragCoord[0];
-	const	float	fy 		= gl_FragCoord[1];
 	const 	ivec2	origin  = ivec2(0, 0);
 	const	float 	mnp 	= 1.0 / 65536.0;			//	Minimum value of a precise step for 16-bit channel
-	const	uint	wx 		= u32_upk(ub.v63, 12,  0);
-	const	uint	wy 		= u32_upk(ub.v63, 12, 12);
-	const	uint	wv 		= u32_upk(ub.v63,  4, 24);
-	const	uint	wm 		= u32_upk(ub.v63,  4, 28);
-	const	uint	mx 		= u32_upk(ub.v62, 12,  4);
-	const	uint	my 		= u32_upk(ub.v62, 12, 16);
-	const	uint	mb 		= u32_upk(ub.v62,  4,  0);
-	const	uint	mc 		= u32_upk(ub.v62,  4, 28);
-	const	float 	pidx	= floor((fx*wv)/wx)			//	Panel Division Index
-							+ floor((fy*wv)/wy)*wv;
 	const	vec3	ref_c	= gdc( origin, txdata );	//	Origin value references
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Rule Initilisation
 //	----    ----    ----    ----    ----    ----    ----    ----
 
+	const	uint[4] scd = uint[4]
+	(	32766u, 		3472619019u, 	32752u, 		3675719802u 	);
+
+	const	uint[8] ubv = uint[8]
+	(	39879523u, 		526972426u, 	2727874005u, 	1461826227u, 
+		1300644632u, 	1298224u, 		95419984u, 		823214418u		);
+
+	const	uint[1] ubi = uint[1]
+	(	2390857921u 													);
+
 //	Parameters
-	const float dt 		= 0.020;    // time step
-	const float mu 		= 0.165;    // mu = growth center
-	const float sigma 	= 0.014;	// sigma = growth width
+	const	float 	s  = mnp *  64.0 *  96.0;
+	const	float 	n  = mnp *  64.0 *  16.0;
 
 //	Output Values
 	vec3 res_c = ref_c;
 
+//	NH Rings
+	vec2[MAX_RADIUS] nh_rings_r;
+	for(int i = 0; i < MAX_RADIUS; i++) {
+		nh_rings_r[i] = nbhd( ivec2(i+1,i), txdata, 0 ); }
+
+	float[4] nhv_r;
+	for(int i = 0; i < 4; i++) {
+		nhv_r[i] = bitring(nh_rings_r, scd[i]); }
+
 //	----    ----    ----    ----    ----    ----    ----    ----
-//	Transition Functions
+//	Update Functions
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	vec2  avgnh		= nbhd(ivec2(15,0), txdata, 0);
-	float avg		= avgnh[0] / avgnh[1];
-	float growth 	= bell(avg, mu, sigma) * 2.0 - 1.0;
-	float c 		= clamp(ref_c[0] + dt * growth,0.0,1.0);
+	const int bt = 8;
+
+	if( nhv_r[0] >= utp(ubv[0],bt,0) && nhv_r[0] <= utp(ubv[0],bt,1) ) { res_c[0] += bsn(ubi[0], 0)*s; }
+	if( nhv_r[0] >= utp(ubv[0],bt,2) && nhv_r[0] <= utp(ubv[0],bt,3) ) { res_c[0] += bsn(ubi[0], 1)*s; }
+	if( nhv_r[0] >= utp(ubv[1],bt,0) && nhv_r[0] <= utp(ubv[1],bt,1) ) { res_c[0] += bsn(ubi[0], 2)*s; }
+	if( nhv_r[0] >= utp(ubv[1],bt,2) && nhv_r[0] <= utp(ubv[1],bt,3) ) { res_c[0] += bsn(ubi[0], 3)*s; }
+
+	if( nhv_r[1] >= utp(ubv[2],bt,0) && nhv_r[1] <= utp(ubv[2],bt,1) ) { res_c[0] += bsn(ubi[0], 4)*s; }
+	if( nhv_r[1] >= utp(ubv[2],bt,2) && nhv_r[1] <= utp(ubv[2],bt,3) ) { res_c[0] += bsn(ubi[0], 5)*s; }
+	if( nhv_r[1] >= utp(ubv[3],bt,0) && nhv_r[1] <= utp(ubv[3],bt,1) ) { res_c[0] += bsn(ubi[0], 6)*s; }
+	if( nhv_r[1] >= utp(ubv[3],bt,2) && nhv_r[1] <= utp(ubv[3],bt,3) ) { res_c[0] += bsn(ubi[0], 7)*s; }
+
+	if( nhv_r[2] >= utp(ubv[4],bt,0) && nhv_r[2] <= utp(ubv[4],bt,1) ) { res_c[0] += bsn(ubi[0], 8)*s; }
+	if( nhv_r[2] >= utp(ubv[4],bt,2) && nhv_r[2] <= utp(ubv[4],bt,3) ) { res_c[0] += bsn(ubi[0], 9)*s; }
+	if( nhv_r[2] >= utp(ubv[5],bt,0) && nhv_r[2] <= utp(ubv[5],bt,1) ) { res_c[0] += bsn(ubi[0],10)*s; }
+	if( nhv_r[2] >= utp(ubv[5],bt,2) && nhv_r[2] <= utp(ubv[5],bt,3) ) { res_c[0] += bsn(ubi[0],11)*s; }
+
+	if( nhv_r[3] >= utp(ubv[6],bt,0) && nhv_r[3] <= utp(ubv[6],bt,1) ) { res_c[0] += bsn(ubi[0],12)*s; }
+	if( nhv_r[3] >= utp(ubv[6],bt,2) && nhv_r[3] <= utp(ubv[6],bt,3) ) { res_c[0] += bsn(ubi[0],13)*s; }
+	if( nhv_r[3] >= utp(ubv[7],bt,0) && nhv_r[3] <= utp(ubv[7],bt,1) ) { res_c[0] += bsn(ubi[0],14)*s; }
+	if( nhv_r[3] >= utp(ubv[7],bt,2) && nhv_r[3] <= utp(ubv[7],bt,3) ) { res_c[0] += bsn(ubi[0],15)*s; }
+
+	res_c[0] -= n;
+	res_c[1] = res_c[0];
+	res_c[2] = res_c[0];
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	res_c[0] = c;
-	res_c[1] = res_c[0];
-	res_c[2] = res_c[0];
-
-	if(ub.v61 <= 0 || mc == 1) {
+	if(ub.v61 <= 0) {
 		res_c[0] = reseed(0); 
 		res_c[1] = reseed(1); 
 		res_c[2] = reseed(2); }
