@@ -20,20 +20,20 @@
 	g2="gif/VKAutomata"$sf"_GTWT2.gif"
 
 	echo "                  [1/3] "$v0
-	ffmpeg -loglevel 4 -framerate 60 -i out/IMG%00d.PAM -c:v libx264 -crf 18 -movflags +faststart -vf 'colorchannelmixer=rr=0:rb=1:br=1:bb=0' -pix_fmt yuv420p $v0
-	echo "                  [2/3] "$v1
-	ffmpeg -loglevel 4 -framerate 60 -i out/IMG%00d.PAM -c:v libx264 -crf 24 -movflags +faststart -vf 'colorchannelmixer=rr=0:rb=1:br=1:bb=0' -pix_fmt yuv420p $v1
+	ffmpeg -loglevel 4 -framerate 60 -i out/IMG%00d.PAM -c:v libx264 -crf 18 -movflags +faststart -pix_fmt yuv420p $v0
+#	echo "                  [2/3] "$v1
+#	ffmpeg -loglevel 4 -framerate 60 -i out/IMG%00d.PAM -c:v libx264 -crf 24 -movflags +faststart -vf 'colorchannelmixer=rr=0:rb=1:br=1:bb=0' -pix_fmt yuv420p $v1
 	echo "                  [3/3] "$v2
-	ffmpeg -loglevel 4 -framerate 60 -i out/IMG%00d.PAM -c:v libx264 -crf 20 -movflags +faststart -vf 'scale=iw*4:ih*4:flags=neighbor, colorchannelmixer=rr=0:rb=1:br=1:bb=0' -pix_fmt yuv420p $v2
+	ffmpeg -loglevel 4 -framerate 60 -i out/IMG%00d.PAM -c:v libx264 -crf 20 -movflags +faststart -vf 'scale=iw*4:ih*4:flags=neighbor' -pix_fmt yuv420p $v2
 
-	echo "                  [1/2] "$gs
-	ffmpeg -loglevel 4 -framerate 30 -i out/IMG%00d.PAM -vf "colorchannelmixer=rr=0:rb=1:br=1:bb=0, select='not(mod(n,1))',setpts=N/30/TB" $gs
+#	echo "                  [1/2] "$gs
+#	ffmpeg -loglevel 4 -framerate 30 -i out/IMG%00d.PAM -vf "colorchannelmixer=rr=0:rb=1:br=1:bb=0, select='not(mod(n,1))',setpts=N/30/TB" $gs
 
-	gsize=$(ls -s $gs | cut -d' ' -f 1)
-	files=$(ls ./out | wc -l)
-	let gsmod=($gsize/12288)+1
+#	gsize=$(ls -s $gs | cut -d' ' -f 1)
+#	files=$(ls ./out | wc -l)
+#	let gsmod=($gsize/12288)+1
 
-	echo "                  [2/2] "$gf
-	ffmpeg -loglevel 4 -framerate 30 -i out/IMG%00d.PAM -vf "colorchannelmixer=rr=0:rb=1:br=1:bb=0, select='not(mod(n,"$gsmod"))',setpts=N/30/TB" $gf
+#	echo "                  [2/2] "$gf
+#	ffmpeg -loglevel 4 -framerate 30 -i out/IMG%00d.PAM -vf "colorchannelmixer=rr=0:rb=1:br=1:bb=0, select='not(mod(n,"$gsmod"))',setpts=N/30/TB" $gf
 
-	rm $gs
+#	rm $gs

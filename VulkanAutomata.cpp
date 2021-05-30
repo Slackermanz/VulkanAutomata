@@ -9,8 +9,8 @@
 const 	uint32_t 	VERT_FLS 		= 1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		= 1;	//	Number of Fragment Shader Files
 
-		int loglevel 	= 3;
-		int valid 		= 1;
+		int loglevel 	=  0;
+		int valid 		=  1;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 //	Vulkan validation layer message output
@@ -64,7 +64,7 @@ void ov(const std::string& id, auto v) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-	if(loglevel >= 0 || 1) {
+	if(loglevel >= 0) {
 		std::cout << "\tinfo:\t    " << id << pad << " [" << v << "]\n"; } }
 
 void iv(const std::string& id, auto ov, int idx) {
@@ -228,15 +228,14 @@ struct VK_QueueSync {
 	VkFence				vk_fence;
 };
 
-// TODO [2] = implementation specific ?
 struct VK_DescSetLayout {
 	VkDescriptorSetLayoutBinding		set_bind[2];
 	VkDescriptorSetLayoutCreateInfo		set_info;
 	VkDescriptorPoolSize				pool_size[2];
-	VkDescriptorPoolCreateInfo			pool_info[2];
+	VkDescriptorPoolCreateInfo			pool_info;
 	VkDescriptorSetLayout				vk_desc_set_layout;
-	VkDescriptorPool					vk_desc_pool[2];
-	VkDescriptorSetAllocateInfo			allo_info[2];
+	VkDescriptorPool					vk_desc_pool;
+	VkDescriptorSetAllocateInfo			allo_info;
 	VkDescriptorSet						vk_descriptor_set[2];
 };
 
@@ -299,6 +298,7 @@ uint32_t minfo_pack(MInfo mi) {
 void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h) {
 	fname = "out/" + fname + ".PAM";
 	ov("Save Image", fname);
+	std::cout << fname << "\n";
 	std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
 		file 	<<	"P7" 							<< "\n"
 			 	<< 	"WIDTH "	<< w 				<< "\n"
@@ -335,8 +335,6 @@ int main(void) {
 
 	const	uint32_t 	APP_W 			= 512;		//	1920 1536 1280	768	512	384	256
 	const	uint32_t 	APP_H 			= 288;		//	1080 864  720	432	288	216	144
-	const	long 		FPS 			= 0;
-	const	long 		NS_DELAY 		= (FPS==0) ? 1 : 1000000000 / FPS; 				//	Nanosecond Delay
 
 	const	float 		TRIQUAD_SCALE 	= 1.0;											//	Vertex Shader Triangle Scale
 	const	float 		VP_SCALE 		= TRIQUAD_SCALE + (1.0-TRIQUAD_SCALE) * 0.5;	//	Vertex Shader Viewport Scale
@@ -360,7 +358,6 @@ int main(void) {
 //	Config Notification Messages
 	ov("Application Width", 	APP_W	);
 	ov("Application Height", 	APP_H	);
-	ov("FPS Target", 			FPS		);
 	for(int i = 0; i < VERT_FLS; i++) {	iv("Vertex Shaders", 			filepath_vert[i], 		i ); }
 	for(int i = 0; i < FRAG_FLS; i++) {	iv("Fragment Shaders", 			filepath_frag[i], 		i ); }
 	for(int i = 0; i < INST_EXS; i++) {	iv("Instance Extensions", 		instance_extensions[i], i ); }
@@ -471,7 +468,6 @@ int main(void) {
 			vkGetPhysicalDeviceFeatures(pdev[i].vk_pdev, &pdev[i].vk_pdev_feats); }
 
 //	Find a valid physical device (GPU) to use
-
 	uint32_t PDev_TypeList[5] = { 2, 1, 3, 4, 0 };
 	for(int j = 0; j < 5; j++) {
 		if(PDev_Index == UINT32_MAX) {
@@ -884,7 +880,6 @@ int main(void) {
 		combuf_work_init[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
 
 	VK_Command combuf_work_loop[2];
-		
 	for(int i = 0; i < 2; i++) {
 		combuf_work_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		combuf_work_loop[i].pool_info.pNext							= NULL;
@@ -1058,56 +1053,60 @@ int main(void) {
 		dsl_work.set_info.pBindings					= dsl_work.set_bind;
 
 		dsl_work.pool_size[0].type 					= dsl_work.set_bind[0].descriptorType;
-		dsl_work.pool_size[0].descriptorCount 		= 3;	// ??? TODO
+		dsl_work.pool_size[0].descriptorCount 		= 2;
 		dsl_work.pool_size[1].type 					= dsl_work.set_bind[1].descriptorType;
-		dsl_work.pool_size[1].descriptorCount 		= 7;	// ??? TODO
+		dsl_work.pool_size[1].descriptorCount 		= 2;
 
-	for(int i = 0; i < 2; i++) {
-		dsl_work.pool_info[i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	nf(&dsl_work.pool_info[i]);
-		dsl_work.pool_info[i].maxSets 			= 1; // 2 ? // TODO
-		dsl_work.pool_info[i].poolSizeCount 	= 1;
-		dsl_work.pool_info[i].pPoolSizes 		= &dsl_work.pool_size[i]; }
+		dsl_work.pool_info.sType 					= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	nf(&dsl_work.pool_info);
+		dsl_work.pool_info.maxSets 					= dsl_work.pool_size[0].descriptorCount
+													+ dsl_work.pool_size[1].descriptorCount;
+//		dsl_work.pool_info.maxSets 					= pdev[vob.VKP_i].vk_pdev_props.limits.maxBoundDescriptorSets;
+		dsl_work.pool_info.poolSizeCount 			= 2;
+		dsl_work.pool_info.pPoolSizes 				= dsl_work.pool_size;
+
+	ov("pool_info.maxSets", dsl_work.pool_info.maxSets);
 
 	vr("vkCreateDescriptorSetLayout", &vkres, dsl_work.vk_desc_set_layout,
 		vkCreateDescriptorSetLayout(vob.VKL, &dsl_work.set_info, NULL, &dsl_work.vk_desc_set_layout) );
 
+	vr("vkCreateDescriptorPool", &vkres, dsl_work.vk_desc_pool,
+		vkCreateDescriptorPool(vob.VKL, &dsl_work.pool_info, NULL, &dsl_work.vk_desc_pool) );
+
+		dsl_work.allo_info.sType 					= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+		dsl_work.allo_info.pNext 					= NULL;
+		dsl_work.allo_info.descriptorPool 			= dsl_work.vk_desc_pool;
+		dsl_work.allo_info.descriptorSetCount 		= 1;
+		dsl_work.allo_info.pSetLayouts 				= &dsl_work.vk_desc_set_layout;
+
 	for(int i = 0; i < 2; i++) {
-	vr("vkCreateDescriptorPool", &vkres, dsl_work.vk_desc_pool[i],
-		vkCreateDescriptorPool(vob.VKL, &dsl_work.pool_info[i], NULL, &dsl_work.vk_desc_pool[i]) );
-
-		dsl_work.allo_info[i].sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		dsl_work.allo_info[i].pNext 				= NULL;
-		dsl_work.allo_info[i].descriptorPool 		= dsl_work.vk_desc_pool[i];
-		dsl_work.allo_info[i].descriptorSetCount 	= 1;
-		dsl_work.allo_info[i].pSetLayouts 			= &dsl_work.vk_desc_set_layout;
-
 		vr("vkAllocateDescriptorSets", &vkres, dsl_work.vk_descriptor_set[i],
-			vkAllocateDescriptorSets(vob.VKL, &dsl_work.allo_info[i], &dsl_work.vk_descriptor_set[i]) ); }
+			vkAllocateDescriptorSets(vob.VKL, &dsl_work.allo_info, &dsl_work.vk_descriptor_set[i]) ); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK SAMPLER");			/**/
 	///////////////////////////////////////////////////
 
-	VkDescriptorImageInfo vkdescimg_info[2];
-		vkdescimg_info[0].sampler			= rpass_info.vk_sampler;
-		vkdescimg_info[0].imageView			= work_init[1].vk_image_view; // Reference the other image
-		vkdescimg_info[0].imageLayout		= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		vkdescimg_info[1].sampler			= rpass_info.vk_sampler;
-		vkdescimg_info[1].imageView			= work_init[0].vk_image_view; // Reference the other image
-		vkdescimg_info[1].imageLayout		= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	VkWriteDescriptorSet vkwritedescset[2];
+	VkDescriptorImageInfo vk_desc_img_info_work_sampler[2];
+		vk_desc_img_info_work_sampler[0].sampler		= rpass_info.vk_sampler;
+		vk_desc_img_info_work_sampler[0].imageView		= work_init[1].vk_image_view;
+		vk_desc_img_info_work_sampler[0].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vk_desc_img_info_work_sampler[1].sampler		= rpass_info.vk_sampler;
+		vk_desc_img_info_work_sampler[1].imageView		= work_init[0].vk_image_view;
+		vk_desc_img_info_work_sampler[1].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+	VkWriteDescriptorSet vk_write_descriptor_set_work_sampler[2];
 	for(int i = 0; i < 2; i++) {
-		vkwritedescset[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vkwritedescset[i].pNext 				= NULL;
-		vkwritedescset[i].dstSet 				= dsl_work.vk_descriptor_set[i];
-		vkwritedescset[i].dstBinding 			= 1;
-		vkwritedescset[i].dstArrayElement 		= 0;
-		vkwritedescset[i].descriptorCount 		= 1;
-		vkwritedescset[i].descriptorType 		= dsl_work.set_bind[0].descriptorType;
-		vkwritedescset[i].pImageInfo 			= &vkdescimg_info[i];
-		vkwritedescset[i].pBufferInfo 			= NULL;
-		vkwritedescset[i].pTexelBufferView 		= NULL; }
+		vk_write_descriptor_set_work_sampler[i].sType				= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vk_write_descriptor_set_work_sampler[i].pNext				= NULL;
+		vk_write_descriptor_set_work_sampler[i].dstSet				= dsl_work.vk_descriptor_set[i];
+		vk_write_descriptor_set_work_sampler[i].dstBinding			= 1;
+		vk_write_descriptor_set_work_sampler[i].dstArrayElement		= 0;
+		vk_write_descriptor_set_work_sampler[i].descriptorCount		= 1;
+		vk_write_descriptor_set_work_sampler[i].descriptorType		= dsl_work.set_bind[0].descriptorType;
+		vk_write_descriptor_set_work_sampler[i].pImageInfo			= &vk_desc_img_info_work_sampler[i];
+		vk_write_descriptor_set_work_sampler[i].pBufferInfo			= NULL;
+		vk_write_descriptor_set_work_sampler[i].pTexelBufferView	= NULL; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK UNIFORM BUFFER");	/**/
@@ -1174,7 +1173,7 @@ int main(void) {
 //	Update the Sampler and Uniform Buffer Descriptors
 	for(int i = 0; i < 2; i++) {
 		rv("vkUpdateDescriptorSets");
-			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset[i], 0, NULL);
+			vkUpdateDescriptorSets(vob.VKL, 1, &vk_write_descriptor_set_work_sampler[i], 0, NULL);
 		rv("vkUpdateDescriptorSets");
 			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_ub_work[i], 0, NULL); }
 
@@ -1529,7 +1528,7 @@ int main(void) {
 
 	uint32_t 	frame_index 	= 0;
 
-	uint32_t	imgdat_freq		= 32;
+	uint32_t	imgdat_freq		= 12;
 	uint32_t	imgdat_idx		= 0;
 
 //	FPS tracking init
