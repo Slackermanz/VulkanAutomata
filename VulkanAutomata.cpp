@@ -34,7 +34,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 	msg_fmt = msg_fmt + msg[msg.size()-1];
 	if(loglevel >= 0) {
 		std::cout << "\n\n" << bar << "\n " << msg_fmt << "\n" 	<< bar << "\n\n"; }
-	//valid = 0;
+	valid = 0;
 	return VK_FALSE; }
 
 // Find a memory in `memoryTypeBitsRequirement` that includes all of `requiredProperties`
