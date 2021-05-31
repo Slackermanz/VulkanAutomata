@@ -34,7 +34,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 	msg_fmt = msg_fmt + msg[msg.size()-1];
 	if(loglevel >= 0) {
 		std::cout << "\n\n" << bar << "\n " << msg_fmt << "\n" 	<< bar << "\n\n"; }
-	valid = 0;
+	//valid = 0;
 	return VK_FALSE; }
 
 // Find a memory in `memoryTypeBitsRequirement` that includes all of `requiredProperties`
@@ -269,32 +269,6 @@ struct UniBuf {
 	uint32_t v48; uint32_t v49; uint32_t v50; uint32_t v51;	uint32_t v52; uint32_t v53; uint32_t v54; uint32_t v55;
 	uint32_t v56; uint32_t v57; uint32_t v58; uint32_t v59;	uint32_t v60; uint32_t v61; uint32_t v62; uint32_t v63; };
 
-struct WSize {
-	uint32_t 	app_w;
-	uint32_t 	app_h;
-	uint32_t 	divs;
-	uint32_t 	mode; };
-uint32_t wsize_pack(WSize ws) {
-	uint32_t packed_ui32 = 
-		( (uint32_t)ws.app_w		  )
-	+ 	( (uint32_t)ws.app_h 	<< 12 )
-	+ 	( (uint32_t)ws.divs 	<< 24 )
-	+ 	( (uint32_t)ws.mode 	<< 28 );
-	return packed_ui32; }
-
-struct MInfo {
-	uint32_t 	mouse_x;
-	uint32_t 	mouse_y;
-	uint32_t 	mouse_c;
-	uint32_t 	run_cmd; };
-uint32_t minfo_pack(MInfo mi) {
-	uint32_t packed_ui32 = 
-		( (uint32_t)mi.mouse_c	   	  )
-	+ 	( (uint32_t)mi.mouse_x 	<< 4  )
-	+ 	( (uint32_t)mi.mouse_y 	<< 16 )
-	+ 	( (uint32_t)mi.run_cmd  << 28 );
-	return packed_ui32; }
-
 void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h) {
 	fname = "out/" + fname + ".PAM";
 	ov("Save Image", fname);
@@ -334,13 +308,10 @@ int main(void) {
 	///////////////////////////////////////////////////
 
 	const	uint32_t 	APP_W 			= 512;		//	1920 1536 1280	768	512	384	256
-	const	uint32_t 	APP_H 			= 288;		//	1080 864  720	432	288	216	144
-
-	const	float 		TRIQUAD_SCALE 	= 1.0;											//	Vertex Shader Triangle Scale
-	const	float 		VP_SCALE 		= TRIQUAD_SCALE + (1.0-TRIQUAD_SCALE) * 0.5;	//	Vertex Shader Viewport Scale
+	const	uint32_t 	APP_H 			= 256;		//	1080 864  720	432	288	216	144
 
 	const 	uint32_t 	INST_EXS 		= 1;	//	Number of Vulkan Instance Extensions
-	const 	uint32_t 	VLID_LRS 		= 1;	//	Number of Vulkan Validation Layers
+	const 	uint32_t 	LAYR_EXS 		= 1;	//	Number of Vulkan Layers
 	const 	uint32_t 	LDEV_EXS 		= 0;	//	Number of Vulkan Logical Device Extensions
 
 //	Paths to shader files and extension names
@@ -350,7 +321,7 @@ int main(void) {
 	=	{	"./app/frag_automata0000.spv"		};
 	const 	char* 	instance_extensions	[INST_EXS]
 	=	{	"VK_EXT_debug_utils"				};
-	const 	char* 	validation_layers	[VLID_LRS]
+	const 	char* 	layer_extensions	[LAYR_EXS]
 	=	{	"VK_LAYER_KHRONOS_validation" 		};
 	const 	char* 	device_extensions	[LDEV_EXS]
 	=	{										};
@@ -361,8 +332,8 @@ int main(void) {
 	for(int i = 0; i < VERT_FLS; i++) {	iv("Vertex Shaders", 			filepath_vert[i], 		i ); }
 	for(int i = 0; i < FRAG_FLS; i++) {	iv("Fragment Shaders", 			filepath_frag[i], 		i ); }
 	for(int i = 0; i < INST_EXS; i++) {	iv("Instance Extensions", 		instance_extensions[i], i ); }
+	for(int i = 0; i < LAYR_EXS; i++) {	iv("Layer Extensions", 			layer_extensions[i], 	i ); }
 	for(int i = 0; i < LDEV_EXS; i++) {	iv("Logical Device Extensions", device_extensions[i], 	i ); }
-	for(int i = 0; i < VLID_LRS; i++) {	iv("Validation Layers", 		validation_layers[i], 	i ); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "VULKAN INIT");			/**/
@@ -387,8 +358,8 @@ int main(void) {
 		vkcfg.inst_info.sType 						= VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	nf(&vkcfg.inst_info);
 		vkcfg.inst_info.pApplicationInfo 			= &vkcfg.app_info;
-		vkcfg.inst_info.enabledLayerCount 			= VLID_LRS;
-		vkcfg.inst_info.ppEnabledLayerNames 		= validation_layers;
+		vkcfg.inst_info.enabledLayerCount 			= LAYR_EXS;
+		vkcfg.inst_info.ppEnabledLayerNames 		= layer_extensions;
 		vkcfg.inst_info.enabledExtensionCount 		= INST_EXS;
 		vkcfg.inst_info.ppEnabledExtensionNames		= instance_extensions;
 
@@ -751,8 +722,8 @@ int main(void) {
 
 		rpass_info.vk_viewport.x						= 0;
 		rpass_info.vk_viewport.y						= 0;
-		rpass_info.vk_viewport.width					= APP_W * VP_SCALE;
-		rpass_info.vk_viewport.height					= APP_H * VP_SCALE;
+		rpass_info.vk_viewport.width					= APP_W;
+		rpass_info.vk_viewport.height					= APP_H;
 		rpass_info.vk_viewport.minDepth					= 0.0f;
 		rpass_info.vk_viewport.maxDepth					= 1.0f;
 
@@ -1061,7 +1032,6 @@ int main(void) {
 	nf(&dsl_work.pool_info);
 		dsl_work.pool_info.maxSets 					= dsl_work.pool_size[0].descriptorCount
 													+ dsl_work.pool_size[1].descriptorCount;
-//		dsl_work.pool_info.maxSets 					= pdev[vob.VKP_i].vk_pdev_props.limits.maxBoundDescriptorSets;
 		dsl_work.pool_info.poolSizeCount 			= 2;
 		dsl_work.pool_info.pPoolSizes 				= dsl_work.pool_size;
 
@@ -1528,6 +1498,7 @@ int main(void) {
 
 	uint32_t 	frame_index 	= 0;
 
+//	Image Exports
 	uint32_t	imgdat_freq		= 12;
 	uint32_t	imgdat_idx		= 0;
 
@@ -1537,20 +1508,6 @@ int main(void) {
 	int  		current_sec		= time(0);
 	int  		fps_freq 		= 1;
 	int  		fps_report 		= time(0) - fps_freq;
-
-//	Unpacked uint32_t Uniform Buffer Object
-	WSize 	window_size;
-			window_size.app_w	= APP_W;
-			window_size.app_h	= APP_H;
-			window_size.divs	= 1;
-			window_size.mode  	= 0;
-
-//	Unpacked uint32_t Uniform Buffer Object
-	MInfo 	mouse_info;
-			mouse_info.mouse_x 	= 0; 	//	Mouse X Position
-			mouse_info.mouse_y 	= 0; 	//	Mouse Y Position
-			mouse_info.mouse_c 	= 0; 	//	Mouse Button / UI State info
-			mouse_info.run_cmd 	= 0; 	//	Command Codes
 
 //	Uniform Buffer Object ( 64 * 32 bits maximum )
 	UniBuf ub;
@@ -1562,10 +1519,6 @@ int main(void) {
 		ub.v40 = 0; ub.v41 = 0; ub.v42 = 0; ub.v43 = 0;	ub.v44 = 0; ub.v45 = 0; ub.v46 = 0; ub.v47 = 0;
 		ub.v48 = 0; ub.v49 = 0; ub.v50 = 0; ub.v51 = 0;	ub.v52 = 0; ub.v53 = 0; ub.v54 = 0; ub.v55 = 0;
 		ub.v56 = 0; ub.v57 = 0; ub.v58 = 0; ub.v59 = 0;	ub.v60 = 0; ub.v61 = 0; ub.v62 = 0; ub.v63 = 0;
-
-	//	Pack and assign custom uint32_t objects to ub.v(xx) slots
-		ub.v62 = minfo_pack( mouse_info  );
-		ub.v63 = wsize_pack( window_size );
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
@@ -1587,7 +1540,7 @@ int main(void) {
 			ov("frame_index", frame_index);
 
 		//	Update Uniform Buffer values
-			ub.v61 = frame_index;
+			ub.v63 = frame_index;
 
 		//	Send UB values to GPU
 			rv("memcpy");
