@@ -5,6 +5,7 @@
 	else
 		logfn="./vbk/VkAutoLog"$(date +%s)".log"
 		script -q -c "./buildrun.sh $1" $logfn
+		echo " "
 		echo '    file://'$(realpath $logfn)
 		echo " "
 	fi
