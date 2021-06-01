@@ -43,7 +43,7 @@ const uint MAX_RADIUS = 16;
 
 uint u32_upk(uint u32, uint bts, uint off) { return (u32 >> off) & ((1u << bts)-1u); }
 
-float  tp(uint n, float s) 			{ return ((n+1)/256.0) * ((s*0.5)/128.0); }
+float  tp(uint n, float s) 			{ return (float(n+1u)/256.0) * ((s*0.5)/128.0); }
 float bsn(uint v, uint  o) 			{ return float(u32_upk(v,1u,o)*2u)-1.0; }
 float utp(uint v, uint  w, uint o) 	{ return tp(u32_upk(v,w,w*o), 105.507401); }
 
@@ -61,35 +61,37 @@ vec4[2] nbhd( vec2 r, sampler2D tx ) {
 	float	psn = (chk >= 65536u) ? 65536.0 : float(chk);
 	vec4	a = vec4(0.0,0.0,0.0,0.0);
 	vec4 	b = vec4(0.0,0.0,0.0,0.0);
-	for(float i = -r[0]; i <= r[0]; i+=1.0) {
-		for(float j = -r[0]; j <= r[0]; j+=1.0) {
+	for(float i = 0.0; i <= r[0]; i++) {
+		for(float j = 1.0; j <= r[0]; j++) {
 			float	d = round(sqrt(i*i+j*j));
 			float	w = 1.0;
 			if( d <= r[0] && d > r[1] ) {
-				vec4 t  = gdv( ivec2(i,j), tx ) * w * psn;
-					 a += t - fract(t);
-					 b += w * psn; } } }
+					 b 	+= w * psn * 4.0;
+				vec4 t0  = gdv( ivec2( i, j), tx ) * w * psn; a += t0 - fract(t0);
+				vec4 t1  = gdv( ivec2( j,-i), tx ) * w * psn; a += t1 - fract(t1);
+				vec4 t2  = gdv( ivec2(-i,-j), tx ) * w * psn; a += t2 - fract(t2);
+				vec4 t3  = gdv( ivec2(-j, i), tx ) * w * psn; a += t3 - fract(t3); } } }
 	return vec4[2](a, b); }
 
 vec4 bitring(vec4[MAX_RADIUS][2] rings, uint bits) {
 	vec4 sum = vec4(0.0,0.0,0.0,0.0);
 	vec4 tot = vec4(0.0,0.0,0.0,0.0);
-	for(int i = 0; i < MAX_RADIUS; i++) {
-		if(u32_upk(bits, 1, i) == 1) { sum += rings[i][0]; tot += rings[i][1]; } }
+	for(uint i = 0u; i < MAX_RADIUS; i++) {
+		if(u32_upk(bits, 1u, i) == 1u) { sum += rings[i][0]; tot += rings[i][1]; } }
 	return sum / tot; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 //	Used to reseed the surface with lumpy noise
 float get_xc(float x, float y, float xmod) {
-	const	float sq = sqrt(mod(x*y+y, xmod)) / sqrt(xmod);
-	const	float xc = mod((x*x)+(y*y), xmod) / xmod;
+	float sq = sqrt(mod(x*y+y, xmod)) / sqrt(xmod);
+	float xc = mod((x*x)+(y*y), xmod) / xmod;
 	return clamp((sq+xc)*0.5, 0.0, 1.0); }
 float shuffle(float x, float y, float xmod, float val) {
 	val = val * mod( x*y + x, xmod );
 	return (val-floor(val)); }
 float get_xcn(float x, float y, float xm0, float xm1, float ox, float oy) {
-	const	float  xc = get_xc(x+ox, y+oy, xm0);
+	float  xc = get_xc(x+ox, y+oy, xm0);
 	return shuffle(x+ox, y+oy, xm1, xc); }
 float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
 	float 	nhsz_c 	= 0.0;
@@ -107,70 +109,63 @@ float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
 			xcaf 	= clamp((xcnf*xcaf + xcnf*xcaf) * (xcnf+xcnf), 0.0, 1.0); }
 	return xcaf; }
 float reseed(int seed) {
-	const	float 	fx = gl_FragCoord[0];
-	const	float 	fy = gl_FragCoord[1];
-	const	float 	r0 = get_lump(fx, fy,  6.0, 19.0 + mod(ub.v63+seed,17.0), 23.0 + mod(ub.v63+seed,43.0));
-	const	float 	r1 = get_lump(fx, fy, 24.0, 13.0 + mod(ub.v63+seed,29.0), 17.0 + mod(ub.v63+seed,31.0));
-	const	float 	r2 = get_lump(fx, fy, 12.0, 13.0 + mod(ub.v63+seed,11.0), 51.0 + mod(ub.v63+seed,37.0));
-	const	float 	r3 = get_lump(fx, fy, 18.0, 29.0 + mod(ub.v63+seed, 7.0), 61.0 + mod(ub.v63+seed,28.0));
+	float 	fx = gl_FragCoord[0];
+	float 	fy = gl_FragCoord[1];
+	float 	r0 = get_lump(fx, fy,  6.0, 19.0 + mod(ub.v63+seed,17.0), 23.0 + mod(ub.v63+seed,43.0));
+	float 	r1 = get_lump(fx, fy, 24.0, 13.0 + mod(ub.v63+seed,29.0), 17.0 + mod(ub.v63+seed,31.0));
+	float 	r2 = get_lump(fx, fy, 12.0, 13.0 + mod(ub.v63+seed,11.0), 51.0 + mod(ub.v63+seed,37.0));
+	float 	r3 = get_lump(fx, fy, 18.0, 29.0 + mod(ub.v63+seed, 7.0), 61.0 + mod(ub.v63+seed,28.0));
 	return clamp( sqrt((r0+r1)*r3*2.0)-r2 , 0.0, 1.0); }
 
 void main() {
 
 //	----    ----    ----    ----    ----    ----    ----    ----
-//	Shader Setup
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-	const 	ivec2	origin  = ivec2(0, 0);
-	const	float 	mnp 	= 1.0 / 65536.0;			//	Minimum value of a precise step for 16-bit channel
-	const	vec4	ref_c	= gdv( origin, txdata );	//	Origin value references
-
-//	----    ----    ----    ----    ----    ----    ----    ----
 //	Rule Initilisation
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	const	uint[4] scd = uint[4]
-	(	32766u, 		3472619019u, 	32752u, 		3675719802u 	);
-
-	const	uint[8] ubv = uint[8]
-	(	39879523u, 		526972426u, 	2727874005u, 	1461826227u, 
-		1300644632u, 	1298224u, 		95419984u, 		823214418u		);
-
-	const	uint[1] ubi = uint[1]
-	(	2390857921u 													);
-
-//	Parameters
-	const	float 	s  = mnp *  64.0 *  96.0;
-	const	float 	n  = mnp *  64.0 *  16.0;
-
-//	Output Values
-	vec4 res_c = ref_c;
+	const uint bt = 8u;		// Update Range Bits
+	const uint mt = 4u;		// Neighborhoods
+	const uint ut = bt/mt;	// Range  UBV index
+	const uint st = ut*2u;	// Update UBI offset
+	const uint ct = 3u;		// Color Channels Used
 
 //	NH Rings
 	vec4[MAX_RADIUS][2] nh_rings_c;
-	for(int i = 0; i < MAX_RADIUS; i++) {
-		nh_rings_c[i] = nbhd( vec2(i+1,i), txdata ); }
+	for(uint i = 0u; i < MAX_RADIUS; i++) {
+		nh_rings_c[i] = nbhd( vec2(i+1u,i), txdata ); }
+
+	const uint[4] scd = uint[4]
+	(	32766u, 		3472619019u, 	32752u, 		3675719802u 	);
 
 	vec4[4] nhv_c;
 	for(int i = 0; i < 4; i++) {
 		nhv_c[i] = bitring(nh_rings_c, scd[i]); }
 
+//	Parameters
+	const	float 	mnp 	= 1.0 / 65536.0;			//	Minimum value of a precise step for 16-bit channel
+	const	float 	s  		= mnp *  64.0 *  96.0;
+	const	float 	n  		= mnp *  64.0 *  16.0;
+
+//	Output Values
+	vec4 res_c = gdv( ivec2(0, 0), txdata );
+
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Update Functions
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	const int bt = 8;		// Update Range Bits
-	const int mt = 4;		// Neighborhoods
-	const int ut = bt/mt;	// Range  UBV index
-	const int st = ut*2;	// Update UBI offset
-	const int ct = 3;		// Color Channels Used
+	const uint[8] ubv 		= uint[8]
+	(	39879523u, 		526972426u, 	2727874005u, 	1461826227u, 
+		1300644632u, 	1298224u, 		95419984u, 		823214418u		);
 
-	for(int i = 0; i < mt; i++) {
-		for(int j = 0; j < ct; j++) {
-			if( nhv_c[i][j] >= utp(ubv[i*ut+0],bt,0) && nhv_c[i][j] <= utp(ubv[i*ut+0],bt,1) ) { res_c[j] += bsn(ubi[0], i*st+0)*s; }
-			if( nhv_c[i][j] >= utp(ubv[i*ut+0],bt,2) && nhv_c[i][j] <= utp(ubv[i*ut+0],bt,3) ) { res_c[j] += bsn(ubi[0], i*st+1)*s; }
-			if( nhv_c[i][j] >= utp(ubv[i*ut+1],bt,0) && nhv_c[i][j] <= utp(ubv[i*ut+1],bt,1) ) { res_c[j] += bsn(ubi[0], i*st+2)*s; }
-			if( nhv_c[i][j] >= utp(ubv[i*ut+1],bt,2) && nhv_c[i][j] <= utp(ubv[i*ut+1],bt,3) ) { res_c[j] += bsn(ubi[0], i*st+3)*s; } } }
+	const uint[1] ubi 		= uint[1]
+	(	2390857921u 													);
+
+	for(uint i = 0u; i < mt; i++) {
+		for(uint j = 0u; j < ct; j++) {
+			if( nhv_c[i][j] >= utp(ubv[i*ut+0u],bt,0u) && nhv_c[i][j] <= utp(ubv[i*ut+0u],bt,1u) ) { res_c[j] += bsn(ubi[0], i*st+0u)*s; }
+			if( nhv_c[i][j] >= utp(ubv[i*ut+0u],bt,2u) && nhv_c[i][j] <= utp(ubv[i*ut+0u],bt,3u) ) { res_c[j] += bsn(ubi[0], i*st+1u)*s; }
+			if( nhv_c[i][j] >= utp(ubv[i*ut+1u],bt,0u) && nhv_c[i][j] <= utp(ubv[i*ut+1u],bt,1u) ) { res_c[j] += bsn(ubi[0], i*st+2u)*s; }
+			if( nhv_c[i][j] >= utp(ubv[i*ut+1u],bt,2u) && nhv_c[i][j] <= utp(ubv[i*ut+1u],bt,3u) ) { res_c[j] += bsn(ubi[0], i*st+3u)*s; } } }
 
 	res_c -= n;
 

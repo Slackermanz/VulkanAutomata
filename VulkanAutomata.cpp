@@ -6,11 +6,11 @@
 #include <chrono>
 #include <cstring>
 
-const 	uint32_t 	VERT_FLS 		= 1;	//	Number of Vertex Shader Files
-const 	uint32_t 	FRAG_FLS 		= 1;	//	Number of Fragment Shader Files
-
-		int loglevel 	=  0;
-		int valid 		=  1;
+const 	uint32_t 	VERT_FLS 	=  1;	//	Number of Vertex Shader Files
+const 	uint32_t 	FRAG_FLS 	=  1;	//	Number of Fragment Shader Files
+const	int 		MAXLOG 		=  1;
+		int 		loglevel 	=  MAXLOG;
+		int 		valid 		=  1;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 //	Vulkan validation layer message output
@@ -64,7 +64,7 @@ void ov(const std::string& id, auto v) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-	if(loglevel >= 0) {
+	if(loglevel >= 1) {
 		std::cout << "\tinfo:\t    " << id << pad << " [" << v << "]\n"; } }
 
 void iv(const std::string& id, auto ov, int idx) {
@@ -74,7 +74,7 @@ void iv(const std::string& id, auto ov, int idx) {
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-	if(loglevel >= 0) {
+	if(loglevel >= 1) {
 		std::cout << "\tinfo:\t" << idx << "\t" << id << pad << " [" << ov << "]\n"; } }
 
 void vr(const std::string& id, std::vector<VkResult>* reslist, auto v, VkResult res) {
@@ -95,7 +95,7 @@ void vr(const std::string& id, std::vector<VkResult>* reslist, auto v, VkResult 
 
 void rv(const std::string& id) {
 //	Return void output message
-	if(loglevel >= 0) {
+	if(loglevel >= 1) {
 		std::cout << "  void: \t" << id	<< "\n"; } }
 
 void nf(auto *Vk_obj) {
@@ -272,7 +272,6 @@ struct UniBuf {
 void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h) {
 	fname = "out/" + fname + ".PAM";
 	ov("Save Image", fname);
-	std::cout << fname << "\n";
 	std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
 		file 	<<	"P7" 							<< "\n"
 			 	<< 	"WIDTH "	<< w 				<< "\n"
@@ -299,7 +298,6 @@ void end_timer(NS_Timer t, std::string msg) {
 		std::chrono::duration_cast<std::chrono::nanoseconds>(t.ft-t.st).count()) + " ns, " +
 		std::to_string( int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(t.ft-t.st).count()) ) + " FPS";
 	ov(msg, ftime); }
-
 
 int main(void) {
 
@@ -1579,11 +1577,14 @@ int main(void) {
 
 		if(frame_index % imgdat_freq == 0 && frame_index > 0) {
     		optime = start_timer(optime);
+			loglevel = MAXLOG;
 			save_image(pvoid_imagedata_work, "IMG"+std::to_string(imgdat_idx), APP_W, APP_H );
+			loglevel = -1;
     		end_timer(optime, "Save ImageData");
 			imgdat_idx++; }
 
-		if(fps_report 	== current_sec || 1) 	{ fps_report--; end_timer(ftime, "Loop Time"); }
+		if(fps_report == current_sec) { fps_report--; loglevel = MAXLOG; end_timer(ftime, "Loop Time"); loglevel = -1; }
+		if(frame_index == 8) { loglevel = -1; }
 
 		frame_index++;
 
