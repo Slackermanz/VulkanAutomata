@@ -3312,23 +3312,6 @@ int main(void) {
 						if( xe.xbutton.button == 19	 ) { 
 							dbg_panel 			= (dbg_panel) ? 0 : 1; }
 
-					//	Load Prev Pattern			TBB
-						if(xe.xbutton.button == 113) {
-							int	shift_size 		= (mod_ctrl_l == 1) ? 1 : (flen_skip+1);
-								load_config 	= 1;
-								load_pcd_index 	= (load_pcd_index - shift_size + (f_len / pcd_load_size)) % (f_len / pcd_load_size);
-								pcd 			= load_pcd(save_version, loadfile, load_pcd_index);
-							ov("Loaded", load_pcd_index);
-							ov("Loadfile", loaded_count); }
-						//	Load Next Pattern			TBF
-						if(xe.xbutton.button == 114) {
-							int	shift_size 		= (mod_ctrl_l == 1) ? 1 : (flen_skip+1);
-								load_config 	= 1;
-								load_pcd_index 	= (load_pcd_index + shift_size) % (f_len / pcd_load_size);
-								pcd 			= load_pcd(save_version, loadfile, load_pcd_index);
-							ov("Loaded", load_pcd_index);
-							ov("Loadfile", loaded_count); }
-
 						if( xe.xbutton.button == 20 ) { 
 							send_img = 1;
 							IMG_512_288 loadimg_data = load_video_frame(vid_frm_idx%vid_frm_max);

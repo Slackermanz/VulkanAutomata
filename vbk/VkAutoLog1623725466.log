@@ -1,0 +1,460 @@
+Script started on 2021-06-15 14:51:06+12:00 [TERM="xterm-256color" TTY="/dev/pts/0" COLUMNS="96" LINES="76"]
+rm: cannot remove './app/RunVkAuto': No such file or directory
+rm: cannot remove './app/vert_TriQuad.spv': No such file or directory
+rm: cannot remove './app/frag_automata0000.spv': No such file or directory
+[H[2J[3J
+  ./glslc -O ./dat/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv
+  ./glslc -O ./dat/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
+  ./glslc -O ./dat/frag/ParamUpdate.frag -o ./app/ParamUpdate.spv
+
+  g++ VulkanAutomata.cpp -fconcepts -lX11 -L/home/pseudo/vulkan-sdk/1.2.170.0/x86_64/lib/ -lvulkan -o ./app/RunVkAuto
+
+
+  BEGIN ./app/VulkanAutomata
+
+________________________________________________________________________________
+ STAGE:	APPLICATION CONFIG
+	info:	    Window Width ......................... [512]
+	info:	    Window Height ........................ [256]
+	info:	    Render Cycles ........................ [0]
+	info:	    FPS Target ........................... [0]
+	info:	    Vertex Shaders ....................... [1]
+	info:	    Fragment Shaders ..................... [2]
+________________________________________________________________________________
+ STAGE:	VULKAN INIT
+     0:	-13 	init
+     1:	  	vkCreateInstance
+  void: 	vkGetInstanceProcAddr
+     2:	  	vkCreateDebugUtilsMessengerEXT
+WARNING: radv is not a conformant vulkan implementation, testing use only.
+     3:	  	vkEnumeratePhysicalDevices
+	info:	    PhysicalDevices ...................... [1]
+     4:	  	vkEnumeratePhysicalDevices
+  void: 	vkGetPhysicalDeviceProperties
+  void: 	vkGetPhysicalDeviceQueueFamilyProperties
+	info:	    Queue Families ....................... [3]
+  void: 	vkGetPhysicalDeviceQueueFamilyProperties
+	info:	    0	Queues ........................... [1]
+	info:	    0	Queue Flags ...................... [15]
+  void: 	vkGetPhysicalDeviceFeatures
+     5:	  	vkCreateDevice
+	info:	    VkDevice vkld[0] ..................... [0x5583254d9c70]
+  void: 	vkGetPhysicalDeviceMemoryProperties
+	info:	    memoryTypeCount ...................... [8]
+	info:	    0	propertyFlags .................... [1]
+	info:	    0	heapIndex ........................ [0]
+	info:	    1	propertyFlags .................... [6]
+	info:	    1	heapIndex ........................ [1]
+	info:	    2	propertyFlags .................... [7]
+	info:	    2	heapIndex ........................ [2]
+	info:	    3	propertyFlags .................... [14]
+	info:	    3	heapIndex ........................ [1]
+	info:	    4	propertyFlags .................... [193]
+	info:	    4	heapIndex ........................ [0]
+	info:	    5	propertyFlags .................... [198]
+	info:	    5	heapIndex ........................ [1]
+	info:	    6	propertyFlags .................... [199]
+	info:	    6	heapIndex ........................ [2]
+	info:	    7	propertyFlags .................... [206]
+	info:	    7	heapIndex ........................ [1]
+	info:	    memoryHeapCount ...................... [3]
+	info:	    0	size ............................. [16894656512]
+	info:	    0	flags ............................ [3]
+	info:	    1	size ............................. [33661386752]
+	info:	    1	flags ............................ [0]
+	info:	    2	size ............................. [268435456]
+	info:	    2	flags ............................ [3]
+________________________________________________________________________________
+ STAGE:	DISPLAY
+  void: 	XOpenDisplay
+	info:	    DisplayString ........................ [:0.0]
+  void: 	XCreateWindow
+	info:	    Window ............................... [71303169]
+  void: 	XMapWindow
+  void: 	XFlush
+________________________________________________________________________________
+ STAGE:	SURFACE
+     6:	  	vkCreateXlibSurfaceKHR
+     7:	  	vkGetPhysicalDeviceSurfaceCapabilitiesKHR
+	info:	    minImageCount ........................ [2]
+	info:	    maxImageCount ........................ [16]
+	info:	    currentExtent.width .................. [512]
+	info:	    currentExtent.height ................. [256]
+     8:	  	vkGetPhysicalDeviceSurfaceFormatsKHR
+	info:	    PhysicalDeviceSurfaceFormats ......... [2]
+     9:	  	vkGetPhysicalDeviceSurfaceFormatsKHR
+	info:	    0	VkFormat ......................... [44]
+	info:	    0	VkColorSpaceKHR .................. [0]
+	info:	    1	VkFormat ......................... [50]
+	info:	    1	VkColorSpaceKHR .................. [0]
+    10:	  	vkGetPhysicalDeviceSurfacePresentModesKHR
+	info:	    PhysicalDeviceSurfacePresentModes .... [2]
+    11:	  	vkGetPhysicalDeviceSurfacePresentModesKHR
+	info:	    0	VkPresentModeKHR ................. [0]
+	info:	    1	VkPresentModeKHR ................. [1]
+	info:	    2	VkPresentModeKHR ................. [2]
+    12:	  	vkGetPhysicalDeviceSurfaceSupportKHR
+	info:	    Surface Supported .................... [TRUE]
+________________________________________________________________________________
+ STAGE:	SHADERS
+  void: 	getShaderCodeInfo
+	info:	    0	Vertex shaderFilename ............ [./app/vert_TriQuad.spv]
+	info:	    0	Vertex shaderBytes ............... [876]
+	info:	    0	Vertex shaderBytesValid .......... [TRUE]
+  void: 	getShaderCodeInfo
+  void: 	getShaderCodeInfo
+	info:	    0	Fragment shaderFilename .......... [./app/frag_automata0000.spv]
+	info:	    0	Fragment shaderBytes ............. [45336]
+	info:	    0	Fragment shaderBytesValid ........ [TRUE]
+	info:	    1	Fragment shaderFilename .......... [./app/ParamUpdate.spv]
+	info:	    1	Fragment shaderBytes ............. [340]
+	info:	    1	Fragment shaderBytesValid ........ [TRUE]
+    13:	  	vkCreateShaderModule                       [0xfa21a40000000003]
+    14:	  	vkCreateShaderModule                       [0xf56c9b0000000004]
+    15:	  	vkCreateShaderModule                       [0xe7f79a0000000005]
+________________________________________________________________________________
+ STAGE:	SWAPCHAIN
+    16:	  	vkCreateSwapchainKHR                       [0xf443490000000006]
+    17:	  	vkGetSwapchainImagesKHR
+	info:	    SwapchainImages ...................... [2]
+    18:	  	vkGetSwapchainImagesKHR
+	info:	    vkGetSwapchainImagesKHR .............. [0xcb3ee80000000007]
+	info:	    vkGetSwapchainImagesKHR .............. [0xead9370000000008]
+________________________________________________________________________________
+ STAGE:	IMAGE LAYER PARAM
+    19:	  	vkCreateImage                              [0xee647e0000000009]
+    20:	  	vkCreateImage                              [0xcfef35000000000a]
+  void: 	vkGetImageMemoryRequirements
+	info:	    0	memreq size ...................... [1057136]
+	info:	    0	memreq alignment ................. [65536]
+	info:	    0	memreq memoryTypeBits ............ [15]
+	info:	    0	memoryTypeIndex .................. [0]
+  void: 	vkGetImageMemoryRequirements
+	info:	    1	memreq size ...................... [1057136]
+	info:	    1	memreq alignment ................. [65536]
+	info:	    1	memreq memoryTypeBits ............ [15]
+	info:	    1	memoryTypeIndex .................. [0]
+    21:	  	vkAllocateMemory                           [0xec4bec000000000b]
+    22:	  	vkAllocateMemory                           [0xe88693000000000c]
+    23:	  	vkBindImageMemory
+    24:	  	vkBindImageMemory
+________________________________________________________________________________
+ STAGE:	IMAGE LAYER WORK
+    25:	  	vkCreateImage                              [0xcad092000000000d]
+    26:	  	vkCreateImage                              [0x967dd1000000000e]
+	info:	    memoryTypeCount ...................... [8]
+	info:	    0	propertyFlags .................... [1]
+	info:	    0	heapIndex ........................ [0]
+	info:	    1	propertyFlags .................... [6]
+	info:	    1	heapIndex ........................ [1]
+	info:	    2	propertyFlags .................... [7]
+	info:	    2	heapIndex ........................ [2]
+	info:	    3	propertyFlags .................... [14]
+	info:	    3	heapIndex ........................ [1]
+	info:	    4	propertyFlags .................... [193]
+	info:	    4	heapIndex ........................ [0]
+	info:	    5	propertyFlags .................... [198]
+	info:	    5	heapIndex ........................ [1]
+	info:	    6	propertyFlags .................... [199]
+	info:	    6	heapIndex ........................ [2]
+	info:	    7	propertyFlags .................... [206]
+	info:	    7	heapIndex ........................ [1]
+	info:	    memoryHeapCount ...................... [3]
+	info:	    0	size ............................. [16894656512]
+	info:	    0	flags ............................ [3]
+	info:	    1	size ............................. [33661386752]
+	info:	    1	flags ............................ [0]
+	info:	    2	size ............................. [268435456]
+	info:	    2	flags ............................ [3]
+  void: 	vkGetImageMemoryRequirements
+	info:	    0	memreq size ...................... [1057136]
+	info:	    0	memreq alignment ................. [65536]
+	info:	    0	memreq memoryTypeBits ............ [15]
+	info:	    0	memoryTypeIndex .................. [0]
+  void: 	vkGetImageMemoryRequirements
+	info:	    1	memreq size ...................... [1057136]
+	info:	    1	memreq alignment ................. [65536]
+	info:	    1	memreq memoryTypeBits ............ [15]
+	info:	    1	memoryTypeIndex .................. [0]
+    27:	  	vkAllocateMemory                           [0xe7e6d0000000000f]
+    28:	  	vkAllocateMemory                           [0xd5b26f0000000010]
+    29:	  	vkBindImageMemory
+    30:	  	vkBindImageMemory
+________________________________________________________________________________
+ STAGE:	COMMAND BUFFERS
+    31:	  	vkCreateCommandPool                        [0x980f360000000011]
+    32:	  	vkAllocateCommandBuffers
+    33:	  	vkAllocateCommandBuffers
+    34:	  	vkAllocateCommandBuffers
+    35:	  	vkAllocateCommandBuffers
+    36:	  	vkAllocateCommandBuffers
+    37:	  	vkAllocateCommandBuffers
+    38:	  	vkAllocateCommandBuffers
+    39:	  	vkAllocateCommandBuffers
+    40:	  	vkAllocateCommandBuffers
+    41:	  	vkAllocateCommandBuffers
+    42:	  	vkAllocateCommandBuffers
+    43:	  	vkAllocateCommandBuffers
+    44:	  	vkAllocateCommandBuffers
+    45:	  	vkAllocateCommandBuffers
+________________________________________________________________________________
+ STAGE:	SYNC
+  void: 	vkGetDeviceQueue
+    46:	  	vkCreateSemaphore                          [0xdcc8fd0000000012]
+    47:	  	vkCreateSemaphore                          [0xd175b40000000013]
+    48:	  	vkCreateFence                              [0x9fde6b0000000014]
+________________________________________________________________________________
+ STAGE:	RENDERPASS INIT
+    49:	  	vkCreateSampler                            [0xdd3a8a0000000015]
+________________________________________________________________________________
+ STAGE:	RECORD PARA_INIT
+    50:	  	vkCreateImageView                          [0xd897d90000000016]
+    51:	  	vkCreateImageView                          [0x84c0580000000017]
+    52:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+    53:	  	vkEndCommandBuffer
+    54:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+    55:	  	vkEndCommandBuffer
+________________________________________________________________________________
+ STAGE:	SUBMIT PARA_INIT
+  void: 	vkcombuf_para_init
+    56:	  	vkQueueSubmit
+  void: 	vkcombuf_para_init
+    57:	  	vkQueueSubmit
+________________________________________________________________________________
+ STAGE:	RECORD WORK_INIT
+    58:	  	vkCreateImageView                          [0xd10d270000000018]
+    59:	  	vkCreateImageView                          [0x27d60e0000000019]
+    60:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+    61:	  	vkEndCommandBuffer
+    62:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+    63:	  	vkEndCommandBuffer
+________________________________________________________________________________
+ STAGE:	SUBMIT WORK_INIT
+  void: 	vkcombuf_work_init
+    64:	  	vkQueueSubmit
+  void: 	vkcombuf_work_init
+    65:	  	vkQueueSubmit
+________________________________________________________________________________
+ STAGE:	RECORD PARA_LOOP
+    66:	  	vkCreateRenderPass                         [0x95a125000000001a]
+    67:	  	vkCreateRenderPass                         [0xcb1c7c000000001b]
+    68:	  	vkCreateFramebuffer                        [0x2cfba2000000001c]
+    69:	  	vkCreateFramebuffer                        [0x908683000000001d]
+    70:	  	vkCreateDescriptorSetLayout                [0xcfcda0000000001e]
+    71:	  	vkCreateDescriptorPool                     [0x2e2941000000001f]
+    72:	  	vkCreateDescriptorPool                     [0xab64de0000000020]
+    73:	  	vkCreateDescriptorPool                     [0xc4f3070000000021]
+    74:	  	vkAllocateDescriptorSets                   [0x301e6c0000000022]
+    75:	  	vkAllocateDescriptorSets                   [0xa7c5450000000023]
+    76:	-1000069000 	vkAllocateDescriptorSets                   [0]
+	info:	    UniBuf_WF size ....................... [12]
+    77:	  	vkCreateBuffer                             [0xb991fa0000000024]
+	info:	    mem_index_ub_para .................... [1]
+  void: 	vkGetBufferMemoryRequirements
+	info:	    memreq size .......................... [16]
+	info:	    memreq alignment ..................... [16]
+	info:	    memreq memoryTypeBits ................ [255]
+    78:	  	vkAllocateMemory
+    79:	  	vkBindBufferMemory
+	info:	    UniBuf_WF Size ....................... [12]
+    80:	  	vkMapMemory                                [0x7fd024166000]
+  void: 	memcpy
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+    81:	  	vkCreatePipelineLayout                     [0xa2eb680000000026]
+    82:	  	vkCreateGraphicsPipelines                  [0xb097c90000000027]
+    83:	  	vkCreateGraphicsPipelines                  [0x3fbcd60000000028]
+	info:	    LoadIMG buffer size .................. [1179648]
+    84:	  	vkCreateBuffer                             [0xb9181f0000000029]
+	info:	    mem_index_para_loadimg ............... [1]
+  void: 	vkGetBufferMemoryRequirements
+	info:	    memreq size .......................... [1179648]
+	info:	    memreq alignment ..................... [4]
+	info:	    memreq memoryTypeBits ................ [255]
+    85:	  	vkAllocateMemory
+    86:	  	vkBindBufferMemory
+    87:	  	vkMapMemory                                [0x7fd0111ba000]
+  void: 	memcpy
+    88:	  	vkBeginCommandBuffer
+  void: 	vkCmdBeginRenderPass
+  void: 	vkCmdBindPipeline
+  void: 	vkCmdBindDescriptorSets
+  void: 	vkCmdDraw
+  void: 	vkCmdEndRenderPass
+    89:	  	vkEndCommandBuffer
+    90:	  	vkBeginCommandBuffer
+  void: 	vkCmdBeginRenderPass
+  void: 	vkCmdBindPipeline
+  void: 	vkCmdBindDescriptorSets
+  void: 	vkCmdDraw
+  void: 	vkCmdEndRenderPass
+    91:	  	vkEndCommandBuffer
+    92:	  	vkBeginCommandBuffer
+    93:	  	vkEndCommandBuffer
+    94:	  	vkBeginCommandBuffer
+    95:	  	vkEndCommandBuffer
+________________________________________________________________________________
+ STAGE:	SUBMIT PARA_LOOP
+________________________________________________________________________________
+ STAGE:	RECORD WORK_LOOP
+    96:	  	vkCreateRenderPass                         [0x2e2cd000000002b]
+    97:	  	vkCreateRenderPass                         [0xb12fb2000000002c]
+    98:	  	vkCreateFramebuffer                        [0xa43473000000002d]
+    99:	  	vkCreateFramebuffer                        [0x980b0000000002e]
+   100:	  	vkCreateDescriptorSetLayout                [0x4b7df1000000002f]
+   101:	  	vkCreateDescriptorPool                     [0xa21a4e0000000030]
+   102:	  	vkCreateDescriptorPool                     [0xea7170000000031]
+   103:	  	vkAllocateDescriptorSets                   [0x4fac1c0000000032]
+   104:	  	vkAllocateDescriptorSets                   [0xa808d50000000033]
+	info:	    UniBuf size .......................... [228]
+   105:	  	vkCreateBuffer                             [0x2b424a0000000034]
+	info:	    mem_index_ub_work .................... [1]
+  void: 	vkGetBufferMemoryRequirements
+	info:	    memreq size .......................... [240]
+	info:	    memreq alignment ..................... [16]
+	info:	    memreq memoryTypeBits ................ [255]
+   106:	  	vkAllocateMemory
+   107:	  	vkBindBufferMemory
+	info:	    UniBuf Size .......................... [228]
+   108:	  	vkMapMemory                                [0x7fd017ba4000]
+  void: 	memcpy
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+  void: 	vkUpdateDescriptorSets
+   109:	  	vkCreatePipelineLayout                     [0x9638f80000000036]
+   110:	  	vkCreateGraphicsPipelines                  [0x2723ba0000000037]
+   111:	  	vkCreateGraphicsPipelines                  [0x59f7450000000038]
+   112:	  	vkBeginCommandBuffer
+  void: 	vkCmdBeginRenderPass
+  void: 	vkCmdBindPipeline
+  void: 	vkCmdBindDescriptorSets
+  void: 	vkCmdDraw
+  void: 	vkCmdEndRenderPass
+   113:	  	vkEndCommandBuffer
+   114:	  	vkBeginCommandBuffer
+  void: 	vkCmdBeginRenderPass
+  void: 	vkCmdBindPipeline
+  void: 	vkCmdBindDescriptorSets
+  void: 	vkCmdDraw
+  void: 	vkCmdEndRenderPass
+   115:	  	vkEndCommandBuffer
+________________________________________________________________________________
+ STAGE:	RECORD PRES_INIT
+   116:	  	vkCreateImageView                          [0x944a2c0000000039]
+   117:	  	vkCreateImageView                          [0x210d07000000003a]
+   118:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+   119:	  	vkEndCommandBuffer
+   120:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+   121:	  	vkEndCommandBuffer
+________________________________________________________________________________
+ STAGE:	SUBMIT PRES_INIT
+  void: 	vkcombuf_pres_init
+   122:	  	vkQueueSubmit
+  void: 	vkcombuf_pres_init
+   123:	  	vkQueueSubmit
+________________________________________________________________________________
+ STAGE:	RECORD PRES_LOOP
+   124:	  	vkCreateRenderPass                         [0x5eb05e000000003b]
+   125:	  	vkCreateFramebuffer                        [0x9f9b41000000003c]
+   126:	  	vkCreateFramebuffer                        [0x59ffe0000000003d]
+   127:	  	vkCreatePipelineLayout                     [0x5c5283000000003e]
+   128:	  	vkCreateGraphicsPipelines                  [0x808562000000003f]
+  void: 	vkGetImageMemoryRequirements
+	info:	    memreq size .......................... [524288]
+	info:	    memreq alignment ..................... [65536]
+	info:	    memreq memoryTypeBits ................ [15]
+   129:	  	vkCreateBuffer                             [0x56c9bd0000000040]
+	info:	    mem_index_save ....................... [1]
+  void: 	vkGetBufferMemoryRequirements
+	info:	    memreq size .......................... [524288]
+	info:	    memreq alignment ..................... [4]
+	info:	    memreq memoryTypeBits ................ [255]
+   130:	  	vkAllocateMemory
+   131:	  	vkBindBufferMemory
+   132:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+  void: 	vkCmdCopyImageToBuffer
+  void: 	vkCmdPipelineBarrier
+  void: 	vkCmdBlitImage
+  void: 	vkCmdPipelineBarrier
+  void: 	vkCmdBeginRenderPass
+  void: 	vkCmdBindPipeline
+  void: 	vkCmdDraw
+  void: 	vkCmdEndRenderPass
+   133:	  	vkEndCommandBuffer
+   134:	  	vkBeginCommandBuffer
+  void: 	vkCmdPipelineBarrier
+  void: 	vkCmdCopyImageToBuffer
+  void: 	vkCmdPipelineBarrier
+  void: 	vkCmdBlitImage
+  void: 	vkCmdPipelineBarrier
+  void: 	vkCmdBeginRenderPass
+  void: 	vkCmdBindPipeline
+  void: 	vkCmdDraw
+  void: 	vkCmdEndRenderPass
+   135:	  	vkEndCommandBuffer
+________________________________________________________________________________
+ STAGE:	MAIN LOOP
+	info:	    Loaded Patterns ...................... [17981]
+   136:	  	vkMapMemory
+  void: 	nanosleep(NS_DELAY)
+	info:	    0	i ................................ [0]
+  void: 	memcpy
+  void: 	memcpy
+   137:	  	vkResetFences
+   138:	  	vkAcquireNextImageKHR
+	info:	    0	aqimg_idx ........................ [0]
+	info:	    0	vkswap_img ....................... [0xcb3ee80000000007]
+  void: 	vkcombuf_para
+   139:	  	vkQueueSubmit
+  void: 	vkcombuf_work
+   140:	  	vkQueueSubmit
+  void: 	vkcombuf_pres
+   141:	  	vkQueueSubmit
+   142:	  	vkWaitForFences <100ms>
+   143:	  	vkQueuePresentKHR
+  void: 	nanosleep(NS_DELAY)
+	info:	    1	i ................................ [1]
+  void: 	memcpy
+  void: 	memcpy
+   144:	  	vkResetFences
+   145:	  	vkAcquireNextImageKHR
+	info:	    1	aqimg_idx ........................ [1]
+	info:	    1	vkswap_img ....................... [0xead9370000000008]
+  void: 	vkcombuf_para
+   146:	  	vkQueueSubmit
+  void: 	vkcombuf_work
+   147:	  	vkQueueSubmit
+  void: 	vkcombuf_pres
+   148:	  	vkQueueSubmit
+   149:	  	vkWaitForFences <100ms>
+   150:	  	vkQueuePresentKHR
+	info:	    Frame ................................ [619664 ns, 1613 FPS, i95]
+	info:	    Frame ................................ [560385 ns, 1784 FPS, i1461]
+	info:	    Key .................................. [113]
+	info:	    Release Key .......................... [113]
+	info:	    Key .................................. [114]
+	info:	    Release Key .......................... [114]
+	info:	    Frame ................................ [559344 ns, 1787 FPS, i2859]
+	info:	    Frame ................................ [543925 ns, 1838 FPS, i4278]
+	info:	    Frame ................................ [545845 ns, 1832 FPS, i5696]
+XIO:  fatal IO error 22 (Invalid argument) on X server ":0.0"
+      after 17431 requests (17430 known processed) with 0 events remaining.
+
+  END   ./app/VulkanAutomata
+
+
+Script done on 2021-06-15 14:51:13+12:00 [COMMAND_EXIT_CODE="0"]
