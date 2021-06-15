@@ -1,11 +1,9 @@
 #version 460
 //	Shader developed by Slackermanz:
 //		https://twitter.com/slackermanz
-//		https://www.reddit.com/user/slackermanz/
 //		https://github.com/Slackermanz/VulkanAutomata
 //		https://www.youtube.com/channel/UCmoNsNuM0M9VsIXfm2cHPiA/videos
 //		https://www.shadertoy.com/user/SlackermanzCA
-//		https://discord.gg/BCuYCEn
 layout(location 	=  0) out 		vec4 out_col;
 layout(binding 		=  0) uniform 	UniBuf_WF {
 	uint wsize;
@@ -355,7 +353,10 @@ void main() {
 		res_r = 0.5; res_g = 0.5; res_b = 0.5; }
 	if(minfo[3] == 3) { 
 		res_r = 1.0; res_g = 1.0; res_b = 1.0; }
-//		res_r = 1.0; res_g = 1.0; res_b = 1.0;
+
+		res_r = 1.0; res_g = 1.0; res_b = 1.0;
+//		if(ub.frame != 0 && minfo[3] != 1) { res_r = ref_r; res_g = ref_g; res_b = ref_b; }
+//		res_r = ref_r; res_g = ref_g; res_b = ref_b;
 
 	out_col = vec4(clamp(res_r,0.0,1.0), clamp(res_g,0.0,1.0), clamp(res_b,0.0,1.0), 1.0);
 }

@@ -1,0 +1,400 @@
+//	----    ----    ----    ----    ----    ----    ----    ----
+//
+//	Shader developed by Slackermanz:
+//
+//		https://slackermanz.com
+//
+//		Discord:	Slackermanz#3405
+//		Github:		https://github.com/Slackermanz
+//		Twitter:	https://twitter.com/slackermanz
+//		YouTube:	https://www.youtube.com/c/slackermanz
+//		Shadertoy: 	https://www.shadertoy.com/user/SlackermanzCA
+//		Reddit:		https://old.reddit.com/user/slackermanz
+//
+//		Communities:
+//			Reddit:		https://old.reddit.com/r/cellular_automata
+//			Discord:	https://discord.com/invite/J3phjtD
+//			Discord:	https://discord.gg/BCuYCEn
+//
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+#version 460
+#define PI 3.14159265359
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+layout(constant_id 	=  0) const uint SCUI00 = 0;	layout(constant_id 	=  1) const uint SCUI01 = 0;
+layout(constant_id 	=  2) const uint SCUI02 = 0;	layout(constant_id 	=  3) const uint SCUI03 = 0;
+layout(constant_id 	=  4) const uint SCUI04 = 0;	layout(constant_id 	=  5) const uint SCUI05 = 0;
+layout(constant_id 	=  6) const uint SCUI06 = 0;	layout(constant_id 	=  7) const uint SCUI07 = 0;
+layout(constant_id 	=  8) const uint SCUI08 = 0;	layout(constant_id 	=  9) const uint SCUI09 = 0;
+layout(constant_id 	= 10) const uint SCUI10 = 0;	layout(constant_id 	= 11) const uint SCUI11 = 0;
+layout(constant_id 	= 12) const uint SCUI12 = 0;	layout(constant_id 	= 13) const uint SCUI13 = 0;
+layout(constant_id 	= 14) const uint SCUI14 = 0;	layout(constant_id 	= 15) const uint SCUI15 = 0;
+layout(constant_id 	= 16) const uint SCUI16 = 0;	layout(constant_id 	= 17) const uint SCUI17 = 0;
+layout(constant_id 	= 18) const uint SCUI18 = 0;	layout(constant_id 	= 19) const uint SCUI19 = 0;
+layout(constant_id 	= 20) const uint SCUI20 = 0;	layout(constant_id 	= 21) const uint SCUI21 = 0;
+layout(constant_id 	= 22) const uint SCUI22 = 0;	layout(constant_id 	= 23) const uint SCUI23 = 0;
+layout(constant_id 	= 24) const uint SCUI24 = 0;	layout(constant_id 	= 25) const uint SCUI25 = 0;
+layout(constant_id 	= 26) const uint SCUI26 = 0;	layout(constant_id 	= 27) const uint SCUI27 = 0;
+layout(constant_id 	= 28) const uint SCUI28 = 0;	layout(constant_id 	= 29) const uint SCUI29 = 0;
+layout(constant_id 	= 30) const uint SCUI30 = 0;	layout(constant_id 	= 31) const uint SCUI31 = 0;
+layout(constant_id 	= 32) const uint SCUI32 = 0;	layout(constant_id 	= 33) const uint SCUI33 = 0;
+layout(constant_id 	= 34) const uint SCUI34 = 0;	layout(constant_id 	= 35) const uint SCUI35 = 0;
+layout(constant_id 	= 36) const uint SCUI36 = 0;	layout(constant_id 	= 37) const uint SCUI37 = 0;
+layout(constant_id 	= 38) const uint SCUI38 = 0;	layout(constant_id 	= 39) const uint SCUI39 = 0;
+layout(constant_id 	= 40) const uint SCUI40 = 0;	layout(constant_id 	= 41) const uint SCUI41 = 0;
+layout(constant_id 	= 42) const uint SCUI42 = 0;	layout(constant_id 	= 43) const uint SCUI43 = 0;
+layout(constant_id 	= 44) const uint SCUI44 = 0;	layout(constant_id 	= 45) const uint SCUI45 = 0;
+layout(constant_id 	= 46) const uint SCUI46 = 0;	layout(constant_id 	= 47) const uint SCUI47 = 0;
+
+layout(location 	=  0) out 		vec4 out_col;
+layout(binding 		=  1) uniform 	sampler2D txdata;
+layout(binding 		=  2) uniform 	sampler2D txpara;
+layout(binding 		=  0) uniform 	UniBuf {
+	uint wsize;
+	uint frame;
+	uint minfo;
+	uint i0;  uint i1;  uint i2;  uint i3;
+	uint v0;  uint v1;  uint v2;  uint v3;	uint v4;  uint v5;  uint v6;  uint v7;
+	uint v8;  uint v9;  uint v10; uint v11;	uint v12; uint v13; uint v14; uint v15;
+	uint v16; uint v17; uint v18; uint v19;	uint v20; uint v21; uint v22; uint v23;
+	uint v24; uint v25; uint v26; uint v27;	uint v28; uint v29; uint v30; uint v31;
+	uint v32; uint v33; uint v34; uint v35;	uint v36; uint v37; uint v38; uint v39;
+	uint v40; uint v41; uint v42; uint v43;	uint v44; uint v45; uint v46; uint v47;
+	float scale;
+	float zoom; } ub;
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+const uint MAX_RADIUS = 8u;
+const uint NBH_NUMBER = 4u;
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+uint u32_upk(uint u32, uint bts, uint off) { return (u32 >> off) & ((1u << bts)-1u); }
+
+float  tp(uint n, float s) 			{ return (float(n+1u)/256.0) * ((s*0.5)/128.0); }
+float bsn(uint v, uint  o) 			{ return float(u32_upk(v,1u,o)*2u)-1.0; }
+float vwm()							{
+	return (u32_upk(ub.wsize,  4, 28) == 1)
+	? (((gl_FragCoord[1] / textureSize(txdata,0)[1]) + ub.zoom) * (ub.scale / (1.0 + ub.zoom * 2.0))) * 2.0
+	: ub.scale * 1.0; }
+float utp(uint v, uint  w, uint o) 	{ return tp(u32_upk(v,w,w*o), vwm()); }
+
+float bell(float xDist, float xPeak, float xGrad) { return exp(-(xDist-xPeak)*(xDist-xPeak)/xGrad/xGrad/2.0); }  // bell-shaped curve
+
+float caml(float x, float m, float s) { return exp(-(x-m)*(x-m)/s/s/2.0) + exp(-(x+m-1.0)*(x+m-1.0)/s/s/2.0); }
+
+float sigm(float x, float w) { return 1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) ); }
+
+vec4 sigm(vec4 x, float w) { return 1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) ); }
+
+float sigu(float x, float w) { return -(1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) )) + 1.0; }
+
+float sig2(float x, float n) {   
+    float sigm_a = 1.0 / ( 1.0 + exp(-n * x +      n/2.0 ) );
+    float sigm_b = 1.0 / ( 1.0 + exp(-n * x - (n - n/2.0)) );
+    return sqrt(sigm_a * sigm_b) * 2.0; }
+
+float peek(float x, float n) { return -abs((x * n * 2.0) - n) + 1.0; }
+
+float trop(float x, float n) { return abs((x * n * 2.0) - n); }
+
+float plat(float x, float n) { return (-abs( x*n - 0.5*n) + 1.0) + (abs(x*n) - 0.5*n); }
+
+float vali(float x, float n) { return (-abs( x*n - 0.5*n) + 1.0) - (abs(x*n) - 0.5*n); }
+
+vec4  gdv( ivec2 of, sampler2D tx ) {
+	of 		= ivec2(gl_FragCoord) + of;
+	of[0] 	= (of[0] + textureSize(tx,0)[0]) & (textureSize(tx,0)[0]-1);
+	of[1] 	= (of[1] + textureSize(tx,0)[1]) & (textureSize(tx,0)[1]-1);
+	return 	texelFetch( tx, of, 0); }
+
+vec4[NBH_NUMBER] lnhd(sampler2D tx) {
+	float				psn = 32768.0;
+	float 				MXR = float(MAX_RADIUS);
+	vec4 				o 	= vec4(0.0,0.0,0.0,0.0);
+	vec4[NBH_NUMBER] 	nhd_a;
+	vec4[NBH_NUMBER] 	nhd_b;
+	vec4[NBH_NUMBER] 	nhd_c;
+
+	for(uint i = 0u; i < NBH_NUMBER; i++) { nhd_a[i] = o; nhd_b[i] = o; }
+
+	for(float i = 0.0; i <= MXR; i++) {
+		for(float j = 1.0; j <= MXR; j++) {
+			float d = round(sqrt(i*i+j*j));
+			float w = 1.0;
+			if( d <= MXR && d > 0.0 ) {
+				vec4 t0 = gdv( ivec2( i, j), tx ) * w * psn;
+				vec4 t1 = gdv( ivec2( j,-i), tx ) * w * psn;
+				vec4 t2 = gdv( ivec2(-i,-j), tx ) * w * psn;
+				vec4 t3 = gdv( ivec2(-j, i), tx ) * w * psn;
+				for(uint k = 0u; k < NBH_NUMBER; k++) {
+					nhd_a[k] += t0;
+					nhd_a[k] += t1;
+					nhd_a[k] += t2;
+					nhd_a[k] += t3;
+					nhd_b[k] += w * psn * 4.0; } } } }
+
+	for(uint i = 0u; i < NBH_NUMBER; i++) { nhd_c[i] = nhd_a[i] / nhd_b[i];	}
+
+	return nhd_c; }
+
+mat4 m4nh(sampler2D tx) {
+	float psn = 32768.0;
+	float MXR = float(MAX_RADIUS);
+
+	mat4  nhd_a = mat4(0.0);
+	mat4  nhd_b = mat4(0.0);
+
+	for(float i = 0.0; i <= MXR; i++) {
+		for(float j = 1.0; j <= MXR; j++) {
+			float d = round(sqrt(i*i+j*j));
+			float w = 1.0;
+			if( d <= MXR && d > 0.0 ) {
+				vec4 t0 = gdv( ivec2( i, j), tx );
+				vec4 t1 = gdv( ivec2( j,-i), tx );
+				vec4 t2 = gdv( ivec2(-i,-j), tx );
+				vec4 t3 = gdv( ivec2(-j, i), tx );
+				for(uint k0 = 0u; k0 < 4u; k0++) {
+					for(uint k1 = 0u; k1 < 4u; k1++) {
+						nhd_a[k0][k1] +=  t0[0] * w * psn;
+						nhd_a[k0][k1] +=  t1[0] * w * psn;
+						nhd_a[k0][k1] +=  t2[0] * w * psn;
+						nhd_a[k0][k1] +=  t3[0] * w * psn;
+						nhd_b[k0][k1] +=    4.0 * w * psn; } } } } }
+
+	return nhd_a / nhd_b; }
+
+float[16] f16n(sampler2D tx) {
+	float psn = 32768.0;
+	float MXR = float(MAX_RADIUS);
+
+	float[16] nhd_a = float[16](0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0);
+	float[16] nhd_b = float[16](0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0);
+
+	for(float i = 0.0; i <= MXR; i++) {
+		for(float j = 1.0; j <= MXR; j++) {
+			float d = round(sqrt(i*i+j*j));
+			float w = 1.0;
+			if( d <= MXR && d > 0.0 ) {
+				vec4 t0 = gdv( ivec2( i, j), tx );
+				vec4 t1 = gdv( ivec2( j,-i), tx );
+				vec4 t2 = gdv( ivec2(-i,-j), tx );
+				vec4 t3 = gdv( ivec2(-j, i), tx );
+				for(uint k0 = 0u; k0 < 16u; k0++) {
+					nhd_a[k0] +=  t0[0] * w * psn;
+					nhd_a[k0] +=  t1[0] * w * psn;
+					nhd_a[k0] +=  t2[0] * w * psn;
+					nhd_a[k0] +=  t3[0] * w * psn;
+					nhd_b[k0] +=    4.0 * w * psn; } } } }
+
+	float[16] nhd_c;
+	for(uint k0 = 0u; k0 < 16u; k0++) { nhd_c[k0] = nhd_a[k0] / nhd_b[k0]; }
+
+	return nhd_c; }
+
+vec4[16] v4nh(sampler2D tx, uint[16] nbconf) {
+	float 	MXR = float(MAX_RADIUS);
+//	Precision limit of signed float32 for [n] neighbors in a 16 bit texture (symmetry preservation)
+	uint	chk = 2147483648u /	( uint( MXR*MXR*PI + MXR*PI + PI ) * 128u );
+	float	psn = (chk >= 65536u) ? 65536.0 : float(chk);
+
+	vec4[16] nhd_a = vec4[16](
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), 
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), 
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), 
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0) );
+
+	vec4[16] nhd_b = vec4[16](
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), 
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), 
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), 
+		vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0), vec4(0.0,0.0,0.0,0.0) );
+
+	for(float i = 0.0; i <= MXR; i++) {
+		for(float j = 1.0; j <= MXR; j++) {
+			float d = round(sqrt(i*i+j*j));
+			if( d <= MXR && d > 0.0 ) {
+				vec4 t0 = gdv( ivec2( i, j), tx ) * psn;
+				vec4 t1 = gdv( ivec2( j,-i), tx ) * psn;
+				vec4 t2 = gdv( ivec2(-i,-j), tx ) * psn;
+				vec4 t3 = gdv( ivec2(-j, i), tx ) * psn;
+				for(uint k0 = 0u; k0 < 16u; k0++) {
+					for(uint k1 = 0u; k1 < MAX_RADIUS; k1++) {
+						if(u32_upk(nbconf[k0], 1u, k1) == 1u) {
+							float w = 1.0;
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.12) { w = bell(d/MXR,  0.5, 0.18); }
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.24) { w = d; }
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.36) { w = peek(d/MXR, 1.25); }
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.48) { w = trop(d/MXR, 1.25); }
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.60) { w = sigm(d/MXR,  5.0); }
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.72) { w = caml(d/MXR,  0.75, 0.15); }
+
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.86) { w = sig2(d/MXR, 16.0); }
+
+							//if(gl_FragCoord[1] > textureSize(txdata,0)[1] * 0.20) { w = bell(1.0-(1.0/d), 1.0, 0.18); }
+
+							//w = bell(d/MXR, (gl_FragCoord[1] / textureSize(txdata,0)[1]) * 3.0, 0.15);
+							//w = sig2(d/MXR, 90.0);
+							//w = (gl_FragCoord[1] / textureSize(txdata,0)[1]) * (d/MXR) * 20.0;
+							//w = sig2(1.0/sqrt(1.0/d), (gl_FragCoord[1] / textureSize(txdata,0)[1]) * 120.0);
+							//w = peek(d/MXR, 1.25);
+
+							//w = sigm(1.0/d, (gl_FragCoord[0] / textureSize(txdata,0)[0]) * 10.0);
+
+							nhd_b[k0] += 4.0 * w * psn;
+							nhd_a[k0] += ( t0 - fract(t0) ) * w;
+							nhd_a[k0] += ( t1 - fract(t1) ) * w;
+							nhd_a[k0] += ( t2 - fract(t2) ) * w;
+							nhd_a[k0] += ( t3 - fract(t3) ) * w; } } } } } }
+
+	vec4[16] nhd_c;
+	for(uint k0 = 0u; k0 < 16u; k0++) { nhd_c[k0] = sigm(nhd_a[k0] / nhd_b[k0], 5.0); }
+
+	return nhd_c; }
+
+vec4[2] nbhd( vec2 r, sampler2D tx ) {
+//	Precision limit of signed float32 for [n] neighbors in a 16 bit texture (symmetry preservation)
+	uint	chk = 2147483648u /
+			(	( 	uint( r[0]*r[0]*PI + r[0]*PI + PI	)
+				- 	uint( r[1]*r[1]*PI + r[1]*PI		) ) * 128u );
+	float	psn = (chk >= 65536u) ? 65536.0 : float(chk);
+	vec4	a = vec4(0.0,0.0,0.0,0.0);
+	vec4 	b = vec4(0.0,0.0,0.0,0.0);
+	for(float i = 0.0; i <= r[0]; i++) {
+		for(float j = 1.0; j <= r[0]; j++) {
+			float	d = round(sqrt(i*i+j*j));
+			float	w = 1.0;
+			if( d <= r[0] && d > r[1] ) {
+					 b 	+= w * psn * 4.0;
+				vec4 t0  = gdv( ivec2( i, j), tx ) * w * psn; a += t0 - fract(t0);
+				vec4 t1  = gdv( ivec2( j,-i), tx ) * w * psn; a += t1 - fract(t1);
+				vec4 t2  = gdv( ivec2(-i,-j), tx ) * w * psn; a += t2 - fract(t2);
+				vec4 t3  = gdv( ivec2(-j, i), tx ) * w * psn; a += t3 - fract(t3); } } }
+	return vec4[2](a, b); }
+
+vec4 bitring(vec4[MAX_RADIUS][2] rings, uint bits, uint of) {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	vec4 tot = vec4(0.0,0.0,0.0,0.0);
+	for(uint i = 0u; i < MAX_RADIUS; i++) {
+		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i][0]; tot += rings[i][1]; } }
+	return sum / tot; }
+
+vec4 show_nh() {
+	vec2 xy = vec2(gl_FragCoord);
+	xy = sign((xy / 2.0)-float(MAX_RADIUS));
+	float v = sign(xy[0]+xy[1]);
+	return vec4(v,v,v,v); }
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+//	Used to reseed the surface with lumpy noise
+float get_xc(float x, float y, float xmod) {
+	const	float sq = sqrt(mod(x*y+y, xmod)) / sqrt(xmod);
+	const	float xc = mod((x*x)+(y*y), xmod) / xmod;
+	return clamp((sq+xc)*0.5, 0.0, 1.0); }
+float shuffle(float x, float y, float xmod, float val) {
+	val = val * mod( x*y + x, xmod );
+	return (val-floor(val)); }
+float get_xcn(float x, float y, float xm0, float xm1, float ox, float oy) {
+	const	float  xc = get_xc(x+ox, y+oy, xm0);
+	return shuffle(x+ox, y+oy, xm1, xc); }
+float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
+	float 	nhsz_c 	= 0.0;
+	float 	xcn 	= 0.0;
+	float 	nh_val 	= 0.0;
+	for(float i = -nhsz; i <= nhsz; i += 1.0) {
+		for(float j = -nhsz; j <= nhsz; j += 1.0) {
+			nh_val = round(sqrt(i*i+j*j));
+			if(nh_val <= nhsz) {
+				xcn = xcn + get_xcn(x, y, xm0, xm1, i, j);
+				nhsz_c = nhsz_c + 1.0; } } }
+	float 	xcnf 	= ( xcn / nhsz_c );
+	float 	xcaf	= xcnf;
+	for(float i = 0.0; i <= nhsz; i += 1.0) {
+			xcaf 	= clamp((xcnf*xcaf + xcnf*xcaf) * (xcnf+xcnf), 0.0, 1.0); }
+	return xcaf; }
+float reseed(int seed) {
+	const	float 	fx = gl_FragCoord[0];
+	const	float 	fy = gl_FragCoord[1];
+	const	float 	r0 = get_lump(fx, fy,  6.0, 19.0 + mod(ub.frame+seed,17.0), 23.0 + mod(ub.frame+seed,43.0));
+	const	float 	r1 = get_lump(fx, fy, 24.0, 13.0 + mod(ub.frame+seed,29.0), 17.0 + mod(ub.frame+seed,31.0));
+	const	float 	r2 = get_lump(fx, fy, 12.0, 13.0 + mod(ub.frame+seed,11.0), 51.0 + mod(ub.frame+seed,37.0));
+	const	float 	r3 = get_lump(fx, fy, 18.0, 29.0 + mod(ub.frame+seed, 7.0), 61.0 + mod(ub.frame+seed,28.0));
+	return clamp( sqrt((r0+r1)*r3*2.0)-r2 , 0.0, 1.0); }
+
+vec4 place( vec4 col ) {
+	vec2 mxy = vec2( u32_upk(ub.minfo, 12u, 4u), u32_upk(ub.minfo, 12u, 16u) );
+	vec2 dxy = (vec2(gl_FragCoord) - mxy) * (vec2(gl_FragCoord) - mxy);
+	float dist = sqrt(dxy[0] + dxy[1]);
+	if(dist <= 28.0) { col = (u32_upk(ub.minfo, 4u, 0u) == 1u) ? vec4(1.0,1.0,1.0,1.0) : vec4(0.0,0.0,0.0,0.0); }
+	return col; }
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+void main() {
+
+//	Parameters
+	const	float 	mnp 	= 1.0 / 65536.0;			//	Minimum value of a precise step for 16-bit channel
+	const	float 	s  		= mnp * 96.0 * 96.0;
+	const	float 	n  		= mnp * 96.0 * 16.0;
+
+//	Neighborhood
+	uint[16] NB = uint[16] (
+		ub.v0,  ub.v1,  ub.v2,  ub.v3,
+		ub.v4,  ub.v5,  ub.v6,  ub.v7,
+		ub.v8,  ub.v9,  ub.v10, ub.v11,
+		ub.v12, ub.v13, ub.v14, ub.v15  );
+
+//	Update Range
+	uint[24] UD = uint[24] (
+		ub.v16, ub.v17, ub.v18, ub.v19,	
+		ub.v20, ub.v21, ub.v22, ub.v23,
+		ub.v24, ub.v25, ub.v26, ub.v27,	
+		ub.v28, ub.v29, ub.v30, ub.v31, 
+		ub.v32, ub.v33, ub.v34, ub.v35, 
+		ub.v36, ub.v37, ub.v38, ub.v39  );
+
+//	Channel Source / Destination Map
+//	715478016u : RRRRR GGGGG BBBBB
+//	312628800u : RRRGB GGGBR BBBRG
+//	279090768u : RRGGB GGBBR BBRRG
+	uint[ 2] IO = uint[ 2] ( 715478016u, 279090768u );
+
+//	Update Value
+	uint[ 1] VU = uint[ 1] ( 1431655765u );
+
+//	Output Value
+	vec4 res_c = gdv( ivec2(0,0), txdata );
+
+//	Weighted Kernel Values
+	vec4[16] nbhd_vals = v4nh(txdata, NB);
+
+	for(uint i = 0u; i < 15u; i++) {
+		float nhv = nbhd_vals[i][u32_upk(IO[0], 2u, i)];
+		if( nhv >= utp( UD[i], 8u, 0u) && nhv <= utp( UD[i], 8u, 1u)) { res_c[u32_upk(IO[1], 2u, i)] += bsn(VU[0], i*2+0)*s; }
+		if( nhv >= utp( UD[i], 8u, 2u) && nhv <= utp( UD[i], 8u, 3u)) { res_c[u32_upk(IO[1], 2u, i)] += bsn(VU[0], i*2+1)*s; } }
+
+	res_c -= n;
+
+//	res_c = show_nh();
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Shader Output
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+	if(ub.frame == 0 || u32_upk(ub.minfo, 4, 28) == 1u) {
+		res_c[0] = reseed(0); 
+		res_c[1] = reseed(1); 
+		res_c[2] = reseed(2); 
+		res_c[3] = reseed(3); }
+	
+	if( u32_upk(ub.minfo, 4u, 0u) == 1u || u32_upk(ub.minfo, 4u, 0u) == 3u ) { res_c = place(res_c); }
+
+	out_col = res_c;
+
+}
+
+

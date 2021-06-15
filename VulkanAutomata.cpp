@@ -11,6 +11,8 @@
 #include <vector>
 #include <X11/Xlib.h>
 #include <vulkan/vulkan.h>
+#include <regex>
+#include <string>
 
 bool 	valid 		=	1;	//	Break on error
 bool 	output 		=	1;	//	?
@@ -237,12 +239,109 @@ struct SpecConstData {
 	uint32_t sc40; uint32_t sc41; uint32_t sc42; uint32_t sc43;
 	uint32_t sc44; uint32_t sc45; uint32_t sc46; uint32_t sc47; };
 
+struct PatternConfigData_340 {
+	uint32_t scd_save[32];
+	uint32_t ubi_save[4];
+	uint32_t ubv_save[48];
+	float	 scl_save; };
+
+struct PatternConfigData_404 {
+	uint32_t scd_save[48];
+	uint32_t ubi_save[4];
+	uint32_t ubv_save[48];
+	float	 scl_save; };
+
+struct PatternConfigData_408 {
+	uint32_t scd_save[48];
+	uint32_t ubi_save[4];
+	uint32_t ubv_save[48];
+	float	 scl_save;
+	float	 pzm_save; };
+
+struct PatternConfigData_412 {
+	uint32_t scd_save[48];
+	uint32_t ubi_save[4];
+	uint32_t ubv_save[48];
+	uint32_t wsz_save;
+	float	 scl_save;
+	float	 pzm_save; };
+
 struct PatternConfigData {
 	uint32_t scd_save[48];
 	uint32_t ubi_save[4];
 	uint32_t ubv_save[48];
 	float	 scl_save;
 	float	 pzm_save; };
+
+PatternConfigData new_pcd() {
+	PatternConfigData pcd;
+		for(int i = 0; i < 48; i++) { pcd.scd_save[i] = 0; }
+		for(int i = 0; i <  4; i++) { pcd.ubi_save[i] = 0; }
+		for(int i = 0; i < 48; i++) { pcd.ubv_save[i] = 0; }
+		pcd.scl_save = 128.0;
+		pcd.pzm_save =   0.0;
+	return pcd; }
+
+struct EvoData {
+	uint32_t host_time;
+	uint32_t save_time;
+	uint32_t gen_count;
+	uint32_t discarded;
+	uint32_t parent_id;
+	uint32_t unique_id; };
+
+PatternConfigData load_pcd_340(std::string loadfile, int pcd_index) {
+	PatternConfigData 		pcd = new_pcd();
+	PatternConfigData_340 	pcd_in;
+	std::ifstream fload_pcd(loadfile.c_str(), std::ios::in | std::ios::binary);
+		fload_pcd.seekg(0, fload_pcd.end);
+		int f_len = fload_pcd.tellg();
+		fload_pcd.seekg ((pcd_index % (f_len / sizeof(pcd_in))) * sizeof(pcd_in));
+		fload_pcd.read((char*)&pcd_in, sizeof(pcd_in));
+	fload_pcd.close();
+	for(int i = 0; i < 32; i++) { pcd.scd_save[i] = pcd_in.scd_save[i]; }
+	for(int i = 0; i <  4; i++) { pcd.ubi_save[i] = pcd_in.ubi_save[i]; }
+	for(int i = 0; i < 48; i++) { pcd.ubv_save[i] = pcd_in.ubv_save[i]; }
+	pcd.scl_save = pcd_in.scl_save;
+	return pcd; }
+
+PatternConfigData load_pcd_404(std::string loadfile, int pcd_index) {
+	PatternConfigData 		pcd = new_pcd();
+	PatternConfigData_404 	pcd_in;
+	std::ifstream fload_pcd(loadfile.c_str(), std::ios::in | std::ios::binary);
+		fload_pcd.seekg(0, fload_pcd.end);
+		int f_len = fload_pcd.tellg();
+		fload_pcd.seekg ((pcd_index % (f_len / sizeof(pcd_in))) * sizeof(pcd_in));
+		fload_pcd.read((char*)&pcd_in, sizeof(pcd_in));
+	fload_pcd.close();
+	for(int i = 0; i < 48; i++) { pcd.scd_save[i] = pcd_in.scd_save[i]; }
+	for(int i = 0; i <  4; i++) { pcd.ubi_save[i] = pcd_in.ubi_save[i]; }
+	for(int i = 0; i < 48; i++) { pcd.ubv_save[i] = pcd_in.ubv_save[i]; }
+	pcd.scl_save = pcd_in.scl_save;
+	return pcd; }
+
+PatternConfigData load_pcd_408(std::string loadfile, int pcd_index) {
+	PatternConfigData 		pcd = new_pcd();
+	PatternConfigData_408 	pcd_in;
+	std::ifstream fload_pcd(loadfile.c_str(), std::ios::in | std::ios::binary);
+		fload_pcd.seekg(0, fload_pcd.end);
+		int f_len = fload_pcd.tellg();
+		fload_pcd.seekg ((pcd_index % (f_len / sizeof(pcd_in))) * sizeof(pcd_in));
+		fload_pcd.read((char*)&pcd_in, sizeof(pcd_in));
+	fload_pcd.close();
+	for(int i = 0; i < 48; i++) { pcd.scd_save[i] = pcd_in.scd_save[i]; }
+	for(int i = 0; i <  4; i++) { pcd.ubi_save[i] = pcd_in.ubi_save[i]; }
+	for(int i = 0; i < 48; i++) { pcd.ubv_save[i] = pcd_in.ubv_save[i]; }
+	pcd.scl_save = pcd_in.scl_save;
+	pcd.pzm_save = pcd_in.pzm_save;
+	return pcd; }
+
+PatternConfigData load_pcd(uint32_t version, std::string loadfile, int pcd_index) {
+	PatternConfigData pcd = new_pcd();
+	if( version <= 1616459498 ) 						 { pcd = load_pcd_340(loadfile, pcd_index); }
+	if( version >  1616459498 && version <= 1616831545 ) { pcd = load_pcd_404(loadfile, pcd_index); }
+	if( version >  1616831545 ) 						 { pcd = load_pcd_408(loadfile, pcd_index); }
+	return pcd; }
 
 std::string PCD_out(PatternConfigData pcd) {
 	std::string pcd_out = "//  PatternConfigData";
@@ -251,7 +350,7 @@ std::string PCD_out(PatternConfigData pcd) {
 	for(int i = 0; i < ar_size; i++) {
 		pcd_out = pcd_out + std::to_string(pcd.scd_save[i]);
 		pcd_out = ((i+1) % ar_size == 0) ? pcd_out + " );" : pcd_out + ", ";
-		pcd_out = ((i+1) %  8 == 0) ? pcd_out + "\n\t\t" : pcd_out; }
+		pcd_out = ((i+1) %  4 == 0) ? pcd_out + "\n\t\t" : pcd_out; }
 	ar_size = sizeof(pcd.ubi_save) / sizeof(pcd.ubi_save[0]);
 	pcd_out = pcd_out + "\n\tuint[" + std::to_string(ar_size) + "] UBI = uint[" + std::to_string(ar_size) + "] (\n\t\t";
 	for(int i = 0; i <  ar_size; i++) {
@@ -285,15 +384,279 @@ void export_pcd() {
 		system(pcd_save.c_str()); }
 	fload.close(); }
 
-int main(void) {
+void find_full_config(uint32_t name_pairs[4096][2]) {
 
-//	export_pcd();
+	std::cout << "Looking for configs...\n";
+
+	std::string find_auto = "ls 'LOAD/AUTO/' > LOAD/AUTO.ls";
+	system(find_auto.c_str());
+	std::string find_save = "ls 'LOAD/SAVE/' > LOAD/SAVE.ls";
+	system(find_save.c_str());
+
+	std::string fs;
+
+	std::vector <std::string> auto_fnames;
+	std::string autofile = "LOAD/AUTO.ls";
+	std::ifstream fload_auto(autofile.c_str(), std::ios::in | std::ios::binary);
+		while(!fload_auto.eof()) {
+			std::getline(fload_auto, fs);
+			auto_fnames.push_back(fs); }
+	fload_auto.close();
+	ov("AUTO", auto_fnames.size());
+
+	std::vector <std::string> save_fnames;
+	std::string savefile = "LOAD/SAVE.ls";
+	std::ifstream fload_save(savefile.c_str(), std::ios::in | std::ios::binary);
+		while(!fload_save.eof()) {
+			std::getline(fload_save, fs);
+			save_fnames.push_back(fs); }
+	fload_save.close();
+	ov("SAVE", save_fnames.size());
+
+	uint32_t timestamp_auto[auto_fnames.size()];
+	for(int i = 0; i < auto_fnames.size()-1; i++) {
+		timestamp_auto[i] = stoul(
+				std::regex_replace(
+					auto_fnames[i],
+					std::regex("[^0-9]*([0-9]+).*"),
+					std::string("$1") ) ); }
+
+	uint32_t timestamp_save[save_fnames.size()];
+	for(int i = 0; i < save_fnames.size()-1; i++) {
+		timestamp_save[i] = stoul(
+				std::regex_replace(
+					save_fnames[i],
+					std::regex("[^0-9]*([0-9]+).*"),
+					std::string("$1") ) ); }
+
+	uint32_t timestamp_pair[save_fnames.size()];
+	for(int i = 0; i < save_fnames.size()-1; i++) {
+		for(int j = 0; j < auto_fnames.size()-1; j++) {
+			if(timestamp_auto[j] <= timestamp_save[i]) { timestamp_pair[i] = timestamp_auto[j]; } } }
+
+	for(int i = 0; i < save_fnames.size()-1; i++) {
+		std::string auto_load = "'./LOAD/AUTO/auto_" + std::to_string(timestamp_pair[i]) + ".frag'";
+		std::string auto_used = "'./USED/auto_" + std::to_string(timestamp_save[i]) + ".frag'";
+		std::string cmd_copy_auto = "cp " + auto_load + " " + auto_used;
+		system(cmd_copy_auto.c_str()); }
+/**/
+	for(int i = 0; i < save_fnames.size()-1; i++) {
+		name_pairs[i][0] = timestamp_save[i];
+		name_pairs[i][1] = timestamp_pair[i]; } }
+
+void reload_shader(uint32_t shader_id) {
+	std::cout << "Removing SPV...\n";
+	std::string rm_cmd = "rm './app/frag_automata0000.spv'";
+	std::cout << "Building shader...\n";
+	system(rm_cmd.c_str());
+	std::string shader_source 	= "'./LOAD/AUTO/auto_" + std::to_string(shader_id) + ".frag'";
+	std::string make_shader 	= "./glslc -O " + shader_source + " -o './app/frag_automata0000.spv'";
+	system(make_shader.c_str());
+	std::cout << "Building shader... Done!\n"; }
+
+struct RGBA_16_UNORM_TXL {
+	uint16_t r;
+	uint16_t g;
+	uint16_t b;
+	uint16_t a; };
+
+RGBA_16_UNORM_TXL new_RGBA_16_UNORM_TXL(uint16_t r, uint16_t g, uint16_t b, uint16_t a) {
+	RGBA_16_UNORM_TXL txl;
+	txl.r = r;
+	txl.g = g;
+	txl.b = b;
+	txl.a = a;
+	return txl; }
+
+struct IMG_512_288 {
+	RGBA_16_UNORM_TXL txl[512*288]; };
+
+IMG_512_288 new_IMG_512_288() {
+	IMG_512_288 img;
+	for(int i = 0; i < 512*288; i++) {
+		img.txl[i] = new_RGBA_16_UNORM_TXL(0, 0, 0, UINT16_MAX);
+		if(i <= 512*144) { img.txl[i].r = UINT16_MAX; }
+		if(i >  512*144) { img.txl[i].g = UINT16_MAX; }
+		if(i%512 >  256) { img.txl[i].b = UINT16_MAX; } }
+	return img; }
+
+struct PAM_512_288 {
+	char data[512*288*4]; };
+
+PAM_512_288 loadimg(std::string loadimg) {
+	PAM_512_288 imgdata;
+	std::ifstream fload_img(loadimg.c_str(), std::ios::in | std::ios::binary);
+		fload_img.seekg(0, fload_img.end);
+		int f_len = fload_img.tellg();
+		fload_img.seekg(f_len-sizeof(imgdata));
+		fload_img.read((char*)&imgdata, sizeof(imgdata));
+	fload_img.close();
+	return imgdata; }
+
+struct PAM_512_288_RGB {
+	char data[512*288*3]; };
+
+PAM_512_288_RGB loadimg_RGB(std::string loadimg) {
+	PAM_512_288_RGB imgdata;
+	std::ifstream fload_img(loadimg.c_str(), std::ios::in | std::ios::binary);
+		fload_img.seekg(0, fload_img.end);
+		int f_len = fload_img.tellg();
+		fload_img.seekg(f_len-sizeof(imgdata));
+		fload_img.read((char*)&imgdata, sizeof(imgdata));
+	fload_img.close();
+	return imgdata; }
+
+IMG_512_288 PAM_to_IMG(PAM_512_288 pam_data) {
+	IMG_512_288 img;
+	for(int i = 0; i < 512*288; i++) {
+		img.txl[i].r = pam_data.data[i*4+0] * UINT8_MAX;
+		img.txl[i].g = pam_data.data[i*4+1] * UINT8_MAX;
+		img.txl[i].b = pam_data.data[i*4+2] * UINT8_MAX;
+		img.txl[i].a = pam_data.data[i*4+3] * UINT8_MAX; }
+	return img; }
+
+IMG_512_288 PAM_to_IMG_RGB(PAM_512_288_RGB pam_data) {
+	IMG_512_288 img;
+	for(int i = 0; i < 512*288; i++) {
+		img.txl[i].r = pam_data.data[i*3+0] * UINT8_MAX;
+		img.txl[i].g = pam_data.data[i*3+1] * UINT8_MAX;
+		img.txl[i].b = pam_data.data[i*3+2] * UINT8_MAX;
+		img.txl[i].a = UINT16_MAX; }
+	return img; }
+
+IMG_512_288 load_video_frame(int fidx) {
+	IMG_512_288 img;
+	std::string loadimg_name = "LOAD/Video/IMG" + std::to_string(fidx+1) + ".PAM";
+	img = PAM_to_IMG_RGB(loadimg_RGB(loadimg_name));
+	return img; }
+
+uint32_t u32_upk(uint32_t u32, uint32_t bts, uint32_t off) { return (u32 >> off) & ((1 << bts)-1); }
+
+uint32_t u32_flp(uint32_t u32, uint32_t off) { return u32 ^ (1 << off); }
+
+uint32_t u32_set(uint32_t u32, uint32_t off) { return u32 | (1 << off); }
+uint32_t u32_clr(uint32_t u32, uint32_t off) { return u32 & (1 << off); }
+
+uint32_t bit_flp(uint32_t u32, uint32_t rnd) { 
+	for(int i = 0; i < 32; i++) { if(rand()%rnd == 0) { u32 = u32_flp(u32, i); } } 
+	return u32; }
+
+uint32_t wrd_flp(uint32_t u32, uint32_t rnd, uint32_t wrd) { 
+	for(int i = 0; i < 32; i++) { if(rand()%(rnd*wrd*((i%wrd)+1)) == 0) { u32 = u32_flp(u32, i); } } 
+	return u32; }
+
+uint32_t blk_flp(uint32_t u32, uint32_t len, uint32_t off) {
+	for(int i = off; i < off+len; i++) { u32 = u32_flp(u32, i); }
+	return u32; }
+
+uint32_t blk_set(uint32_t u32, uint32_t len, uint32_t off) {
+	uint32_t val = rand()%2;
+	for(int i = off; i < off+len; i++) { u32 = (val==0) ? u32_clr(u32,i) : u32_set(u32,i); }
+	return u32; }
+
+void unpack32_test(uint32_t n) {
+	if(loglevel != 0) { loglevel = loglevel * -1; }
+
+	ov("N", n );
+	for(int i = 0; i < 32; i++) { iv("Bit", u32_upk(n, 1, i), i ); }
+	for(int i = 0; i < 32; i++) { iv("Flp", u32_flp(n, i), i); }
+	if(loglevel != 0) { loglevel = loglevel * -1; } }
+
+int main(void) {
 
 //	Set rand() seed
 	srand(time(0));
 
+//	unpack32_test(rand()%UINT32_MAX);
+
 //	Timestamp for file handling
 	std::string timestamp = std::to_string(time(0));
+
+	uint32_t save_version 	= stoul(timestamp);
+	std::string loadfile 	= "fbk/save_global.vkpat";
+
+/*	uint32_t save_configs[4096][2];
+	for(int i = 0; i < 4096; i++) { save_configs[i][0] = 0; save_configs[i][1] = 0; }
+	find_full_config(save_configs);
+/**/
+
+	PatternConfigData 		pcd;
+	PatternConfigData_340 	pcd340;
+	PatternConfigData_404 	pcd404;
+	PatternConfigData_408 	pcd408;
+	int 					load_pcd_index 	= 0;
+	int 					pcd_load_size 	= 0;
+
+//	Update old saves to current layout
+/*	for(int i = 0; i < 4096; i++) { 
+		if(save_configs[i][0] > 0) {
+			save_version = save_configs[i][0];
+			if( save_version <= 1616459498 ) 								{ pcd_load_size = sizeof(pcd340); }
+			if( save_version >  1616459498 && save_version <= 1616831545 )	{ pcd_load_size = sizeof(pcd404); }
+			if( save_version >  1616831545 ) 						 		{ pcd_load_size = sizeof(pcd408); }
+			loadfile = "./LOAD/SAVE/save_" + std::to_string(save_configs[i][0]) + ".vkpat";
+			std::ifstream fload(loadfile.c_str(), std::ios::in | std::ios::binary);
+				fload.seekg (0, fload.end);
+				int f_len = fload.tellg();
+			fload.close();
+			for(int j = 0; j < (f_len / pcd_load_size); j++) {
+				pcd = load_pcd(save_version, loadfile, j);
+				std::string 	savefile = "out/load_" + std::to_string(save_version) + ".vkpat";
+				std::ofstream 	fout(savefile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+					fout.write( (const char*)&pcd, sizeof(pcd) );
+					fout.close(); } } }
+/**/
+
+//	Load an old shader config and associated save file
+/*	int load_index = 0;
+	loadfile = "./LOAD/SAVE/save_" + std::to_string(save_configs[load_index][0]) + ".vkpat";
+	reload_shader(save_configs[load_index][1]);
+	save_version = save_configs[load_index][0];
+	ov("SaveFile", save_configs[load_index][0]);
+/**/
+
+//	export_pcd();
+
+/*	for(int i = 0; i < 6221; i++) {
+		pcd 	= load_pcd(save_version, loadfile, i);
+		PatternConfigData pcd_tmp = load_pcd(save_version, loadfile, i);
+
+		pcd.scd_save[24] = pcd_tmp.scd_save[28];
+		pcd.scd_save[25] = pcd_tmp.scd_save[29];
+		pcd.scd_save[26] = pcd_tmp.scd_save[30];
+		pcd.scd_save[27] = pcd_tmp.scd_save[31];
+		pcd.scd_save[28] = pcd_tmp.scd_save[24];
+		pcd.scd_save[29] = pcd_tmp.scd_save[25];
+		pcd.scd_save[30] = pcd_tmp.scd_save[26];
+		pcd.scd_save[31] = pcd_tmp.scd_save[27];
+
+		pcd.ubv_save[24] = pcd_tmp.ubv_save[28];
+		pcd.ubv_save[25] = pcd_tmp.ubv_save[29];
+		pcd.ubv_save[26] = pcd_tmp.ubv_save[30];
+		pcd.ubv_save[27] = pcd_tmp.ubv_save[31];
+		pcd.ubv_save[28] = pcd_tmp.ubv_save[24];
+		pcd.ubv_save[29] = pcd_tmp.ubv_save[25];
+		pcd.ubv_save[30] = pcd_tmp.ubv_save[26];
+		pcd.ubv_save[31] = pcd_tmp.ubv_save[27];
+
+		std::string 	savefile = "fbk/save_" + timestamp + ".vkpat.swap";
+		std::ofstream 	fout_local(savefile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+			fout_local.write( (const char*)&pcd, sizeof(pcd) );
+		fout_local.close(); }*/
+
+/*	for(int i = 0; i < 7914; i++) {
+		pcd 	= load_pcd(save_version, loadfile, i);
+		if(i < 1744) {
+			for(int j = 0; j < 24; j++) {
+				if(pcd.scd_save[j*2+0] <= 0) { pcd.scd_save[j*2+0] =  1; }
+				if(pcd.scd_save[j*2+0] > 10) { pcd.scd_save[j*2+0] = 10; }
+				if(pcd.scd_save[j*2+1] > 10) { pcd.scd_save[j*2+1] = 10; }
+				if(pcd.scd_save[j*2+0] <= pcd.scd_save[j*2+1]) { pcd.scd_save[j*2+1] = pcd.scd_save[j*2+0]-1; } } }
+
+		std::string 	savefile = "fbk/save_" + timestamp + ".vkpat.swap";
+		std::ofstream 	fout_local(savefile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
+			fout_local.write( (const char*)&pcd, sizeof(pcd) );
+		fout_local.close(); }/**/
 
 	if(loglevel != 0) { loglevel = loglevel * -1; }
 
@@ -317,15 +680,16 @@ int main(void) {
 	///////////////////////////////////////////////////
 
 	const uint32_t 	APP_W 			= 512;		//	1920 1536 1280	768	512	384	256
-	const uint32_t 	APP_H 			= 288;		//	1080 864  720	432	288	216	144
+	const uint32_t 	APP_H 			= 256;		//	1080 864  720	432	288	216	144
 	const long 		FPS 			= 0;		//	2+
 	const int 		TEST_CYCLES 	= 0;		//	0+
+	const int  		SCR_BATCH		= 360;		//	120	180	300	600
 
 	uint32_t 		PD_IDX 			= UINT32_MAX;	//	Physical Device Index
 	uint32_t 		GQF_IDX 		= UINT32_MAX;	//	Graphics Queue Family Index
 	uint32_t		SURF_FMT 		= UINT32_MAX;	//	Surface Format
 
-	const long 		NS_DELAY 		= (FPS==0) ? 1 : 1000000000 / FPS;							//	Nanosecond Delay
+	const long 		NS_DELAY 		= (FPS==0) ? 1 : 1000000000 / FPS;				//	Nanosecond Delay
 	const float 	TRIQUAD_SCALE 	= 1.0;											//	Vertex Shader Triangle Scale
 	const float 	VP_SCALE 		= TRIQUAD_SCALE + (1.0-TRIQUAD_SCALE) * 0.5;	//	Vertex Shader Viewport Scale
 
@@ -680,6 +1044,7 @@ int main(void) {
 		vkimg_info_para.usage 					= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 												| VK_IMAGE_USAGE_SAMPLED_BIT
 												| VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+												| VK_IMAGE_USAGE_TRANSFER_DST_BIT
 												| VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 		vkimg_info_para.sharingMode 			= VK_SHARING_MODE_EXCLUSIVE;
 		vkimg_info_para.queueFamilyIndexCount 	= 0;
@@ -845,6 +1210,11 @@ int main(void) {
 		vr("vkAllocateCommandBuffers", &vkres, 
 			vkAllocateCommandBuffers(vkld[0], &vkcombuf_alloc_info[0], vkcombuf_para) ); }
 
+	VkCommandBuffer vkcombuf_para_loadimg[2];
+	for(int i = 0; i < 2; i++) {
+		vr("vkAllocateCommandBuffers", &vkres, 
+			vkAllocateCommandBuffers(vkld[0], &vkcombuf_alloc_info[0], vkcombuf_para_loadimg) ); }
+
 	VkCommandBuffer vkcombuf_work_init[2];
 	for(int i = 0; i < 2; i++) {
 		vr("vkAllocateCommandBuffers", &vkres, 
@@ -929,6 +1299,34 @@ int main(void) {
 		vkimgsublayer.mipLevel 			= 0;
 		vkimgsublayer.baseArrayLayer 	= 0;
 		vkimgsublayer.layerCount 		= 1;
+
+	VkImageBlit vkimgblit;
+		vkimgblit.srcSubresource 		= vkimgsublayer;
+		vkimgblit.srcOffsets[0].x 		= 0;
+		vkimgblit.srcOffsets[0].y 		= 0;
+		vkimgblit.srcOffsets[0].z 		= 0;
+		vkimgblit.srcOffsets[1].x 		= vksurf_ables[0].currentExtent.width;
+		vkimgblit.srcOffsets[1].y 		= vksurf_ables[0].currentExtent.height;
+		vkimgblit.srcOffsets[1].z 		= 1;
+		vkimgblit.dstSubresource 		= vkimgsublayer;
+		vkimgblit.dstOffsets[0].x 		= 0;
+		vkimgblit.dstOffsets[0].y 		= 0;
+		vkimgblit.dstOffsets[0].z 		= 0;
+		vkimgblit.dstOffsets[1].x 		= vksurf_ables[0].currentExtent.width;
+		vkimgblit.dstOffsets[1].y 		= vksurf_ables[0].currentExtent.height;
+		vkimgblit.dstOffsets[1].z 		= 1;
+
+	VkBufferImageCopy vkbuffimgcopy;
+		vkbuffimgcopy.bufferOffset 			= 0;
+		vkbuffimgcopy.bufferRowLength 		= vksurf_ables[0].currentExtent.width;
+		vkbuffimgcopy.bufferImageHeight 	= vksurf_ables[0].currentExtent.height;
+		vkbuffimgcopy.imageSubresource 		= vkimgsublayer;
+		vkbuffimgcopy.imageOffset.x 		= 0;
+		vkbuffimgcopy.imageOffset.y 		= 0;
+		vkbuffimgcopy.imageOffset.z 		= 0;
+		vkbuffimgcopy.imageExtent.width 	= vksurf_ables[0].currentExtent.width;
+		vkbuffimgcopy.imageExtent.height 	= vksurf_ables[0].currentExtent.height;
+		vkbuffimgcopy.imageExtent.depth		= 1;
 
 	VkPipelineRasterizationStateCreateInfo vkpiperastinfo;
 		vkpiperastinfo.sType	= VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
@@ -1681,6 +2079,111 @@ int main(void) {
 	va("vkCreateGraphicsPipelines", &vkres, vkpipe_para[1],
 		vkCreateGraphicsPipelines(vkld[0], VK_NULL_HANDLE, 1, &vkgfxpipe_info_para[1], NULL, &vkpipe_para[1]) );
 
+//	TODO	TODO	TODO	TODO
+
+
+	std::string loadimg_name = "LOAD/IMG0.PAM";
+	IMG_512_288 loadimg_data = PAM_to_IMG(loadimg(loadimg_name));
+
+	VkDeviceSize vkdevsize_para_loadimg;
+		vkdevsize_para_loadimg = sizeof(loadimg_data);
+	ov("LoadIMG buffer size", vkdevsize_para_loadimg);
+
+	VkBufferCreateInfo vkbuff_info_para_loadimg;
+		vkbuff_info_para_loadimg.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	nf(&vkbuff_info_para_loadimg);
+		vkbuff_info_para_loadimg.size 						= vkdevsize_para_loadimg;
+		vkbuff_info_para_loadimg.usage 						= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		vkbuff_info_para_loadimg.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
+		vkbuff_info_para_loadimg.queueFamilyIndexCount 		= 1;
+		vkbuff_info_para_loadimg.pQueueFamilyIndices 		= &GQF_IDX;
+
+	VkBuffer vkbuff_para_loadimg;
+	va("vkCreateBuffer", &vkres, vkbuff_para_loadimg,
+		vkCreateBuffer(vkld[0], &vkbuff_info_para_loadimg, NULL, &vkbuff_para_loadimg) );
+
+	int mem_index_para_loadimg = UINT32_MAX;
+	for(int i = 0; i < vkpd_memprops.memoryTypeCount; i++) {
+		if( vkpd_memprops.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+		&&	mem_index_para_loadimg == UINT32_MAX ) {
+			mem_index_para_loadimg = i; } }
+	ov("mem_index_para_loadimg", mem_index_para_loadimg);
+
+	VkMemoryRequirements vkmemreqs_para_loadimg;
+	rv("vkGetBufferMemoryRequirements");
+		vkGetBufferMemoryRequirements(vkld[0], vkbuff_para_loadimg, &vkmemreqs_para_loadimg);
+		ov("memreq size", 			vkmemreqs_para_loadimg.size);
+		ov("memreq alignment", 		vkmemreqs_para_loadimg.alignment);
+		ov("memreq memoryTypeBits", vkmemreqs_para_loadimg.memoryTypeBits);
+
+	VkMemoryAllocateInfo vkmemallo_info_para_loadimg;
+		vkmemallo_info_para_loadimg.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		vkmemallo_info_para_loadimg.pNext			= NULL;
+		vkmemallo_info_para_loadimg.allocationSize	= vkmemreqs_para_loadimg.size;
+		vkmemallo_info_para_loadimg.memoryTypeIndex	= mem_index_para_loadimg;
+
+	VkDeviceMemory vkdevmem_para_loadimg;
+	vr("vkAllocateMemory", &vkres, 
+		vkAllocateMemory(vkld[0], &vkmemallo_info_para_loadimg, NULL, &vkdevmem_para_loadimg) );
+
+	vr("vkBindBufferMemory", &vkres, 
+		vkBindBufferMemory(vkld[0], vkbuff_para_loadimg, vkdevmem_para_loadimg, 0) );
+
+	void *pvoid_memmap_para_loadimg;
+	va("vkMapMemory", &vkres, pvoid_memmap_para_loadimg,
+		vkMapMemory(vkld[0], vkdevmem_para_loadimg, 0, VK_WHOLE_SIZE, 0, &pvoid_memmap_para_loadimg) );
+
+	rv("memcpy");
+		memcpy(pvoid_memmap_para_loadimg, &loadimg_data, sizeof(loadimg_data));
+
+	VkImageMemoryBarrier vkimgmembar_para_dst2sro[2];
+		vkimgmembar_para_dst2sro[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vkimgmembar_para_dst2sro[0].pNext 					= NULL;
+		vkimgmembar_para_dst2sro[0].srcAccessMask 			= 0;
+		vkimgmembar_para_dst2sro[0].dstAccessMask 			= 0;
+		vkimgmembar_para_dst2sro[0].oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vkimgmembar_para_dst2sro[0].newLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vkimgmembar_para_dst2sro[0].srcQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_dst2sro[0].dstQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_dst2sro[0].image 					= vkimg_para[0];
+		vkimgmembar_para_dst2sro[0].subresourceRange 		= vkimgsubrange;
+		vkimgmembar_para_dst2sro[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vkimgmembar_para_dst2sro[1].pNext 					= NULL;
+		vkimgmembar_para_dst2sro[1].srcAccessMask 			= 0;
+		vkimgmembar_para_dst2sro[1].dstAccessMask 			= 0;
+		vkimgmembar_para_dst2sro[1].oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vkimgmembar_para_dst2sro[1].newLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vkimgmembar_para_dst2sro[1].srcQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_dst2sro[1].dstQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_dst2sro[1].image 					= vkimg_para[1];
+		vkimgmembar_para_dst2sro[1].subresourceRange 		= vkimgsubrange;
+
+	VkImageMemoryBarrier vkimgmembar_para_sro2dst[2];
+		vkimgmembar_para_sro2dst[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vkimgmembar_para_sro2dst[0].pNext 					= NULL;
+		vkimgmembar_para_sro2dst[0].srcAccessMask 			= 0;
+		vkimgmembar_para_sro2dst[0].dstAccessMask 			= 0;
+		vkimgmembar_para_sro2dst[0].oldLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vkimgmembar_para_sro2dst[0].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vkimgmembar_para_sro2dst[0].srcQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_sro2dst[0].dstQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_sro2dst[0].image 					= vkimg_para[0];
+		vkimgmembar_para_sro2dst[0].subresourceRange 		= vkimgsubrange;
+		vkimgmembar_para_sro2dst[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vkimgmembar_para_sro2dst[1].pNext 					= NULL;
+		vkimgmembar_para_sro2dst[1].srcAccessMask 			= 0;
+		vkimgmembar_para_sro2dst[1].dstAccessMask 			= 0;
+		vkimgmembar_para_sro2dst[1].oldLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vkimgmembar_para_sro2dst[1].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vkimgmembar_para_sro2dst[1].srcQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_sro2dst[1].dstQueueFamilyIndex 	= GQF_IDX;
+		vkimgmembar_para_sro2dst[1].image 					= vkimg_para[1];
+		vkimgmembar_para_sro2dst[1].subresourceRange 		= vkimgsubrange;
+
+/**/
+
+
+//	Fragment Shader
 	for(int i = 0; i < 2; i++) {
 		vr("vkBeginCommandBuffer", &vkres, 
 			vkBeginCommandBuffer(vkcombuf_para[i], &vkcombufbegin_info[i]) );
@@ -1708,6 +2211,33 @@ int main(void) {
 		vr("vkEndCommandBuffer", &vkres, 
 			vkEndCommandBuffer(vkcombuf_para[i]) ); }
 
+//	Image Load
+	for(int i = 0; i < 2; i++) {
+		vr("vkBeginCommandBuffer", &vkres, 
+			vkBeginCommandBuffer(vkcombuf_para_loadimg[i], &vkcombufbegin_info[i]) );
+
+/*			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					vkcombuf_para_loadimg[i],
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vkimgmembar_para_sro2dst[i] );
+
+			rv("vkCmdCopyBufferToImage");
+				vkCmdCopyBufferToImage (
+					vkcombuf_para_loadimg[i], vkbuff_para_loadimg, vkimg_para[i], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					1, &vkbuffimgcopy );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					vkcombuf_para_loadimg[i],
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vkimgmembar_para_dst2sro[i] );*/
+
+		vr("vkEndCommandBuffer", &vkres, 
+			vkEndCommandBuffer(vkcombuf_para_loadimg[i]) ); }
+
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SUBMIT PARA_LOOP");		/**/
 	///////////////////////////////////////////////////
@@ -1728,7 +2258,6 @@ int main(void) {
 			vr("vkQueueSubmit", &vkres, 
 				vkQueueSubmit(vkq[0], 1, vksub_info, VK_NULL_HANDLE) ); } }
 
-//	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO	TODO
 
 
 	  ///////////////////////////////////////////////////
@@ -2372,34 +2901,6 @@ int main(void) {
 	va("vkCreateGraphicsPipelines", &vkres, vkpipe_pres,
 		vkCreateGraphicsPipelines(vkld[0], VK_NULL_HANDLE, 1, &vkgfxpipe_info_pres, NULL, &vkpipe_pres) );
 
-	VkImageBlit vkimgblit;
-		vkimgblit.srcSubresource 		= vkimgsublayer;
-		vkimgblit.srcOffsets[0].x 		= 0;
-		vkimgblit.srcOffsets[0].y 		= 0;
-		vkimgblit.srcOffsets[0].z 		= 0;
-		vkimgblit.srcOffsets[1].x 		= vksurf_ables[0].currentExtent.width;
-		vkimgblit.srcOffsets[1].y 		= vksurf_ables[0].currentExtent.height;
-		vkimgblit.srcOffsets[1].z 		= 1;
-		vkimgblit.dstSubresource 		= vkimgsublayer;
-		vkimgblit.dstOffsets[0].x 		= 0;
-		vkimgblit.dstOffsets[0].y 		= 0;
-		vkimgblit.dstOffsets[0].z 		= 0;
-		vkimgblit.dstOffsets[1].x 		= vksurf_ables[0].currentExtent.width;
-		vkimgblit.dstOffsets[1].y 		= vksurf_ables[0].currentExtent.height;
-		vkimgblit.dstOffsets[1].z 		= 1;
-
-	VkBufferImageCopy vkbuffimgcopy;
-		vkbuffimgcopy.bufferOffset 			= 0;
-		vkbuffimgcopy.bufferRowLength 		= vksurf_ables[0].currentExtent.width;
-		vkbuffimgcopy.bufferImageHeight 	= vksurf_ables[0].currentExtent.height;
-		vkbuffimgcopy.imageSubresource 		= vkimgsublayer;
-		vkbuffimgcopy.imageOffset.x 		= 0;
-		vkbuffimgcopy.imageOffset.y 		= 0;
-		vkbuffimgcopy.imageOffset.z 		= 0;
-		vkbuffimgcopy.imageExtent.width 	= vksurf_ables[0].currentExtent.width;
-		vkbuffimgcopy.imageExtent.height 	= vksurf_ables[0].currentExtent.height;
-		vkbuffimgcopy.imageExtent.depth		= 1;
-
 	VkMemoryRequirements vkmemreqs_swap;
 	rv("vkGetImageMemoryRequirements");
 		vkGetImageMemoryRequirements(vkld[0], vkswap_img[0], &vkmemreqs_swap);
@@ -2576,17 +3077,22 @@ int main(void) {
 	int	 last_mx		= 0;
 	int  smoothscale	= 0;
 	int	 dbg_panel		= 0;
+	int  mod_ctrl_l		= 1;
+	int  last_press		= 0;
+	int  vid_frm_idx	= 0;
+	int  vid_frm_max	= 500;
+	int	 send_img		= 0;
 
 	int  SCR_count 		= 0;
 	int  SCR_frameskip 	= 8;
 	int  SCR_record 	= 0;
 	int  SCR_make_vid	= 0;
-	int  SCR_batchsize	= 600;
+	int  SCR_batchsize	= SCR_BATCH;
 	int  SCR_save		= 0;
 	int  SCR_save_count = 0;
 
 	int  current_sec	= time(0);
-	int  fps_freq 		= 8;
+	int  fps_freq 		= 1;
 	int  fps_report 	= time(0) - fps_freq;
 	int  fp_r_limit 	= 1;
     auto start_loop 	= std::chrono::high_resolution_clock::now();
@@ -2612,18 +3118,25 @@ int main(void) {
 
 	float mut = 0.2;
 
-	PatternConfigData pcd;
-	PatternConfigData tgt;
+	pcd = new_pcd();
+	PatternConfigData 		tgt = new_pcd();
+	PatternConfigData_412 	pcdtmp;
 
-	std::string loadfile = "fbk/save_global.vkpat";
 	std::ifstream fload(loadfile.c_str(), std::ios::in | std::ios::binary);
     	fload.seekg (0, fload.end);
-    int f_len = fload.tellg();
-	int load_pcd_index = (f_len / sizeof(pcd)) - 1;
-    	fload.seekg (load_pcd_index * sizeof(pcd));
-    	fload.read((char*)&pcd, sizeof(pcd));
-		fload.close();
+    	int f_len = fload.tellg();
+		load_pcd_index = 0;
+		pcd_load_size = 0;
+		if( save_version <= 1616459498 ) 								{ pcd_load_size = sizeof(pcd340); }
+		if( save_version >  1616459498 && save_version <= 1616831545 )	{ pcd_load_size = sizeof(pcd404); }
+		if( save_version >  1616831545 ) 						 		{ pcd_load_size = sizeof(pcd408); }
+		load_pcd_index = (f_len / pcd_load_size) - 1;
+
+	fload.close();
 	ov("Loaded Patterns", load_pcd_index + 1);
+
+	int loaded_count = load_pcd_index;
+	int flen_skip = 1;
 
 	void* SCR_data;
 	vr("vkMapMemory", &vkres, 
@@ -2633,9 +3146,20 @@ int main(void) {
     	start_loop 	= std::chrono::high_resolution_clock::now();
 		current_sec = time(0);
 		if( current_sec - fps_report >= fps_freq + 1) { fps_report = current_sec; }
+		flen_skip = (((f_len / pcd_load_size)/100) > 10) ? ((f_len / pcd_load_size)/100) : 9;
 
 		//	UI Controls
 		if(valid) {
+			send_img = 0;
+/*
+			send_img = 2;
+			if(idx%32==0) {
+				IMG_512_288 loadimg_data = load_video_frame(vid_frm_idx%vid_frm_max);
+				rv("memcpy");
+					memcpy(pvoid_memmap_para_loadimg, &loadimg_data, sizeof(loadimg_data));
+				vid_frm_idx++; } /**/
+
+
 			XQueryPointer(d, w, &wVoid, &wVoid, &siVoid, &siVoid, &siVoid, &siVoid, &uiVoid);
 			mouse_info.run_cmd 	= 0;
 			XSelectInput( d, w, xswa.event_mask );
@@ -2646,9 +3170,16 @@ int main(void) {
 						mouse_info.mouse_x 	= xe.xbutton.x;
 						mouse_info.mouse_y 	= xe.xbutton.y; }
 
+					if( xe.type == 3) { 
+						//	L_CTRL Modifier: 			L_CTRL
+						if( xe.xbutton.button == 50	 ) { 
+							if( last_press == 50 ) { mouse_info.run_cmd = 1; }
+							mod_ctrl_l = 1; }
+						ov("Release Key", xe.xbutton.button); }
+
 					if( xe.type == 4 || xe.type == 5) {
 						if(xe.type == 4) {
-			
+							last_press = xe.xbutton.button;
 							//	Set Config Savepoint		MMB
 							if(xe.xbutton.button == 2) {
 								panning = 0;
@@ -2656,64 +3187,72 @@ int main(void) {
 								mouse_info.run_cmd 	= 1;
 								set_scale 			= 1;
 								save_config 		= 1;
-								f_len				= f_len + sizeof(pcd);
-								load_pcd_index		= (f_len / sizeof(pcd)) - 1; }
+								f_len				= f_len + pcd_load_size;
+								if( window_size.mode == 0 && window_size.divs == 2) {
+									int		div_idx			= floor((mouse_info.mouse_x*window_size.divs)/(window_size.app_w))
+															+ floor((mouse_info.mouse_y*window_size.divs)/(window_size.app_h))*window_size.divs;
+									WSize 	ws_tmp;
+											ws_tmp.app_w	= APP_W;
+											ws_tmp.app_h	= APP_H;
+											ws_tmp.divs		= 1;
+											ws_tmp.mode 	= 3;
+									if(div_idx == 0) { ws_tmp.mode = 1; }
+									if(div_idx == 1) { ws_tmp.mode = 2; }
+									if(div_idx == 2) { ws_tmp.mode = 0; }
+									if(div_idx == 3) { ws_tmp.mode = 3; }
+									pcdtmp.wsz_save = wsize_pack(ws_tmp);
+								} else { pcdtmp.wsz_save = ub.wsize; }
+								if(mod_ctrl_l == 0) { load_pcd_index = (f_len / pcd_load_size) - 1; } }
 
-							if(xe.xbutton.button == 3) { 
+							if(xe.xbutton.button == 3) {
 								if(!panning) {
 									panning = 1;
 									last_mx = mouse_info.mouse_x; } }
 							//	Increase Mutation Strength	MWU
 							if(xe.xbutton.button == 4) {
-								if( window_size.mode == 0 ) {
+								if( mod_ctrl_l == 0 ) {
 									mut = ((mut >= 0.002) ? ((mut >= 0.019) ? ((mut >= 1.0) ? mut + 0.5 : mut + 0.01 ) : mut + 0.001) : mut + 0.0001);
 									mut = (mut >= 32.0) ? 32.0 : mut;
 									mut = float(int(round(mut * 10000.0)) / 10000.0);
 									ov("Mutation Rate", mut); }
-								if(window_size.mode == 1) {
+								if( window_size.mode == 1 || mod_ctrl_l == 1) {
 									mouse_info.run_cmd 	= 4;
-									ub.zoom += float(0.15);
+									ub.zoom += float(0.05);
 									ov("Zoom Scale", ub.zoom); }
-								if(window_size.mode == 2) {
+								if(window_size.mode == 2 && mod_ctrl_l == 0) {
 									ub.scale -= ub.scale * 0.05;
 									ov("Scale", ub.scale); } }
 							//	Decrease Mutation Strength	MWD
 							if(xe.xbutton.button == 5) {
-								if( window_size.mode == 0 ) {
+								if( mod_ctrl_l == 0 ) {
 									mut = ((mut >= 0.002) ? ((mut >= 0.02) ? ((mut >= 1.5) ? mut - 0.5 : mut - 0.01 ) : mut - 0.001) : mut - 0.0001);
 									mut = (mut <= 0.0001) ? 0.0001 : mut;
 									mut = float(int(round(mut * 10000.0)) / 10000.0);
 									ov("Mutation Rate", mut); }
-								if(window_size.mode == 1) {
+								if( window_size.mode == 1 || mod_ctrl_l == 1 ) {
 									mouse_info.run_cmd 	= 4;
-									ub.zoom -= float(0.15);
+									ub.zoom -= float(0.05);
 									ub.zoom = (ub.zoom <= 0.0) ? 0.0 : ub.zoom;
 									ov("Zoom Scale", ub.zoom); }
-								if(window_size.mode == 2) {
+								if(window_size.mode == 2 && mod_ctrl_l == 0) {
 									ub.scale += ub.scale * 0.05;
 									ov("Scale", ub.scale); } }
 							//	Load Prev Pattern			TBB
 							if(xe.xbutton.button == 8) {
-								load_config = 1;
-								std::ifstream 	fload_prev(loadfile.c_str(), std::ios::in | std::ios::binary);
-									fload_prev.seekg (0, fload_prev.end);
-									f_len = fload_prev.tellg();
-									load_pcd_index = ((load_pcd_index + ((f_len / sizeof(pcd)) - 1)) % (f_len / sizeof(pcd)));
-									fload_prev.seekg (load_pcd_index * sizeof(pcd));
-									fload_prev.read((char*)&pcd, sizeof(pcd));
-									fload_prev.close();
-								ov("Loaded Patterns", load_pcd_index + 1); }
+								int	shift_size 		= (mod_ctrl_l == 1) ? 1 : (flen_skip+1);
+									load_config 	= 1;
+									load_pcd_index 	= (load_pcd_index - shift_size + (f_len / pcd_load_size)) % (f_len / pcd_load_size);
+									pcd 			= load_pcd(save_version, loadfile, load_pcd_index);
+								ov("Loaded", load_pcd_index);
+								ov("Loadfile", loaded_count); }
 							//	Load Next Pattern			TBF
 							if(xe.xbutton.button == 9) {
-								load_config = 1;
-								std::ifstream 	fload_next(loadfile.c_str(), std::ios::in | std::ios::binary);
-									fload_next.seekg (0, fload_next.end);
-									f_len = fload_next.tellg();
-									load_pcd_index = ((load_pcd_index + 1) % (f_len / sizeof(pcd)));
-									fload_next.seekg (load_pcd_index * sizeof(pcd));
-									fload_next.read((char*)&pcd, sizeof(pcd));
-									fload_next.close();
-								ov("Loaded Patterns", load_pcd_index + 1); } }
+								int	shift_size 		= (mod_ctrl_l == 1) ? 1 : (flen_skip+1);
+									load_config 	= 1;
+									load_pcd_index 	= (load_pcd_index + shift_size) % (f_len / pcd_load_size);
+									pcd 			= load_pcd(save_version, loadfile, load_pcd_index);
+								ov("Loaded", load_pcd_index);
+								ov("Loadfile", loaded_count); } }
 
 						//	MouseButtons:	LMB,MMB,RMB,MWU,MWD,TBB,TBF
 						if(	xe.xbutton.button == 1
@@ -2723,7 +3262,8 @@ int main(void) {
 						|| 	xe.xbutton.button == 5
 						|| 	xe.xbutton.button == 8
 						|| 	xe.xbutton.button == 9 	) {
-							if(xe.type == 4) { mouse_info.mouse_c = xe.xbutton.button; }
+							if(xe.type == 4 && (mod_ctrl_l == 0 || xe.xbutton.button == 1) ) { 
+								mouse_info.mouse_c = xe.xbutton.button; }
 							if(xe.type == 5) { 
 								mouse_info.mouse_c = 0;
 								if(xe.xbutton.button == 3) {
@@ -2731,10 +3271,14 @@ int main(void) {
 									panning = 0; } } } }
 
 					if( xe.type == 2 ) {
+						last_press = xe.xbutton.button;
 						//	Pause Simulation: 			SPACEBAR
 						if( xe.xbutton.button == 65	 ) {
 							pause = (pause) ? 0 : 1;
 							ov("Pause State", ((pause) ? "Paused" : "Running") ); }
+
+						//	L_CTRL Modifier: 			L_CTRL
+						if( xe.xbutton.button == 50	 ) { mod_ctrl_l = 0; }
 
 						//	Toroidal Subdivisions:		1,2,3,4
 						if( xe.xbutton.button == 10	 ) {
@@ -2768,31 +3312,12 @@ int main(void) {
 						if( xe.xbutton.button == 19	 ) { 
 							dbg_panel 			= (dbg_panel) ? 0 : 1; }
 
-
-						//	Load Next Pattern:			PgUP
-						if( xe.xbutton.button == 117 ) {
-							load_config = 1;
-							std::ifstream 	fload_prev(loadfile.c_str(), std::ios::in | std::ios::binary);
-								fload_prev.seekg (0, fload_prev.end);
-								f_len = fload_prev.tellg();
-								load_pcd_index = ((load_pcd_index + ((f_len / sizeof(pcd)) - (((f_len / sizeof(pcd))/20)+1) )) % (f_len / sizeof(pcd)));
-								fload_prev.seekg (load_pcd_index * sizeof(pcd));
-								fload_prev.read((char*)&pcd, sizeof(pcd));
-								fload_prev.close();
-							ov("Loaded Patterns", load_pcd_index + (((f_len / sizeof(pcd))/20)+1)); }
-
-						//	Load Prev Pattern:			PgDN
-						if(xe.xbutton.button == 112) {
-							load_config = 1;
-							std::ifstream 	fload_next(loadfile.c_str(), std::ios::in | std::ios::binary);
-								fload_next.seekg (0, fload_next.end);
-								f_len = fload_next.tellg();
-								load_pcd_index = ((load_pcd_index + (((f_len / sizeof(pcd))/20)+1)) % (f_len / sizeof(pcd)));
-								fload_next.seekg (load_pcd_index * sizeof(pcd));
-								fload_next.read((char*)&pcd, sizeof(pcd));
-								fload_next.close();
-							ov("Loaded Patterns", load_pcd_index + (((f_len / sizeof(pcd))/20)+1)); }
-
+						if( xe.xbutton.button == 20 ) { 
+							send_img = 1;
+							IMG_512_288 loadimg_data = load_video_frame(vid_frm_idx%vid_frm_max);
+							rv("memcpy");
+								memcpy(pvoid_memmap_para_loadimg, &loadimg_data, sizeof(loadimg_data));
+							vid_frm_idx++; }
 
 						//	Recording Toggle:			Numpad ENTER
 						if( xe.xbutton.button == 104 ) {
@@ -2817,12 +3342,20 @@ int main(void) {
 							SCR_frameskip = (SCR_frameskip > 1) ? SCR_frameskip - 1 : 1;
 							ov("FrameSkip", SCR_frameskip); }
 
+						//	Custom Injection			=
+						if( xe.xbutton.button == 21 ) {
+							update_ubiv 		= 1;
+							update_sc 			= 1;
+							mouse_info.run_cmd 	= 1;
+							do_mutate 			= 5; }
+
 						//	Mutate						E
 						if( xe.xbutton.button == 26 ) {
 							update_ubiv 		= 1;
 							update_sc 			= 1;
 							mouse_info.run_cmd 	= 1;
 							do_mutate 			= 1; }
+
 
 						//	Mutate NHs					U
 						if( xe.xbutton.button == 30 ) {
@@ -2853,6 +3386,12 @@ int main(void) {
 							update_ubiv 		= 1;
 							do_mutate 			= 4; }
 
+						//	Mutate UBI					I
+						if( xe.xbutton.button == 31 ) {
+							update_ubiv 		= 1;
+							mouse_info.run_cmd 	= 1;
+							do_mutate 			= 6; }
+
 						//	Increase Zoom				ARROW UP
 						if( xe.xbutton.button == 111 ) {
 							mut = ((mut >= 0.002) ? ((mut >= 0.019) ? ((mut >= 1.0) ? mut + 0.5 : mut + 0.01 ) : mut + 0.001) : mut + 0.0001);
@@ -2871,16 +3410,11 @@ int main(void) {
 						if( xe.xbutton.button == 27 ) {
 							ub.zoom				= 0.0;
 							if(window_size.mode == 0) { ub.scale = (float(rand()%4096) / 32.0) + 16.0; }
-							if(window_size.mode == 1) { ub.scale = 192.0; }
-							if(window_size.mode == 2) { ub.scale = 128.0; }
+							if(window_size.mode == 1) { ub.scale = 384.0; }
+							if(window_size.mode == 2) { ub.scale = 384.0; }
 							update_ubiv 		= 1;
 							update_sc 			= 1;
 							mouse_info.run_cmd 	= 1; }
-
-						//	Reseed						LSHIFT
-						if( xe.xbutton.button == 50 ) {
-							mouse_info.run_cmd 	= 1;
-							SCR_save = (SCR_save > 150) ? 150 : SCR_save; }
 
 						//	Clear						X
 						if( xe.xbutton.button == 53 ) { mouse_info.run_cmd 	= 2; }
@@ -2919,13 +3453,10 @@ int main(void) {
 
 						//	Randomise all ub values		R
 						if( xe.xbutton.button == 27 ) {
-							for(int i = 0; i < SPCONST_ENTRIES; i++) { sce[i] = rand()%16; }
-							for(int i = 0; i < 4; i++) {
-								for(int j = 0; j < 8; j++) { ev8[j] = rand()%16; }
-								ubi[i] = eval8_pack(ev8); }
-							for(int i = 0; i < 48; i++) {
-								for(int j = 0; j < 4; j++) { ev4[j] = rand()%256; }
-								ubv[i] = eval4_pack(ev4); } }
+							for(int i = 0; i < SPCONST_ENTRIES; i++) 	{ sce[i] = rand()%UINT32_MAX; }
+							for(int i = 0; i <  4; i++) 				{ ubi[i] = rand()%UINT32_MAX; }
+							for(int i = 0; i < 48; i++) 				{ ubv[i] = rand()%UINT32_MAX; } }
+
 						SCR_save = (SCR_save > 600) ? 600 : SCR_save;
 						ov("Key", xe.xbutton.button); } } }
 
@@ -2952,49 +3483,27 @@ int main(void) {
 
 			float mutscl = mut * 1.0;
 
-			if(do_mutate == 1) {
-				do_mutate = 0;
-				if(window_size.mode == 0) { ub.scale = ub.scale * (1.0 + ((float(rand()%65536) / 65536.0) - 0.5) * mutscl); }
-				for(int i = 0; i < 4; i++) {
-					eval8_unpack(ubi[i], ev8);
-					for(int j = 0; j < 8; j++) {
-						if(rand()%8 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
-						if(rand()%32 == 0) { ev8[j] = rand()%16; } }
-					ubi[i] = eval8_pack(ev8); }
-				for(int i = 0; i < 48; i++) {
-					eval4_unpack(ubv[i], ev4);
-					for(int j = 0; j < 4; j++) {
-						if(rand()%16 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mutscl)+1) - rand()%(int(256.0*mutscl*0.5)+1)))%256; }
-						if(rand()%128 == 0) { ev4[j] = rand()%256; } }
-					ubv[i] = eval4_pack(ev4); }
-				for(int i = 0; i < SPCONST_ENTRIES; i++) { 
-					if(rand()%8  == 0) { sce[i] = (sce[i] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
-					if(rand()%64 == 0) { sce[i] = rand()%16; } } }
-
-			if(do_mutate == 2) {
-				do_mutate = 0;
-				if(window_size.mode == 0) { ub.scale = ub.scale * (1.0 + ((float(rand()%65536) / 65536.0) - 0.5) * mutscl); }
-				for(int i = 0; i < 4; i++) {
-					eval8_unpack(ubi[i], ev8);
-					for(int j = 0; j < 8; j++) {
-						if(rand()%8 == 0)  { ev8[j] = (ev8[j] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
-						if(rand()%32 == 0) { ev8[j] = rand()%16; } }
-					ubi[i] = eval8_pack(ev8); }
-				for(int i = 0; i < 48; i++) {
-					eval4_unpack(ubv[i], ev4);
-					for(int j = 0; j < 4; j++) {
-						if(rand()%16 == 0) { ev4[j] = (ev4[j] + (rand()%(int(256.0*mutscl)+1) - rand()%(int(256.0*mutscl*0.5)+1)))%256; }
-						if(rand()%128 == 0) { ev4[j] = rand()%256; } }
-					ubv[i] = eval4_pack(ev4); } }
-
-			if(do_mutate == 3) {
-				do_mutate = 0;
-				for(int i = 0; i < SPCONST_ENTRIES; i++) {
-					if(rand()%4  == 0) { sce[i] = (sce[i] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
-					if(rand()%16 == 0) { sce[i] = rand()%16; } } }
+			if(do_mutate) {
+				if( do_mutate == 1
+				||	do_mutate == 3 ) {
+					for(int i = 0; i < SPCONST_ENTRIES; i++) { sce[i] = bit_flp(sce[i], 12); } }
+				if( do_mutate == 1
+				||	do_mutate == 2
+				||	do_mutate == 6 ) {
+					for(int i = 0; i <  4; i++) { ubi[i] = wrd_flp(ubi[i], 8, 4); }
+					for(int i = 0; i <  4; i++) { ubi[i] = bit_flp(ubi[i], 64); } }
+				if( do_mutate == 1
+				||	do_mutate == 2 ) {
+					//for(int i = 0; i < 48; i++) { ubv[i] = wrd_flp(ubv[i], 8, 8); }
+					for(int i = 0; i < 48; i++) { ubv[i] = bit_flp(ubv[i], rand()%96+12); }
+					int rnd_len = (rand()%32)/8;
+					int rnd_off = rand()%(32-rnd_len);
+					for(int i = 0; i < 48; i++) { if(rand()%(rand()%128+64) == 0) { ubv[i] = blk_set(ubv[i], rnd_len, rnd_off); } } }
+				do_mutate = 0; }
 
 			if(do_mutate == 4) {
-				do_mutate = 0;
+				ov("Mutation Disabled", 4);
+/*				do_mutate = 0;
 
 				if(rand()%4 == 0) 	{ ub.scale = (ub.scale + tgt.scl_save * 0.05) / 1.05; }
 				if(rand()%6 == 0) 	{ ub.scale = (ub.scale + pcd.scl_save * 0.05) / 1.05; }
@@ -3023,11 +3532,38 @@ int main(void) {
 					update_sc 			= 1;
 					mouse_info.run_cmd 	= 1;
 					for(int i = 0; i < SPCONST_ENTRIES; i++) {
-						if(rand()%4 	== 0) 	{ sce[i] = (sce[i] * 15 + tgt.scd_save[i]) / 16; }
-						if(rand()%6 	== 0) 	{ sce[i] = (sce[i] * 15 + pcd.scd_save[i]) / 16; }
-						if(rand()%12  	== 0) 	{ sce[i] = (sce[i] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
-						if(rand()%32 	== 0) 	{ sce[i] = tgt.scd_save[i]; }
-						if(rand()%32 	== 0) 	{ sce[i] = pcd.scd_save[i]; } } } }
+						//if(rand()%4 	== 0) 	{ sce[i] = (sce[i] * 15 + tgt.scd_save[i]) / 16; }
+						//if(rand()%6 	== 0) 	{ sce[i] = (sce[i] * 15 + pcd.scd_save[i]) / 16; }
+						//if(rand()%12  	== 0) 	{ sce[i] = (sce[i] + (rand()%(int(16.0*mutscl)+1) - rand()%(int(16.0*mutscl*0.5)+1)))%16; }
+						if(rand()%8 	== 0) 	{ sce[i] = tgt.scd_save[i]; }
+						if(rand()%8 	== 0) 	{ sce[i] = pcd.scd_save[i]; } } }*/ }
+
+			if(do_mutate == 5) {
+				do_mutate = 0;
+				ub.scale = 91.631157;
+				ub.zoom = 0.0;
+				uint32_t sce_inj[48] = {
+					5, 1, 2, 7, 15, 7, 9, 15, 
+					1, 10, 0, 6, 2, 10, 12, 7, 
+					0, 4, 7, 3, 7, 8, 5, 15, 
+					14, 6, 14, 7, 3, 9, 5, 0, 
+					0, 4, 7, 3, 7, 8, 5, 15, 
+					14, 6, 14, 7, 3, 9, 5, 0 };
+				for(int i = 0; i < 48; i++) { sce[i] = sce_inj[i]; }
+				uint32_t ubv_inj[48] = {
+					3959981211, 2926676985, 2500758933, 3293554940, 
+					2160965993, 3947745526, 1078807844, 4258892520, 
+					74429364, 4018551356, 49760100, 1300800150, 
+					2540414877, 4073103272, 3277090756, 1810631128, 
+					1790538912, 273716168, 768864624, 1285389034, 
+					1022171072, 746220962, 67464359, 3856300777, 
+					4129972693, 3648990600, 1988687651, 817967097, 
+					4247244940, 3828541660, 497473035, 4134368859, 
+					1790538912, 273716168, 768864624, 1285389034, 
+					1022171072, 746220962, 67464359, 3856300777, 
+					4129972693, 3648990600, 1988687651, 817967097, 
+					4247244940, 3828541660, 497473035, 4134368859 };
+				for(int i = 0; i < 48; i++) { ubv[i] = ubv_inj[i]; } }
 
 			if(set_scale) {
 						set_scale 		= 0;
@@ -3035,27 +3571,22 @@ int main(void) {
 				int		div_idx			= floor((mouse_info.mouse_x*window_size.divs)/(window_size.app_w))
 										+ floor((mouse_info.mouse_y*window_size.divs)/(window_size.app_h))*window_size.divs;
 				float 	div_idx_scale 	= float(div_idx+1.0) / float(window_size.divs*window_size.divs);
+				if( window_size.mode == 0 
+				&& 	window_size.divs == 2) { ub.scale = ub.scale; }
+				if( window_size.mode == 0
+				&& 	window_size.divs != 2) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) * div_idx_scale; }
+				if( window_size.mode == 1) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) 
+													  + ub.scale * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + ub.zoom)); } }
 
-				if(window_size.mode == 0) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) * div_idx_scale; }
-				if(window_size.mode == 1) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) 
-													 + ub.scale * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + ub.zoom)); }
-
-				ov("Zoom", 				ub.zoom );
-				ov("X Scale", 			xscale);
-				ov("Div Index", 		div_idx);
-				ov("Div Index Scale", 	div_idx_scale);
-				ov("UB Scale", 			ub.scale); }
-
-			if(panning && window_size.mode == 1) {
+			if(panning && mod_ctrl_l) {
 				int 	mx_offset 	= mouse_info.mouse_x - last_mx;
 				float	xscale		= float((window_size.app_w / 2.0) - float(mx_offset)) / float(window_size.app_w);
-				if(window_size.mode == 1) { ub.scale = ub.scale * ((window_size.divs == 1) ? 1.0 : 2.0) 
-													 + ub.scale * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + ub.zoom)); }
-				last_mx = mouse_info.mouse_x;
+						ub.scale	= ub.scale + ub.scale * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + ub.zoom));
+						last_mx		= mouse_info.mouse_x;
 				if(mx_offset != 0) { 
-					mouse_info.run_cmd 	= 4;
-					ov("MX Offset", mx_offset );
-					ov("MX Offset", float(mx_offset) / float(window_size.app_w) ); } }
+					mouse_info.run_cmd 	= 4; } }
+//					ov("MX Offset", mx_offset );
+//					ov("MX Offset", float(mx_offset) / float(window_size.app_w) ); } }
 
 			ub.minfo = minfo_pack(mouse_info);
 			ub.wsize = wsize_pack(window_size);
@@ -3168,10 +3699,12 @@ int main(void) {
 				std::ofstream 	fout_local(savefile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
 					fout_local.write( (const char*)&pcd, sizeof(pcd) );
 					fout_local.close();
+
 								savefile = "fbk/save_global.vkpat";
 				std::ofstream 	fout_global(savefile.c_str(), std::ios::out | std::ios::binary | std::ios::app);
 					fout_global.write( (const char*)&pcd, sizeof(pcd) );
 					fout_global.close();
+
 				std::cout << PCD_out(pcd); } }
 
 		//	Video Creation
@@ -3226,7 +3759,7 @@ int main(void) {
 						iv("aqimg_idx", aqimg_idx[0], idx);
 						iv("vkswap_img", vkswap_img[aqimg_idx[0]], idx);
 
-					if(valid) {
+					if(valid && send_img <= 1) {
 						rv("vkcombuf_para");
 						VkSubmitInfo vksub_info[1];
 							vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -3236,6 +3769,21 @@ int main(void) {
 							vksub_info[0].pWaitDstStageMask		= NULL;
 							vksub_info[0].commandBufferCount	= 1;
 							vksub_info[0].pCommandBuffers		= &vkcombuf_para[aqimg_idx[0]];
+							vksub_info[0].signalSemaphoreCount	= 0;
+							vksub_info[0].pSignalSemaphores		= NULL;
+						vr("vkQueueSubmit", &vkres, 
+							vkQueueSubmit(vkq[0], 1, vksub_info, VK_NULL_HANDLE) ); }
+
+					if(valid && send_img) {
+						rv("vkcombuf_para_loadimg");
+						VkSubmitInfo vksub_info[1];
+							vksub_info[0].sType	= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+							vksub_info[0].pNext					= NULL;
+							vksub_info[0].waitSemaphoreCount	= 0;
+							vksub_info[0].pWaitSemaphores		= NULL;
+							vksub_info[0].pWaitDstStageMask		= NULL;
+							vksub_info[0].commandBufferCount	= 1;
+							vksub_info[0].pCommandBuffers		= &vkcombuf_para_loadimg[aqimg_idx[0]];
 							vksub_info[0].signalSemaphoreCount	= 0;
 							vksub_info[0].pSignalSemaphores		= NULL;
 						vr("vkQueueSubmit", &vkres, 
@@ -3300,12 +3848,12 @@ int main(void) {
 						+  std::to_string(idx);
 					ov("Frame", ftime); } }
 
-			if( (valid && idx%SCR_frameskip == 0 && SCR_record) || (valid && SCR_save == 1) ) {
+			if( valid && idx%SCR_frameskip == 0 && SCR_record ) {
 				if( SCR_record ) { SCR_save = 0; }
 				if( SCR_count%SCR_batchsize == 0 && SCR_count > 0 && SCR_batchsize > 0 ) { pause = 1; }
 
 				std::string imgfile;
-				if(SCR_save == 1) {
+				if(SCR_save == 1 && 0) {
 					imgfile = "scr/SCR_"	+ std::to_string(idx)
 							+ "_" 			+ timestamp
 							+ "_" 			+ std::to_string(SCR_save_count)
@@ -3327,7 +3875,7 @@ int main(void) {
 						vksurf_ables[0].currentExtent.width * vksurf_ables[0].currentExtent.height * 4 );
 				file.close();
 
-				if(SCR_save == 1) {
+				if(SCR_save == 1 && 0) {
 					std::string scr_convert = "convert '" + imgfile + "' '" + imgfile + ".png'";
 					system(scr_convert.c_str());
 					if(window_size.divs == 1) {
