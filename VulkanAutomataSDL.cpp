@@ -1,3 +1,10 @@
+#ifdef _WIN32
+#include <SDL/SDL.h>
+#include <SDL/SDL_vulkan.h>
+#else
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_vulkan.h>
+#endif
 #include <string>
 #include <iostream>
 #include <vector>
@@ -32,9 +39,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 					msg_fmt+"\n" : msg_fmt+chr ) ); }
 
 	msg_fmt = msg_fmt + msg[msg.size()-1];
-	if(loglevel >= 0) {
-		std::cout << "\n\n" << bar << "\n " << msg_fmt << "\n" 	<< bar << "\n\n"; }
-	valid = 0;
+	if(messageSeverity != 16) {
+		if(loglevel >= 0) {	std::cout << "\n\n" << bar << "\n " << msg_fmt << "\n" 	<< bar << "\n\n"; }
+		std::cout << "  Validation messageSeverity: " << messageSeverity << "\n\n";
+		valid = 0; }
 	return VK_FALSE; }
 
 // Find a memory in `memoryTypeBitsRequirement` that includes all of `requiredProperties`
@@ -299,36 +307,120 @@ void end_timer(NS_Timer t, std::string msg) {
 		std::to_string( int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(t.ft-t.st).count()) ) + " FPS";
 	ov(msg, ftime); }
 
-int main(void) {
+struct PatternConfigData_408 {
+	uint32_t scd_save[48];
+	uint32_t ubi_save[4];
+	uint32_t ubv_save[48];
+	float	 scl_save;
+	float	 pzm_save; };
+
+PatternConfigData_408 get_PCD_408(std::string loadfile, int idx) {
+	PatternConfigData_408 pcd;
+	std::ifstream fload_pcd(loadfile.c_str(), std::ios::in | std::ios::binary);
+		fload_pcd.seekg(0, fload_pcd.end);
+		int f_len = fload_pcd.tellg();
+		fload_pcd.seekg (( (idx + (f_len / sizeof(pcd))) % (f_len / sizeof(pcd))) * sizeof(pcd));
+		fload_pcd.read((char*)&pcd, sizeof(pcd));
+		std::cout << "\n\tPCD408 Data Count: " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
+	fload_pcd.close();
+	return pcd; }
+
+struct PatternConfigData_256 {
+	uint32_t ubi[64]; };
+
+PatternConfigData_256 new_PCD_256() {
+	PatternConfigData_256 pcd;
+		for(int i = 0; i < 64; i++) { pcd.ubi[i] = 0; }
+	return pcd; }
+
+int main (int argc, char **argv) {
+
+//	Set the random seed
+	srand(time(0));
+
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "APPLICATION CONFIG");		/**/
 	///////////////////////////////////////////////////
 
-	const	uint32_t 	APP_W 			= 512;		//	1920 1536 1280	768	512	384	256
-	const	uint32_t 	APP_H 			= 256;		//	1080 864  720	432	288	216	144
+	const	uint32_t 	APP_W 			= 512;					//	1920 1536 1280	768	512	384	256
+	const	uint32_t 	APP_H 			= 256;					//	1080 864  720	432	288	216	144
+			uint32_t	imgdat_freq		= 18;					//	Image Export on frame
+			int			load_pcd_index	= -1 * rand()%400;		//	Pattern Index | -392 -40
+						load_pcd_index	= -40;
 
-	const 	uint32_t 	INST_EXS 		= 1;	//	Number of Vulkan Instance Extensions
-	const 	uint32_t 	LAYR_EXS 		= 1;	//	Number of Vulkan Layers
-	const 	uint32_t 	LDEV_EXS 		= 0;	//	Number of Vulkan Logical Device Extensions
-
-//	Paths to shader files and extension names
+//	Paths to shader files
 	const 	char* 	filepath_vert		[VERT_FLS]
 	=	{	"./app/vert_TriQuad.spv" 			};
 	const 	char* 	filepath_frag		[FRAG_FLS]
 	=	{	"./app/frag_automata0000.spv"		};
+
+//	Config Notification Messages
+	ov("Application Width", 	APP_W			);
+	ov("Application Height", 	APP_H			);
+	ov("load_pcd_index", 		load_pcd_index	);
+	for(int i = 0; i < VERT_FLS; i++) {	iv("Vertex Shaders", 			filepath_vert[i], 		i ); }
+	for(int i = 0; i < FRAG_FLS; i++) {	iv("Fragment Shaders", 			filepath_frag[i], 		i ); }
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SDL WINDOW");				/**/
+	///////////////////////////////////////////////////
+
+    SDL_Window* 	sdl_W	= NULL;
+    SDL_Surface* 	sdl_S	= NULL;
+
+	rv("SDL_Init");
+		SDL_Init( SDL_INIT_VIDEO );
+
+		rv("SDL_CreateWindow");
+	sdl_W = SDL_CreateWindow(
+		"VulkanAutomataSDL", 
+		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
+		APP_W, APP_H, 
+		SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN );
+
+		rv("SDL_GetWindowSurface");
+	sdl_S = SDL_GetWindowSurface( sdl_W );
+
+//	SDL_FillRect( screenSurface, NULL, SDL_MapRGB( sdl_S->format, 0xFF, 0x00, 0x00 ) );
+//	SDL_UpdateWindowSurface( sdl_W ); // This isn't needed to render to the surface? undefined / implementation dependent maybe?
+//	SDL_Delay( 5000 );
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SDL EXTENSIONS");			/**/
+	///////////////////////////////////////////////////
+
+	uint32_t sdl_inst_count = UINT32_MAX;
+
+	rv("SDL_Vulkan_GetInstanceExtensions");
+		SDL_Vulkan_GetInstanceExtensions(sdl_W, &sdl_inst_count, NULL);
+	ov("SDL_Vulkan_GetInstanceExtensions", sdl_inst_count);
+
+	const 	char* 	SDL_extensions	[sdl_inst_count];
+	rv("SDL_Vulkan_GetInstanceExtensions");
+		SDL_Vulkan_GetInstanceExtensions(sdl_W, &sdl_inst_count, SDL_extensions);
+	for(int i = 0; i < sdl_inst_count; i++) {
+		iv("SDL_Vulkan_GetInstanceExtensions", SDL_extensions[i], i); }
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "VULKAN EXTENSIONS");		/**/
+	///////////////////////////////////////////////////
+
+	uint32_t 	INST_EXS 		= 1 + sdl_inst_count;	//	Number of Vulkan Instance Extensions
+	uint32_t 	LAYR_EXS 		= 1;					//	Number of Vulkan Layers
+	uint32_t 	LDEV_EXS 		= 1;					//	Number of Vulkan Logical Device Extensions
+
+//	Paths to shader files and extension names
 	const 	char* 	instance_extensions	[INST_EXS]
-	=	{	"VK_EXT_debug_utils"				};
+	=	{	"VK_EXT_debug_utils", 
+			SDL_extensions[0], 
+			SDL_extensions[1] 					};
 	const 	char* 	layer_extensions	[LAYR_EXS]
 	=	{	"VK_LAYER_KHRONOS_validation" 		};
 	const 	char* 	device_extensions	[LDEV_EXS]
-	=	{										};
+	=	{	VK_KHR_SWAPCHAIN_EXTENSION_NAME		};
 
-//	Config Notification Messages
-	ov("Application Width", 	APP_W	);
-	ov("Application Height", 	APP_H	);
-	for(int i = 0; i < VERT_FLS; i++) {	iv("Vertex Shaders", 			filepath_vert[i], 		i ); }
-	for(int i = 0; i < FRAG_FLS; i++) {	iv("Fragment Shaders", 			filepath_frag[i], 		i ); }
+//	Extension Notification Messages
 	for(int i = 0; i < INST_EXS; i++) {	iv("Instance Extensions", 		instance_extensions[i], i ); }
 	for(int i = 0; i < LAYR_EXS; i++) {	iv("Layer Extensions", 			layer_extensions[i], 	i ); }
 	for(int i = 0; i < LDEV_EXS; i++) {	iv("Logical Device Extensions", device_extensions[i], 	i ); }
@@ -347,7 +439,7 @@ int main(void) {
 
 		vkcfg.app_info.sType						= VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		vkcfg.app_info.pNext						= NULL;
-		vkcfg.app_info.pApplicationName				= "VulkanAutomata";
+		vkcfg.app_info.pApplicationName				= "VulkanAutomataSDL";
 		vkcfg.app_info.applicationVersion			= 0;
 		vkcfg.app_info.pEngineName					= NULL;
 		vkcfg.app_info.engineVersion				= 0;
@@ -508,6 +600,43 @@ int main(void) {
 		pdq.pdq_info.queueCount			= vk_qf_props[vob.VKQ_i].queueCount;
 		pdq.pdq_info.pQueuePriorities	= GFXQ_Priorities;
 
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SDL VULKAN SURFACE");		/**/
+	///////////////////////////////////////////////////
+
+	VkSurfaceKHR sdlvk_surface;
+
+	rv("SDL_Vulkan_CreateSurface");
+		ov("Surface Creation", SDL_Vulkan_CreateSurface( sdl_W, vob.VKI, &sdlvk_surface ) );
+		ov("Surface", sdlvk_surface);
+
+	VkSurfaceCapabilitiesKHR vk_surface_capabilities;
+	vr("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", &vkres, "ARRAY",
+		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vob.VKP, sdlvk_surface, &vk_surface_capabilities) );
+		ov("minImageCount", 			vk_surface_capabilities.minImageCount			);
+		ov("maxImageCount", 			vk_surface_capabilities.maxImageCount			);
+		ov("currentExtent.width", 		vk_surface_capabilities.currentExtent.width		);
+		ov("currentExtent.height", 		vk_surface_capabilities.currentExtent.height	);
+		ov("maxImageArrayLayers", 		vk_surface_capabilities.maxImageArrayLayers		);
+		ov("supportedCompositeAlpha", 	vk_surface_capabilities.supportedCompositeAlpha	);
+		ov("supportedUsageFlags", 		vk_surface_capabilities.supportedUsageFlags		);
+
+	uint32_t vkpd_surface_format_count;
+	vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, vkpd_surface_format_count,
+		vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, sdlvk_surface, &vkpd_surface_format_count, NULL) );
+
+	VkSurfaceFormatKHR vk_surface_format[vkpd_surface_format_count];
+	vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, "ARRAY",
+		vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, sdlvk_surface, &vkpd_surface_format_count, vk_surface_format) );
+	for(int i = 0; i < vkpd_surface_format_count; i++) {
+		iv("vk_surface_format.format", 		vk_surface_format[i].format, 		i );
+		iv("vk_surface_format.colorSpace", 	vk_surface_format[i].colorSpace, 	i ); }
+
+//	Is Presentation Supported by this queue index?
+	VkBool32 surface_supported;
+	vr("vkGetPhysicalDeviceSurfaceSupportKHR", &vkres, pdq.pdq_info.queueFamilyIndex,
+		vkGetPhysicalDeviceSurfaceSupportKHR(vob.VKP, pdq.pdq_info.queueFamilyIndex, sdlvk_surface, &surface_supported) );
+		ov("Surface Supported", ((surface_supported==VK_TRUE)?"TRUE":"FALSE")); // TODO ? Is this even checking?
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "LOGICAL DEVICE");			/**/
@@ -528,6 +657,44 @@ int main(void) {
 	vr("vkCreateDevice", &vkres, vob.VKL,
 		vkCreateDevice(vob.VKP, &ldev.ldev_info, NULL, &vob.VKL) );
 	ov("VkDevice", vob.VKL);
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SWAPCHAIN");				/**/
+	///////////////////////////////////////////////////
+
+	VkSwapchainCreateInfoKHR vk_swapchhain_info;
+		vk_swapchhain_info.sType	= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	nf(&vk_swapchhain_info);
+		vk_swapchhain_info.surface					= sdlvk_surface;
+		vk_swapchhain_info.minImageCount			= vk_surface_capabilities.minImageCount;
+		vk_swapchhain_info.imageFormat				= VK_FORMAT_B8G8R8A8_UNORM;
+		vk_swapchhain_info.imageColorSpace			= VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+		vk_swapchhain_info.imageExtent				= vk_surface_capabilities.currentExtent;
+		vk_swapchhain_info.imageArrayLayers			= 1;
+		vk_swapchhain_info.imageUsage				= vk_surface_capabilities.supportedUsageFlags;
+		vk_swapchhain_info.imageSharingMode			= VK_SHARING_MODE_EXCLUSIVE;
+		vk_swapchhain_info.queueFamilyIndexCount	= 1;
+		vk_swapchhain_info.pQueueFamilyIndices		= &pdq.pdq_info.queueFamilyIndex;
+		vk_swapchhain_info.preTransform				= vk_surface_capabilities.currentTransform;
+		vk_swapchhain_info.compositeAlpha			= VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		vk_swapchhain_info.presentMode				= VK_PRESENT_MODE_IMMEDIATE_KHR;
+		vk_swapchhain_info.clipped					= VK_FALSE;
+		vk_swapchhain_info.oldSwapchain				= VK_NULL_HANDLE;
+
+	VkSwapchainKHR vk_swapchain;
+	vr("vkCreateSwapchainKHR", &vkres, vk_swapchain,
+		vkCreateSwapchainKHR(vob.VKL, &vk_swapchhain_info, NULL, &vk_swapchain) );
+
+	uint32_t swap_image_count = UINT32_MAX;
+	vr("vkGetSwapchainImagesKHR", &vkres, swap_image_count,
+		vkGetSwapchainImagesKHR(vob.VKL, vk_swapchain, &swap_image_count, NULL) );
+
+	VkImage vk_image_swapimgs[swap_image_count];
+	vr("vkGetSwapchainImagesKHR", &vkres, "ARRAY",
+		vkGetSwapchainImagesKHR(vob.VKL, vk_swapchain, &swap_image_count, vk_image_swapimgs) );
+
+	for(int i = 0; i < swap_image_count; i++) {
+		iv("Swapchain Image", vk_image_swapimgs[i], i); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK LAYER IMAGES");		/**/
@@ -825,6 +992,59 @@ int main(void) {
 	 /**/	hd("STAGE:", "COMMAND BUFFERS");		/**/
 	///////////////////////////////////////////////////
 
+	// Are all of these used? TODO
+
+	VK_Command combuf_pres_init[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		combuf_pres_init[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		combuf_pres_init[i].pool_info.pNext							= NULL;
+		combuf_pres_init[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		combuf_pres_init[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
+
+		vr("vkCreateCommandPool", &vkres, combuf_pres_init[i].vk_command_pool,
+			vkCreateCommandPool(vob.VKL, &combuf_pres_init[i].pool_info, NULL, &combuf_pres_init[i].vk_command_pool) );
+
+		combuf_pres_init[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_pres_init[i].comm_buff_alloc_info.pNext				= NULL;
+		combuf_pres_init[i].comm_buff_alloc_info.commandPool		= combuf_pres_init[i].vk_command_pool;
+		combuf_pres_init[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_pres_init[i].comm_buff_alloc_info.commandBufferCount	= 1;
+
+		vr("vkAllocateCommandBuffers", &vkres, combuf_pres_init[i].vk_command_buffer,
+			vkAllocateCommandBuffers(vob.VKL, &combuf_pres_init[i].comm_buff_alloc_info, &combuf_pres_init[i].vk_command_buffer) );
+
+		combuf_pres_init[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	nf(&combuf_pres_init[i].comm_buff_begin_info);
+		combuf_pres_init[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
+
+
+	VK_Command combuf_pres_loop[swap_image_count*2];
+	for(int i = 0; i < swap_image_count*2; i++) {
+		combuf_pres_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		combuf_pres_loop[i].pool_info.pNext							= NULL;
+		combuf_pres_loop[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		combuf_pres_loop[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
+
+		vr("vkCreateCommandPool", &vkres, combuf_pres_loop[i].vk_command_pool,
+			vkCreateCommandPool(vob.VKL, &combuf_pres_loop[i].pool_info, NULL, &combuf_pres_loop[i].vk_command_pool) );
+
+		combuf_pres_loop[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_pres_loop[i].comm_buff_alloc_info.pNext				= NULL;
+		combuf_pres_loop[i].comm_buff_alloc_info.commandPool		= combuf_pres_loop[i].vk_command_pool;
+		combuf_pres_loop[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_pres_loop[i].comm_buff_alloc_info.commandBufferCount	= 1;
+
+		vr("vkAllocateCommandBuffers", &vkres, combuf_pres_loop[i].vk_command_buffer,
+			vkAllocateCommandBuffers(vob.VKL, &combuf_pres_loop[i].comm_buff_alloc_info, &combuf_pres_loop[i].vk_command_buffer) );
+
+		combuf_pres_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	nf(&combuf_pres_loop[i].comm_buff_begin_info);
+		combuf_pres_loop[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
+
+
+
+
+
 	VK_Command combuf_work_init[2];
 	for(int i = 0; i < 2; i++) {
 		combuf_work_init[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -936,6 +1156,40 @@ int main(void) {
 
 	vr("vkCreateFence", &vkres, qsync.vk_fence,
 		vkCreateFence(vob.VKL, &qsync.fence_info, NULL, &qsync.vk_fence) );
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SWAPCHAIN SYNC");			/**/
+	///////////////////////////////////////////////////
+
+	VkSemaphoreCreateInfo vk_semaphore_info;
+		vk_semaphore_info.sType 	= VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+	nf(&vk_semaphore_info);
+
+	VkSemaphore vk_semaphore_swapchain;
+
+	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain,
+		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain) );
+
+	uint32_t swap_image_index = 0;
+
+	VK_QueueSync swpsync;
+
+	rv("vkGetDeviceQueue");
+		vkGetDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync.vk_queue);
+
+	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync;
+		vk_pipeline_stage_flags_swpsync = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+//	Is this section correct or needed at all? TODO
+		swpsync.sub_info.sType					= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		swpsync.sub_info.pNext					= NULL;
+		swpsync.sub_info.waitSemaphoreCount		= 1;
+		swpsync.sub_info.pWaitSemaphores		= &vk_semaphore_swapchain;
+		swpsync.sub_info.pWaitDstStageMask		= &vk_pipeline_stage_flags_swpsync;
+		swpsync.sub_info.commandBufferCount		= 1;
+		swpsync.sub_info.pCommandBuffers		= &combuf_pres_loop[0].vk_command_buffer; // TODO i? 0, 1, 2 ? 
+		swpsync.sub_info.signalSemaphoreCount	= 1;
+		swpsync.sub_info.pSignalSemaphores		= &vk_semaphore_swapchain;
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK IMAGE VIEWS");		/**/
@@ -1348,6 +1602,8 @@ int main(void) {
 	 /**/	hd("STAGE:", "WORK IMAGEDATA BARRIERS");/**/
 	///////////////////////////////////////////////////
 
+	// Are all of these used? TODO
+
 	VkImageMemoryBarrier vk_IMB_blit_imagedata_UND_to_TDO;
 		vk_IMB_blit_imagedata_UND_to_TDO.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		vk_IMB_blit_imagedata_UND_to_TDO.pNext 					= NULL;
@@ -1409,6 +1665,45 @@ int main(void) {
 		vk_IMB_blit_imagedata_TSO_to_TDO.dstQueueFamilyIndex 	= vob.VKQ_i;
 		vk_IMB_blit_imagedata_TSO_to_TDO.image 					= blit.vk_image;
 		vk_IMB_blit_imagedata_TSO_to_TDO.subresourceRange 		= rpass_info.img_subres_range;
+
+	VkImageMemoryBarrier vk_IMB_pres_UND_to_PRS[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		vk_IMB_pres_UND_to_PRS[i].sType 					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_pres_UND_to_PRS[i].pNext 					= NULL;
+		vk_IMB_pres_UND_to_PRS[i].srcAccessMask 			= 0;
+		vk_IMB_pres_UND_to_PRS[i].dstAccessMask 			= 0;
+		vk_IMB_pres_UND_to_PRS[i].oldLayout 				= VK_IMAGE_LAYOUT_UNDEFINED;
+		vk_IMB_pres_UND_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		vk_IMB_pres_UND_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_UND_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_UND_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_UND_to_PRS[i].subresourceRange 		= rpass_info.img_subres_range; }
+
+	VkImageMemoryBarrier vk_IMB_pres_PRS_to_TDO[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		vk_IMB_pres_PRS_to_TDO[i].sType 					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_pres_PRS_to_TDO[i].pNext 					= NULL;
+		vk_IMB_pres_PRS_to_TDO[i].srcAccessMask 			= 0;
+		vk_IMB_pres_PRS_to_TDO[i].dstAccessMask 			= 0;
+		vk_IMB_pres_PRS_to_TDO[i].oldLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		vk_IMB_pres_PRS_to_TDO[i].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vk_IMB_pres_PRS_to_TDO[i].srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_PRS_to_TDO[i].dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_PRS_to_TDO[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_PRS_to_TDO[i].subresourceRange 		= rpass_info.img_subres_range; }
+
+	VkImageMemoryBarrier vk_IMB_pres_TDO_to_PRS[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		vk_IMB_pres_TDO_to_PRS[i].sType 					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_pres_TDO_to_PRS[i].pNext 					= NULL;
+		vk_IMB_pres_TDO_to_PRS[i].srcAccessMask 			= 0;
+		vk_IMB_pres_TDO_to_PRS[i].dstAccessMask 			= 0;
+		vk_IMB_pres_TDO_to_PRS[i].oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vk_IMB_pres_TDO_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		vk_IMB_pres_TDO_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_TDO_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_TDO_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_TDO_to_PRS[i].subresourceRange 		= rpass_info.img_subres_range; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD IMAGEDATA INIT");	/**/
@@ -1491,39 +1786,152 @@ int main(void) {
 			vkEndCommandBuffer(combuf_work_imagedata[i].vk_command_buffer) ); }
 
 	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "RECORD PRES INIT");		/**/
+	///////////////////////////////////////////////////
+
+	for(int i = 0; i < swap_image_count; i++) {
+		vr("vkBeginCommandBuffer", &vkres, i,
+			vkBeginCommandBuffer(combuf_pres_init[i].vk_command_buffer, &combuf_pres_init[i].comm_buff_begin_info) );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_pres_init[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_pres_UND_to_PRS[i] );
+
+		vr("vkEndCommandBuffer", &vkres, i,
+			vkEndCommandBuffer(combuf_pres_init[i].vk_command_buffer) ); }
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SUBMIT PRES INIT");		/**/
+	///////////////////////////////////////////////////
+
+	for(int i = 0; i < swap_image_count; i++) {
+		if(valid) {
+			rv("vkcombuf_pres_init");
+				qsync.sub_info.pCommandBuffers = &combuf_pres_init[i].vk_command_buffer;
+			vr("vkQueueSubmit", &vkres, i,
+				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "RECORD PRES LOOP 0");		/**/
+	///////////////////////////////////////////////////
+
+	// Split function into two, so that it can sync with the two "work" frames
+
+	VkClearColorValue vk_clear_color_value = { { 1.0f, 0.5f, 0.0f, 1.0f } };
+
+	for(int i = 0; i < swap_image_count*2; i++) {
+		vr("vkBeginCommandBuffer", &vkres, i,
+			vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info) );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_pres_loop[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_pres_PRS_to_TDO[i%swap_image_count] );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_pres_loop[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_work_imagedata_SRO_to_TSO[i/swap_image_count] );
+
+			rv("vkCmdBlitImage");
+				vkCmdBlitImage (
+					combuf_pres_loop[i].vk_command_buffer, 
+					work.vk_image[i/swap_image_count], 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					vk_image_swapimgs[i%swap_image_count], 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_pres_loop[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_work_imagedata_TSO_to_SRO[i/swap_image_count] );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_pres_loop[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_pres_TDO_to_PRS[i%swap_image_count] );
+
+		vr("vkEndCommandBuffer", &vkres, i,
+			vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer) ); }
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SWAPCHAIN PRESENT CFG");	/**/
+	///////////////////////////////////////////////////
+
+	VkPresentInfoKHR vk_present_info;
+		vk_present_info.sType 					= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		vk_present_info.pNext 					= NULL;
+		vk_present_info.waitSemaphoreCount 		= 1;
+		vk_present_info.pWaitSemaphores 		= &vk_semaphore_swapchain;
+		vk_present_info.swapchainCount 			= 1;
+		vk_present_info.pSwapchains 			= &vk_swapchain;
+		vk_present_info.pImageIndices 			= &swap_image_index;
+		vk_present_info.pResults 				= NULL;
+
+	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP INIT");			/**/
 	///////////////////////////////////////////////////
 
-	uint32_t 	frame_index 	= 0;
-
-//	Image Exports
-	uint32_t	imgdat_freq		= 12;
-	uint32_t	imgdat_idx		= 0;
+	uint32_t 	frame_index 	= 0;	// Frame Index
+	uint32_t	imgdat_idx		= 0;	// Export Image Data Index
+	uint32_t	verbose_loops 	= 12;	// How many loops to output full diagnostics
 
 //	FPS tracking init
 	NS_Timer 	ftime;
 	NS_Timer 	optime;
+	NS_Timer 	prstime;
 	int  		current_sec		= time(0);
 	int  		fps_freq 		= 1;
 	int  		fps_report 		= time(0) - fps_freq;
 
+	PatternConfigData_256 pcd 		= new_PCD_256();
+
+	PatternConfigData_408 pcd_load 	= get_PCD_408("res/data/save_global.vkpat", load_pcd_index); // 17637
+		for(int i = 0; i < 48; i++) { 
+			pcd.ubi[i] = pcd_load.ubv_save[i]; }
+			memcpy(&pcd.ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
+			memcpy(&pcd.ubi[61], &pcd_load.pzm_save, sizeof(uint32_t));
+
 //	Uniform Buffer Object ( 64 * 32 bits maximum )
 	UniBuf ub;
-		ub.v0  = 0; ub.v1  = 0; ub.v2  = 0; ub.v3  = 0;	ub.v4  = 0; ub.v5  = 0; ub.v6  = 0; ub.v7  = 0;
-		ub.v8  = 0; ub.v9  = 0; ub.v10 = 0; ub.v11 = 0;	ub.v12 = 0; ub.v13 = 0; ub.v14 = 0; ub.v15 = 0;
-		ub.v16 = 0; ub.v17 = 0; ub.v18 = 0; ub.v19 = 0;	ub.v20 = 0; ub.v21 = 0; ub.v22 = 0; ub.v23 = 0;
-		ub.v24 = 0; ub.v25 = 0; ub.v26 = 0; ub.v27 = 0;	ub.v28 = 0; ub.v29 = 0; ub.v30 = 0; ub.v31 = 0;
-		ub.v32 = 0; ub.v33 = 0; ub.v34 = 0; ub.v35 = 0;	ub.v36 = 0; ub.v37 = 0; ub.v38 = 0; ub.v39 = 0;
-		ub.v40 = 0; ub.v41 = 0; ub.v42 = 0; ub.v43 = 0;	ub.v44 = 0; ub.v45 = 0; ub.v46 = 0; ub.v47 = 0;
-		ub.v48 = 0; ub.v49 = 0; ub.v50 = 0; ub.v51 = 0;	ub.v52 = 0; ub.v53 = 0; ub.v54 = 0; ub.v55 = 0;
-		ub.v56 = 0; ub.v57 = 0; ub.v58 = 0; ub.v59 = 0;	ub.v60 = 0; ub.v61 = 0; ub.v62 = 0; ub.v63 = 0;
+		ub.v0  = pcd.ubi[ 0]; ub.v1  = pcd.ubi[ 1]; ub.v2  = pcd.ubi[ 2]; ub.v3  = pcd.ubi[ 3];
+		ub.v4  = pcd.ubi[ 4]; ub.v5  = pcd.ubi[ 5]; ub.v6  = pcd.ubi[ 6]; ub.v7  = pcd.ubi[ 7];
+		ub.v8  = pcd.ubi[ 8]; ub.v9  = pcd.ubi[ 9]; ub.v10 = pcd.ubi[10]; ub.v11 = pcd.ubi[11];
+		ub.v12 = pcd.ubi[12]; ub.v13 = pcd.ubi[13]; ub.v14 = pcd.ubi[14]; ub.v15 = pcd.ubi[15];
+		ub.v16 = pcd.ubi[16]; ub.v17 = pcd.ubi[17]; ub.v18 = pcd.ubi[18]; ub.v19 = pcd.ubi[19];
+		ub.v20 = pcd.ubi[20]; ub.v21 = pcd.ubi[21]; ub.v22 = pcd.ubi[22]; ub.v23 = pcd.ubi[23];
+		ub.v24 = pcd.ubi[24]; ub.v25 = pcd.ubi[25]; ub.v26 = pcd.ubi[26]; ub.v27 = pcd.ubi[27];
+		ub.v28 = pcd.ubi[28]; ub.v29 = pcd.ubi[29]; ub.v30 = pcd.ubi[30]; ub.v31 = pcd.ubi[31];
+		ub.v32 = pcd.ubi[32]; ub.v33 = pcd.ubi[33]; ub.v34 = pcd.ubi[34]; ub.v35 = pcd.ubi[35];
+		ub.v36 = pcd.ubi[36]; ub.v37 = pcd.ubi[37]; ub.v38 = pcd.ubi[38]; ub.v39 = pcd.ubi[39];
+		ub.v40 = pcd.ubi[40]; ub.v41 = pcd.ubi[41]; ub.v42 = pcd.ubi[42]; ub.v43 = pcd.ubi[43];
+		ub.v44 = pcd.ubi[44]; ub.v45 = pcd.ubi[45]; ub.v46 = pcd.ubi[46]; ub.v47 = pcd.ubi[47];
+		ub.v48 = pcd.ubi[48]; ub.v49 = pcd.ubi[49]; ub.v50 = pcd.ubi[50]; ub.v51 = pcd.ubi[51];
+		ub.v52 = pcd.ubi[52]; ub.v53 = pcd.ubi[53]; ub.v54 = pcd.ubi[54]; ub.v55 = pcd.ubi[55];
+		ub.v56 = pcd.ubi[56]; ub.v57 = pcd.ubi[57]; ub.v58 = pcd.ubi[58]; ub.v59 = pcd.ubi[59];
+		ub.v60 = pcd.ubi[60]; ub.v61 = pcd.ubi[61]; ub.v62 = pcd.ubi[62]; ub.v63 = pcd.ubi[63];
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
 	///////////////////////////////////////////////////
 
+	//	SDL Window/UI Event Handling
+	SDL_Event 	sdl_evt;
+	int 		running	= 1;
+
 //	Main Loop code
 	do {
+
 	//	Record loop start time
     	ftime = start_timer(ftime);
 
@@ -1533,6 +1941,32 @@ int main(void) {
 
 	//	'Render'
 		if(valid) {
+
+		//	Record presentation start time
+			prstime = start_timer(prstime);
+
+		//	Acquire a VkImage from the swapchain's pool
+			if(valid) {
+				vr("vkAcquireNextImageKHR", &vkres, swap_image_index,
+					vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain, VK_NULL_HANDLE, &swap_image_index) );
+				ov("swap_image_index", swap_image_index); }
+
+			if(valid) {
+			//	Copy the "Work" Image to the "Swap" Image
+				rv("vkcombuf_pres");
+					swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
+				if(valid) {
+				//	Present the "Swap" Image and release it back to the swapchain pool, also resetting the semaphore
+					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
+						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, VK_NULL_HANDLE /*qsync.vk_fence*/) ); } }
+
+			if(valid) {
+				vr("vkQueuePresentKHR", &vkres, swap_image_index,
+					vkQueuePresentKHR(swpsync.vk_queue, &vk_present_info) ); }
+
+//		loglevel = MAXLOG;
+    	end_timer(prstime, "Present Queue Time");
+//		loglevel = -1;
 
 		//	Report current frame index
 			ov("frame_index", frame_index);
@@ -1565,7 +1999,7 @@ int main(void) {
 					vr("vkResetFences", &vkres, qsync.vk_fence,
 						vkResetFences(vob.VKL, 1, &qsync.vk_fence) ); } } }
 
-			if(valid && frame_index % imgdat_freq == 0) {
+			if(valid && imgdat_freq > 0 && frame_index % imgdat_freq == 0) {
 			//	Submit 'imagedata' commands to the GPU graphics queue
 				rv("combuf_work_imagedata");
 					qsync.sub_info.pCommandBuffers = &combuf_work_imagedata[frame_index%2].vk_command_buffer;
@@ -1573,28 +2007,46 @@ int main(void) {
 					vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
 						vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
 
-    	end_timer(optime, "Queue Time");
+//		loglevel = MAXLOG;
+    	end_timer(optime, "Work Queue Time");
+//		loglevel = -1;
 
-		if(frame_index % imgdat_freq == 0 && frame_index > 0) {
+		if(imgdat_freq > 0 && frame_index % imgdat_freq == 0 && frame_index > 0 && valid) {
     		optime = start_timer(optime);
 			loglevel = MAXLOG;
 			save_image(pvoid_imagedata_work, "IMG"+std::to_string(imgdat_idx), APP_W, APP_H );
-			loglevel = -1;
+			if(frame_index >= verbose_loops) { loglevel = -1; }
     		end_timer(optime, "Save ImageData");
 			imgdat_idx++; }
 
-		if(fps_report == current_sec) { fps_report--; loglevel = MAXLOG; end_timer(ftime, "Loop Time"); loglevel = -1; }
-		if(frame_index == 8) { loglevel = -1; }
-
 		frame_index++;
 
-	} while (valid);
+		//	SDL Event Handling
+		if(SDL_PollEvent(&sdl_evt)) {
+			if(sdl_evt.type == SDL_QUIT) { running = 0; } }
+
+		if(fps_report == current_sec) { fps_report--; loglevel = MAXLOG; end_timer(ftime, "Full Loop Time"); loglevel = -1; }
+		if(frame_index <  verbose_loops) { end_timer(ftime, "Full Loop Time"); }
+
+		hd("STAGE:", "LOOP");
+
+		if(frame_index == verbose_loops) { loglevel = -1; }
+
+	} while (valid && running);
+
+	loglevel = MAXLOG;
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "EXIT APPLICATION");		/**/
 	///////////////////////////////////////////////////
 
-	if(!valid) { hd("STAGE:", "ABORTED"); }
+	if(!valid) 	 { hd("STAGE:", "ABORTED"); }
+	if(!running) { hd("STAGE:", "CLOSED"); }
+
+	rv("SDL_DestroyWindow");
+		SDL_DestroyWindow( sdl_W );
+	rv("SDL_Quit");
+		SDL_Quit();
 
 	rv("return");
 	return 0;

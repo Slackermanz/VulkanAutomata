@@ -1,23 +1,22 @@
 #!/bin/bash
-	source $1'setup-env.sh'
-	rm ./app/RunVkAuto
 	rm ./app/vert_TriQuad.spv
 	rm ./app/frag_automata0000.spv
+	rm ./app/RunVulkanAutomataSDL
 	clear
 	echo ""
-	echo "  $1'x86_64/bin/glslc' -O ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv"
-			$1'x86_64/bin/glslc' -O ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv
+	echo "  glslc -O ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv"
+			glslc -O ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv
 	echo ""
-	echo "  $1'x86_64/bin/glslc' -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv"
-			$1'x86_64/bin/glslc' -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
+	echo "  glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv"
+			glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
 	echo ""
-	echo "  g++ VulkanAutomata.cpp -fconcepts -L$1'x86_64/lib/' -lvulkan -o ./app/RunVkAuto"
-			g++ VulkanAutomata.cpp -fconcepts -L$1'x86_64/lib/' -lvulkan -o ./app/RunVkAuto
+	echo "  g++ VulkanAutomataSDL.cpp -fconcepts -lSDL2 -lvulkan -o ./app/RunVulkanAutomataSDL"
+			g++ VulkanAutomataSDL.cpp -fconcepts -lSDL2 -lvulkan -o ./app/RunVulkanAutomataSDL
 	echo ""
-	echo "  BEGIN ./app/VulkanAutomata"
+	echo "  BEGIN ./app/RunVulkanAutomataSDL"
 	echo ""
-	./app/RunVkAuto
+	./app/RunVulkanAutomataSDL
 	echo ""
-	echo "  END   ./app/VulkanAutomata"
+	echo "  END   ./app/RunVulkanAutomataSDL"
 	sleep "0.15"
 	echo ""
