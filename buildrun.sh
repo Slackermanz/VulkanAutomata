@@ -1,7 +1,7 @@
 #!/bin/bash
 	rm ./app/vert_TriQuad.spv
 	rm ./app/frag_automata0000.spv
-	rm ./app/RunVulkanAutomataSDL
+	rm ./app/RunVulkanAutomataGLFW
 	clear
 	echo ""
 	echo "  glslc -O ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv"
@@ -10,13 +10,13 @@
 	echo "  glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv"
 			glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
 	echo ""
-	echo "  g++ VulkanAutomataSDL.cpp -fconcepts -lSDL2 -lvulkan -o ./app/RunVulkanAutomataSDL"
-			g++ VulkanAutomataSDL.cpp -fconcepts -lSDL2 -lvulkan -o ./app/RunVulkanAutomataSDL
+	echo "  g++ VulkanAutomataGLFW.cpp -fconcepts -lglfw -lvulkan -o ./app/RunVulkanAutomataGLFW"
+			g++ VulkanAutomataGLFW.cpp -fconcepts -lglfw -lvulkan -o ./app/RunVulkanAutomataGLFW
 	echo ""
-	echo "  BEGIN ./app/RunVulkanAutomataSDL"
+	echo "  BEGIN ./app/RunVulkanAutomataGLFW"
 	echo ""
-	./app/RunVulkanAutomataSDL
+	./app/RunVulkanAutomataGLFW
 	echo ""
-	echo "  END   ./app/RunVulkanAutomataSDL"
+	echo "  END   ./app/RunVulkanAutomataGLFW"
 	sleep "0.15"
 	echo ""

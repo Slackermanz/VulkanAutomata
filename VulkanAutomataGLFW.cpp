@@ -1,10 +1,5 @@
-#ifdef _WIN32
-#include <SDL/SDL.h>
-#include <SDL/SDL_vulkan.h>
-#else
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_vulkan.h>
-#endif
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 #include <string>
 #include <iostream>
 #include <vector>
@@ -40,6 +35,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL
 
 	msg_fmt = msg_fmt + msg[msg.size()-1];
 	if(messageSeverity != 16) {
+		loglevel = MAXLOG;
 		if(loglevel >= 0) {	std::cout << "\n\n" << bar << "\n " << msg_fmt << "\n" 	<< bar << "\n\n"; }
 		std::cout << "  Validation messageSeverity: " << messageSeverity << "\n\n";
 		valid = 0; }
@@ -333,21 +329,28 @@ PatternConfigData_256 new_PCD_256() {
 		for(int i = 0; i < 64; i++) { pcd.ubi[i] = 0; }
 	return pcd; }
 
-int main (int argc, char **argv) {
+int main() {
 
 //	Set the random seed
 	srand(time(0));
 
+//	Result storage
+	std::vector<VkResult> vkres;
 
 	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "APPLICATION CONFIG");		/**/
+	 /**/	hd("STAGE:", "USER CONFIG");			/**/
 	///////////////////////////////////////////////////
 
-	const	uint32_t 	APP_W 			= 512;					//	1920 1536 1280	768	512	384	256
-	const	uint32_t 	APP_H 			= 256;					//	1080 864  720	432	288	216	144
-			uint32_t	imgdat_freq		= 18;					//	Image Export on frame
-			int			load_pcd_index	= -1 * rand()%400;		//	Pattern Index | -392 -40
-						load_pcd_index	= -40;
+	const	uint32_t 	APP_W 			= 1024;					//	1920 1536 1280	768	512	384	256
+	const	uint32_t 	APP_H 			=  512;					//	1080 864  720	432	288	216	144
+
+	const	uint32_t 	RUN_HEADLESS	=    0;					//	Use GLFW windowing?
+			int			load_pcd_index	=  -40;					//	Pattern Index // -392, -40 // -1 * rand()%400
+			uint32_t	imgdat_freq		=    0;					//	Image Export on frame
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "APPLICATION INIT");		/**/
+	///////////////////////////////////////////////////
 
 //	Paths to shader files
 	const 	char* 	filepath_vert		[VERT_FLS]
@@ -363,58 +366,31 @@ int main (int argc, char **argv) {
 	for(int i = 0; i < FRAG_FLS; i++) {	iv("Fragment Shaders", 			filepath_frag[i], 		i ); }
 
 	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SDL WINDOW");				/**/
+	 /**/	hd("STAGE:", "GLFW EXTENSIONS");		/**/
 	///////////////////////////////////////////////////
 
-    SDL_Window* 	sdl_W	= NULL;
-    SDL_Surface* 	sdl_S	= NULL;
+	vr("glfwInit",				&vkres, "GLFW", VkResult( glfwInit() 			) );
+	vr("glfwVulkanSupported", 	&vkres, "GLFW", VkResult( glfwVulkanSupported() ) );
 
-	rv("SDL_Init");
-		SDL_Init( SDL_INIT_VIDEO );
+	rv("glfwGetRequiredInstanceExtensions");
+	uint32_t 		glfw_ext_count 	= UINT32_MAX;
+	const char** 	glfw_extentions = glfwGetRequiredInstanceExtensions( &glfw_ext_count );
 
-		rv("SDL_CreateWindow");
-	sdl_W = SDL_CreateWindow(
-		"VulkanAutomataSDL", 
-		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 
-		APP_W, APP_H, 
-		SDL_WINDOW_VULKAN | SDL_WINDOW_SHOWN );
-
-		rv("SDL_GetWindowSurface");
-	sdl_S = SDL_GetWindowSurface( sdl_W );
-
-//	SDL_FillRect( screenSurface, NULL, SDL_MapRGB( sdl_S->format, 0xFF, 0x00, 0x00 ) );
-//	SDL_UpdateWindowSurface( sdl_W ); // This isn't needed to render to the surface? undefined / implementation dependent maybe?
-//	SDL_Delay( 5000 );
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SDL EXTENSIONS");			/**/
-	///////////////////////////////////////////////////
-
-	uint32_t sdl_inst_count = UINT32_MAX;
-
-	rv("SDL_Vulkan_GetInstanceExtensions");
-		SDL_Vulkan_GetInstanceExtensions(sdl_W, &sdl_inst_count, NULL);
-	ov("SDL_Vulkan_GetInstanceExtensions", sdl_inst_count);
-
-	const 	char* 	SDL_extensions	[sdl_inst_count];
-	rv("SDL_Vulkan_GetInstanceExtensions");
-		SDL_Vulkan_GetInstanceExtensions(sdl_W, &sdl_inst_count, SDL_extensions);
-	for(int i = 0; i < sdl_inst_count; i++) {
-		iv("SDL_Vulkan_GetInstanceExtensions", SDL_extensions[i], i); }
+	for(int i = 0; i < glfw_ext_count; i++) { iv("GLFW Extensions", glfw_extentions[i], i ); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "VULKAN EXTENSIONS");		/**/
 	///////////////////////////////////////////////////
 
-	uint32_t 	INST_EXS 		= 1 + sdl_inst_count;	//	Number of Vulkan Instance Extensions
+	uint32_t 	INST_EXS 		= 1 + glfw_ext_count;	//	Number of Vulkan Instance Extensions
 	uint32_t 	LAYR_EXS 		= 1;					//	Number of Vulkan Layers
 	uint32_t 	LDEV_EXS 		= 1;					//	Number of Vulkan Logical Device Extensions
 
 //	Paths to shader files and extension names
 	const 	char* 	instance_extensions	[INST_EXS]
 	=	{	"VK_EXT_debug_utils", 
-			SDL_extensions[0], 
-			SDL_extensions[1] 					};
+			glfw_extentions[0], 
+			glfw_extentions[1]					};	// TODO Number of entries cannot be static!
 	const 	char* 	layer_extensions	[LAYR_EXS]
 	=	{	"VK_LAYER_KHRONOS_validation" 		};
 	const 	char* 	device_extensions	[LDEV_EXS]
@@ -429,9 +405,7 @@ int main (int argc, char **argv) {
 	 /**/	hd("STAGE:", "VULKAN INIT");			/**/
 	///////////////////////////////////////////////////
 
-//	VkResult storage
-	std::vector<VkResult> vkres;
-	vr("init", &vkres, "NULL", VK_ERROR_UNKNOWN);
+	vr("init", &vkres, "INIT", VK_ERROR_UNKNOWN);
 
 	VK_Obj vob;
 
@@ -439,7 +413,7 @@ int main (int argc, char **argv) {
 
 		vkcfg.app_info.sType						= VK_STRUCTURE_TYPE_APPLICATION_INFO;
 		vkcfg.app_info.pNext						= NULL;
-		vkcfg.app_info.pApplicationName				= "VulkanAutomataSDL";
+		vkcfg.app_info.pApplicationName				= "VulkanAutomataGLFW";
 		vkcfg.app_info.applicationVersion			= 0;
 		vkcfg.app_info.pEngineName					= NULL;
 		vkcfg.app_info.engineVersion				= 0;
@@ -601,42 +575,52 @@ int main (int argc, char **argv) {
 		pdq.pdq_info.pQueuePriorities	= GFXQ_Priorities;
 
 	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SDL VULKAN SURFACE");		/**/
+	 /**/	hd("STAGE:", "GLFW VULKAN SURFACE");	/**/
 	///////////////////////////////////////////////////
 
-	VkSurfaceKHR sdlvk_surface;
+	VkSurfaceKHR 				glfw_surface;
+	VkSurfaceCapabilitiesKHR 	vk_surface_capabilities;
+	GLFWwindow* 				glfw_W;
 
-	rv("SDL_Vulkan_CreateSurface");
-		ov("Surface Creation", SDL_Vulkan_CreateSurface( sdl_W, vob.VKI, &sdlvk_surface ) );
-		ov("Surface", sdlvk_surface);
+	if(!RUN_HEADLESS) {
+		glfwWindowHint(GLFW_CLIENT_API,	GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, 	GL_FALSE);
 
-	VkSurfaceCapabilitiesKHR vk_surface_capabilities;
-	vr("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", &vkres, "ARRAY",
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vob.VKP, sdlvk_surface, &vk_surface_capabilities) );
-		ov("minImageCount", 			vk_surface_capabilities.minImageCount			);
-		ov("maxImageCount", 			vk_surface_capabilities.maxImageCount			);
-		ov("currentExtent.width", 		vk_surface_capabilities.currentExtent.width		);
-		ov("currentExtent.height", 		vk_surface_capabilities.currentExtent.height	);
-		ov("maxImageArrayLayers", 		vk_surface_capabilities.maxImageArrayLayers		);
-		ov("supportedCompositeAlpha", 	vk_surface_capabilities.supportedCompositeAlpha	);
-		ov("supportedUsageFlags", 		vk_surface_capabilities.supportedUsageFlags		);
+		glfw_W = glfwCreateWindow(APP_W, APP_H, vkcfg.app_info.pApplicationName, NULL, NULL);
 
-	uint32_t vkpd_surface_format_count;
-	vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, vkpd_surface_format_count,
-		vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, sdlvk_surface, &vkpd_surface_format_count, NULL) );
+		vr("glfwGetPhysicalDevicePresentationSupport", &vkres, "GLFW", VkResult(
+			glfwGetPhysicalDevicePresentationSupport(vob.VKI, vob.VKP, vob.VKQ_i) ) );
 
-	VkSurfaceFormatKHR vk_surface_format[vkpd_surface_format_count];
-	vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, "ARRAY",
-		vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, sdlvk_surface, &vkpd_surface_format_count, vk_surface_format) );
-	for(int i = 0; i < vkpd_surface_format_count; i++) {
-		iv("vk_surface_format.format", 		vk_surface_format[i].format, 		i );
-		iv("vk_surface_format.colorSpace", 	vk_surface_format[i].colorSpace, 	i ); }
+		vr("glfwCreateWindowSurface", &vkres, "GLFW", VkResult(
+			glfwCreateWindowSurface(vob.VKI, glfw_W, NULL, &glfw_surface) ) );
 
-//	Is Presentation Supported by this queue index?
-	VkBool32 surface_supported;
-	vr("vkGetPhysicalDeviceSurfaceSupportKHR", &vkres, pdq.pdq_info.queueFamilyIndex,
-		vkGetPhysicalDeviceSurfaceSupportKHR(vob.VKP, pdq.pdq_info.queueFamilyIndex, sdlvk_surface, &surface_supported) );
-		ov("Surface Supported", ((surface_supported==VK_TRUE)?"TRUE":"FALSE")); // TODO ? Is this even checking?
+		vr("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", &vkres, "ARRAY",
+			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vob.VKP, glfw_surface, &vk_surface_capabilities) );
+			ov("minImageCount", 			vk_surface_capabilities.minImageCount			);
+			ov("maxImageCount", 			vk_surface_capabilities.maxImageCount			);
+			ov("currentExtent.width", 		vk_surface_capabilities.currentExtent.width		);
+			ov("currentExtent.height", 		vk_surface_capabilities.currentExtent.height	);
+			ov("maxImageArrayLayers", 		vk_surface_capabilities.maxImageArrayLayers		);
+			ov("supportedCompositeAlpha", 	vk_surface_capabilities.supportedCompositeAlpha	);
+			ov("supportedUsageFlags", 		vk_surface_capabilities.supportedUsageFlags		);
+
+		uint32_t vkpd_surface_format_count;
+		vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, vkpd_surface_format_count,
+			vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, glfw_surface, &vkpd_surface_format_count, NULL) );
+
+		VkSurfaceFormatKHR vk_surface_format[vkpd_surface_format_count];
+		vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, "ARRAY",
+			vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, glfw_surface, &vkpd_surface_format_count, vk_surface_format) );
+		for(int i = 0; i < vkpd_surface_format_count; i++) {
+			iv("vk_surface_format.format", 		vk_surface_format[i].format, 		i );
+			iv("vk_surface_format.colorSpace", 	vk_surface_format[i].colorSpace, 	i ); }
+
+	//	Is Presentation Supported by this queue index?
+		VkBool32 surface_supported;
+		vr("vkGetPhysicalDeviceSurfaceSupportKHR", &vkres, pdq.pdq_info.queueFamilyIndex,
+			vkGetPhysicalDeviceSurfaceSupportKHR(vob.VKP, pdq.pdq_info.queueFamilyIndex, glfw_surface, &surface_supported) );
+			ov("Surface Supported", ((surface_supported==VK_TRUE)?"TRUE":"FALSE")); } // TODO ? Is this even checking?
+	else { rv("Headless Mode Enabled!"); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "LOGICAL DEVICE");			/**/
@@ -665,7 +649,7 @@ int main (int argc, char **argv) {
 	VkSwapchainCreateInfoKHR vk_swapchhain_info;
 		vk_swapchhain_info.sType	= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	nf(&vk_swapchhain_info);
-		vk_swapchhain_info.surface					= sdlvk_surface;
+		vk_swapchhain_info.surface					= glfw_surface;
 		vk_swapchhain_info.minImageCount			= vk_surface_capabilities.minImageCount;
 		vk_swapchhain_info.imageFormat				= VK_FORMAT_B8G8R8A8_UNORM;
 		vk_swapchhain_info.imageColorSpace			= VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -682,19 +666,22 @@ int main (int argc, char **argv) {
 		vk_swapchhain_info.oldSwapchain				= VK_NULL_HANDLE;
 
 	VkSwapchainKHR vk_swapchain;
+	uint32_t swap_image_count = 0;
+	VkImage vk_image_swapimgs[swap_image_count];
+
+	if(!RUN_HEADLESS) {
 	vr("vkCreateSwapchainKHR", &vkres, vk_swapchain,
 		vkCreateSwapchainKHR(vob.VKL, &vk_swapchhain_info, NULL, &vk_swapchain) );
 
-	uint32_t swap_image_count = UINT32_MAX;
 	vr("vkGetSwapchainImagesKHR", &vkres, swap_image_count,
 		vkGetSwapchainImagesKHR(vob.VKL, vk_swapchain, &swap_image_count, NULL) );
 
-	VkImage vk_image_swapimgs[swap_image_count];
 	vr("vkGetSwapchainImagesKHR", &vkres, "ARRAY",
 		vkGetSwapchainImagesKHR(vob.VKL, vk_swapchain, &swap_image_count, vk_image_swapimgs) );
 
 	for(int i = 0; i < swap_image_count; i++) {
-		iv("Swapchain Image", vk_image_swapimgs[i], i); }
+		iv("Swapchain Image", vk_image_swapimgs[i], i); } }
+	else { rv("Headless Mode Enabled!"); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK LAYER IMAGES");		/**/
@@ -1815,7 +1802,7 @@ int main (int argc, char **argv) {
 				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
 
 	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD PRES LOOP 0");		/**/
+	 /**/	hd("STAGE:", "RECORD PRES LOOP");		/**/
 	///////////////////////////////////////////////////
 
 	// Split function into two, so that it can sync with the two "work" frames
@@ -1865,7 +1852,7 @@ int main (int argc, char **argv) {
 			vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer) ); }
 
 	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SWAPCHAIN PRESENT CFG");	/**/
+	 /**/	hd("STAGE:", "SWAPCHAIN PRESENT INFO");	/**/
 	///////////////////////////////////////////////////
 
 	VkPresentInfoKHR vk_present_info;
@@ -1925,10 +1912,6 @@ int main (int argc, char **argv) {
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
 	///////////////////////////////////////////////////
 
-	//	SDL Window/UI Event Handling
-	SDL_Event 	sdl_evt;
-	int 		running	= 1;
-
 //	Main Loop code
 	do {
 
@@ -1942,16 +1925,15 @@ int main (int argc, char **argv) {
 	//	'Render'
 		if(valid) {
 
-		//	Record presentation start time
-			prstime = start_timer(prstime);
-
-		//	Acquire a VkImage from the swapchain's pool
-			if(valid) {
+			if(valid && !RUN_HEADLESS) {
+			//	Record presentation start time
+				prstime = start_timer(prstime);
+			//	Acquire a VkImage from the swapchain's pool
 				vr("vkAcquireNextImageKHR", &vkres, swap_image_index,
 					vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain, VK_NULL_HANDLE, &swap_image_index) );
 				ov("swap_image_index", swap_image_index); }
 
-			if(valid) {
+			if(valid && !RUN_HEADLESS) {
 			//	Copy the "Work" Image to the "Swap" Image
 				rv("vkcombuf_pres");
 					swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
@@ -1960,13 +1942,10 @@ int main (int argc, char **argv) {
 					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
 						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, VK_NULL_HANDLE /*qsync.vk_fence*/) ); } }
 
-			if(valid) {
+			if(valid && !RUN_HEADLESS) {
 				vr("vkQueuePresentKHR", &vkres, swap_image_index,
-					vkQueuePresentKHR(swpsync.vk_queue, &vk_present_info) ); }
-
-//		loglevel = MAXLOG;
-    	end_timer(prstime, "Present Queue Time");
-//		loglevel = -1;
+					vkQueuePresentKHR(swpsync.vk_queue, &vk_present_info) );
+				end_timer(prstime, "Present Queue Time"); }
 
 		//	Report current frame index
 			ov("frame_index", frame_index);
@@ -2021,10 +2000,10 @@ int main (int argc, char **argv) {
 
 		frame_index++;
 
-		//	SDL Event Handling
-		if(SDL_PollEvent(&sdl_evt)) {
-			if(sdl_evt.type == SDL_QUIT) { running = 0; } }
+	//	Poll for GLFW window events
+		glfwPollEvents();
 
+	//	End of loop
 		if(fps_report == current_sec) { fps_report--; loglevel = MAXLOG; end_timer(ftime, "Full Loop Time"); loglevel = -1; }
 		if(frame_index <  verbose_loops) { end_timer(ftime, "Full Loop Time"); }
 
@@ -2032,7 +2011,7 @@ int main (int argc, char **argv) {
 
 		if(frame_index == verbose_loops) { loglevel = -1; }
 
-	} while (valid && running);
+	} while ( valid && ((!RUN_HEADLESS && !glfwWindowShouldClose(glfw_W)) || RUN_HEADLESS) );
 
 	loglevel = MAXLOG;
 
@@ -2040,13 +2019,13 @@ int main (int argc, char **argv) {
 	 /**/	hd("STAGE:", "EXIT APPLICATION");		/**/
 	///////////////////////////////////////////////////
 
-	if(!valid) 	 { hd("STAGE:", "ABORTED"); }
-	if(!running) { hd("STAGE:", "CLOSED"); }
+	if(!valid) 	 							{ hd("STAGE:", "ABORTED"); }
 
-	rv("SDL_DestroyWindow");
-		SDL_DestroyWindow( sdl_W );
-	rv("SDL_Quit");
-		SDL_Quit();
+	if(!RUN_HEADLESS) {
+		if(glfwWindowShouldClose(glfw_W)) 	{ hd("STAGE:",  "CLOSED"); }
+		rv("glfwDestroyWindow");
+			glfwDestroyWindow(glfw_W); }
+	else { rv("Headless Mode Enabled!"); }
 
 	rv("return");
 	return 0;

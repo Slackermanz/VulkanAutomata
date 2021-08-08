@@ -1,4 +1,5 @@
 #!/bin/bash
+	killall 'RunVulkanAutomataGLFW'
 	killall 'RunVulkanAutomataSDL'
 	killall 'buildrun.sh'
 	killall 'script_buildrun.sh'
