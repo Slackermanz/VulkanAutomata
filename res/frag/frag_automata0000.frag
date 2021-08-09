@@ -12,9 +12,11 @@
 //		Reddit:		https://old.reddit.com/user/slackermanz
 //
 //		Communities:
-//			Reddit:		https://old.reddit.com/r/cellular_automata
-//			Discord:	https://discord.com/invite/J3phjtD
-//			Discord:	https://discord.gg/BCuYCEn
+//			Reddit:	https://old.reddit.com/r/cellular_automata
+//			Discord Servers:
+//				Artificial Life: 	https://discord.gg/7qvBBVca7u
+//				Emergence:			https://discord.com/invite/J3phjtD
+//				ConwayLifeLounge:	https://discord.gg/BCuYCEn
 //
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -24,8 +26,8 @@
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-layout(location 	=  0) out 		vec4 out_col;
-layout(binding 		=  1) uniform 	sampler2D txdata;
+layout(location 	=  0) out 		vec4 		out_col;
+layout(binding 		=  1) uniform 	sampler2D 	txdata;
 layout(binding 		=  0) uniform 	UniBuf {
 	uint v0;  uint v1;  uint v2;  uint v3;	uint v4;  uint v5;  uint v6;  uint v7;
 	uint v8;  uint v9;  uint v10; uint v11;	uint v12; uint v13; uint v14; uint v15;
@@ -184,7 +186,7 @@ void main() {
 	vec4 n4 = sigm(res_v, 0.5) * n * 64.0 + n;
 	res_c = res_v - n4;
 
-//	CGOL TEST
+//	CGOL TEST OVERRIDE
 /*
 	res_c = gdv( ivec2(0, 0), txdata );
 	vec4[2] cgol_val = nbhd( vec2(1.0,0.0), txdata );
@@ -219,7 +221,7 @@ void main() {
 	if(res[3] <= (1.0 / 8.0)) { res_c[3] = 0.0; }
 	if(res[3] >= (4.0 / 8.0)) { res_c[3] = 0.0; }
 	if(res[3] >= (3.0 / 8.0)   && res[3] <= (3.0 / 8.0) ) { res_c[3] = 1.0; }
-*/
+/**/
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Output
