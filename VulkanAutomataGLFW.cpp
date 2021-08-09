@@ -83,7 +83,7 @@ void iv(const std::string& id, auto ov, int idx) {
 
 void vr(const std::string& id, std::vector<VkResult>* reslist, auto v, VkResult res) {
 //	VkResult output message
-	reslist->push_back(res);
+	reslist->push_back(res); 	// TODO slow memory leak
 	uint32_t 	idx 		= reslist->size() - 1;
 	std::string	idx_string 	= std::to_string(idx);
 	uint32_t 	idx_sz		= idx_string.size();
@@ -341,12 +341,20 @@ int main() {
 	 /**/	hd("STAGE:", "USER CONFIG");			/**/
 	///////////////////////////////////////////////////
 
-	const	uint32_t 	APP_W 			= 1024;					//	1920 1536 1280	768	512	384	256
-	const	uint32_t 	APP_H 			=  512;					//	1080 864  720	432	288	216	144
+//	Some shaders require dimensions to be powers of two (fast wrap-around/torus code)
+//		16:9 Resolutions:
+//			W:	1920 	1536 	1280	768		512		384		256
+//			H:	1080 	864  	720		432		288		216		144
+//		2:1 Resolutions:
+//			W:	16384 	8192 	4096	2048	1024	512		256
+//			H:	8192 	4096  	2048	1024	512		256		128
 
-	const	uint32_t 	RUN_HEADLESS	=    0;					//	Use GLFW windowing?
-			int			load_pcd_index	=  -40;					//	Pattern Index // -392, -40 // -1 * rand()%400
-			uint32_t	imgdat_freq		=    0;					//	Image Export on frame
+	const	uint32_t 	APP_W 			=  1024;	//	Window & Simulation Width
+	const	uint32_t 	APP_H 			=   512;	//	Window & Simulation Height
+	const	uint32_t 	RUN_HEADLESS	=     0; 	//	Disable GLFW window presentation ( 0, 1 )
+
+			int			load_pcd_index	=   -40; 	//	PatternConfigData index to load from save file
+			uint32_t	imgdat_freq		=     0; 	//	Export/Save frames to disk every n frames ( 0 = disable )
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "APPLICATION INIT");		/**/
@@ -390,7 +398,7 @@ int main() {
 	const 	char* 	instance_extensions	[INST_EXS]
 	=	{	"VK_EXT_debug_utils", 
 			glfw_extentions[0], 
-			glfw_extentions[1]					};	// TODO Number of entries cannot be static!
+			glfw_extentions[1]					};	// TODO Number of entries might not be the same for all systems!
 	const 	char* 	layer_extensions	[LAYR_EXS]
 	=	{	"VK_LAYER_KHRONOS_validation" 		};
 	const 	char* 	device_extensions	[LDEV_EXS]
@@ -1004,7 +1012,6 @@ int main() {
 	nf(&combuf_pres_init[i].comm_buff_begin_info);
 		combuf_pres_init[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
 
-
 	VK_Command combuf_pres_loop[swap_image_count*2];
 	for(int i = 0; i < swap_image_count*2; i++) {
 		combuf_pres_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -1027,10 +1034,6 @@ int main() {
 		combuf_pres_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	nf(&combuf_pres_loop[i].comm_buff_begin_info);
 		combuf_pres_loop[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
-
-
-
-
 
 	VK_Command combuf_work_init[2];
 	for(int i = 0; i < 2; i++) {
@@ -1806,9 +1809,6 @@ int main() {
 	///////////////////////////////////////////////////
 
 	// Split function into two, so that it can sync with the two "work" frames
-
-	VkClearColorValue vk_clear_color_value = { { 1.0f, 0.5f, 0.0f, 1.0f } };
-
 	for(int i = 0; i < swap_image_count*2; i++) {
 		vr("vkBeginCommandBuffer", &vkres, i,
 			vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info) );
@@ -1878,16 +1878,16 @@ int main() {
 	NS_Timer 	optime;
 	NS_Timer 	prstime;
 	int  		current_sec		= time(0);
-	int  		fps_freq 		= 1;
+	int  		fps_freq 		= 4;
 	int  		fps_report 		= time(0) - fps_freq;
 
 	PatternConfigData_256 pcd 		= new_PCD_256();
 
-	PatternConfigData_408 pcd_load 	= get_PCD_408("res/data/save_global.vkpat", load_pcd_index); // 17637
+	PatternConfigData_408 pcd_load 	= get_PCD_408("res/data/save_global.vkpat", load_pcd_index);
 		for(int i = 0; i < 48; i++) { 
 			pcd.ubi[i] = pcd_load.ubv_save[i]; }
-			memcpy(&pcd.ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
-			memcpy(&pcd.ubi[61], &pcd_load.pzm_save, sizeof(uint32_t));
+	memcpy(&pcd.ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
+	memcpy(&pcd.ubi[61], &pcd_load.pzm_save, sizeof(uint32_t));
 
 //	Uniform Buffer Object ( 64 * 32 bits maximum )
 	UniBuf ub;
@@ -1918,7 +1918,7 @@ int main() {
 	//	Record loop start time
     	ftime = start_timer(ftime);
 
-	//	FPS timing setup
+	//	Timing (seconds) setup
 		current_sec = time(0);
 		if( current_sec - fps_report >= fps_freq + 1) { fps_report = current_sec; }
 
@@ -1988,11 +1988,11 @@ int main() {
 
 //		loglevel = MAXLOG;
     	end_timer(optime, "Work Queue Time");
-//		loglevel = -1;
+//		if(frame_index >= verbose_loops) { loglevel = -1; }
 
 		if(imgdat_freq > 0 && frame_index % imgdat_freq == 0 && frame_index > 0 && valid) {
     		optime = start_timer(optime);
-			loglevel = MAXLOG;
+			if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
 			save_image(pvoid_imagedata_work, "IMG"+std::to_string(imgdat_idx), APP_W, APP_H );
 			if(frame_index >= verbose_loops) { loglevel = -1; }
     		end_timer(optime, "Save ImageData");
@@ -2004,8 +2004,13 @@ int main() {
 		glfwPollEvents();
 
 	//	End of loop
-		if(fps_report == current_sec) { fps_report--; loglevel = MAXLOG; end_timer(ftime, "Full Loop Time"); loglevel = -1; }
-		if(frame_index <  verbose_loops) { end_timer(ftime, "Full Loop Time"); }
+		if(fps_report == current_sec) {
+			fps_report--;
+			if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
+			end_timer(ftime, "Full Loop Time");
+			if(frame_index >= verbose_loops) { loglevel = -1; } }
+
+		if(frame_index < verbose_loops) { end_timer(ftime, "Full Loop Time"); }
 
 		hd("STAGE:", "LOOP");
 
