@@ -10,8 +10,8 @@
 	echo "  glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv"
 			glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv
 	echo ""
-	echo "  g++ VulkanAutomataGLFW.cpp -fconcepts -lglfw -lvulkan -o ./app/RunVulkanAutomataGLFW"
-			g++ VulkanAutomataGLFW.cpp -fconcepts -lglfw -lvulkan -o ./app/RunVulkanAutomataGLFW
+	echo "  g++ -g -std=c++17 lib/*.cpp VulkanAutomataGLFW.cpp -fconcepts -lglfw -lvulkan -o ./app/RunVulkanAutomataGLFW"
+			g++ -g -std=c++17 lib/*.cpp VulkanAutomataGLFW.cpp -fconcepts -lglfw -lvulkan -o ./app/RunVulkanAutomataGLFW
 	echo ""
 	echo "  BEGIN ./app/RunVulkanAutomataGLFW"
 	echo ""

@@ -233,6 +233,8 @@ void main() {
 		res_c[2] = reseed(2); 
 		res_c[3] = reseed(3); }
 
+	res_c[3] = 1.0;
+
 	out_col = res_c;
 
 }

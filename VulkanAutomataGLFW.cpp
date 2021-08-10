@@ -1,9 +1,12 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
+#include "lib/imgui.h"
+#include "lib/imgui_impl_vulkan.h"
+#include "lib/imgui_impl_glfw.h"
 #include <string>
 #include <iostream>
 #include <vector>
-#include <vulkan/vulkan.h>
 #include <fstream>
 #include <chrono>
 #include <cstring>
@@ -792,7 +795,7 @@ int main() {
 
 		blit.vk_mem_allo_info.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		blit.vk_mem_allo_info.pNext				= NULL;
-		blit.vk_mem_allo_info.allocationSize		= blit.vk_mem_reqs.size;
+		blit.vk_mem_allo_info.allocationSize	= blit.vk_mem_reqs.size;
 		blit.vk_mem_allo_info.memoryTypeIndex	= blit.MTB_index;
 
 		vr("vkAllocateMemory", &vkres, blit.vk_dev_mem,
@@ -956,10 +959,10 @@ int main() {
 		pipe_info.p_inas_info.primitiveRestartEnable	= VK_FALSE;
 
 		pipe_info.p_cbat_info.blendEnable				= VK_FALSE;
-		pipe_info.p_cbat_info.srcColorBlendFactor		= VK_BLEND_FACTOR_ZERO;
-		pipe_info.p_cbat_info.dstColorBlendFactor		= VK_BLEND_FACTOR_ZERO;
+		pipe_info.p_cbat_info.srcColorBlendFactor		= VK_BLEND_FACTOR_SRC_ALPHA;
+		pipe_info.p_cbat_info.dstColorBlendFactor		= VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
 		pipe_info.p_cbat_info.colorBlendOp				= VK_BLEND_OP_ADD;
-		pipe_info.p_cbat_info.srcAlphaBlendFactor		= VK_BLEND_FACTOR_ZERO;
+		pipe_info.p_cbat_info.srcAlphaBlendFactor		= VK_BLEND_FACTOR_ONE;
 		pipe_info.p_cbat_info.dstAlphaBlendFactor		= VK_BLEND_FACTOR_ZERO;
 		pipe_info.p_cbat_info.alphaBlendOp				= VK_BLEND_OP_ADD;
 		pipe_info.p_cbat_info.colorWriteMask			= 15;
@@ -1535,6 +1538,94 @@ int main() {
 			vkEndCommandBuffer(combuf_work_loop[i].vk_command_buffer) ); }
 
 	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "IMGUI RENDER PASS");		/**/
+	///////////////////////////////////////////////////
+
+	VK_RenderPass rp_imgui;
+
+		rp_imgui.attach_desc.flags 						= 0;
+		rp_imgui.attach_desc.format 					= VK_FORMAT_B8G8R8A8_UNORM;
+		rp_imgui.attach_desc.samples 					= VK_SAMPLE_COUNT_1_BIT;
+		rp_imgui.attach_desc.loadOp 					= VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		rp_imgui.attach_desc.storeOp 					= VK_ATTACHMENT_STORE_OP_STORE;
+		rp_imgui.attach_desc.stencilLoadOp 				= VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		rp_imgui.attach_desc.stencilStoreOp 			= VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		rp_imgui.attach_desc.initialLayout 				= VK_IMAGE_LAYOUT_UNDEFINED;
+		rp_imgui.attach_desc.finalLayout 				= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		rp_imgui.attach_ref.attachment 					= 0;
+		rp_imgui.attach_ref.layout 						= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+		rp_imgui.subpass_desc.flags 					= 0;
+		rp_imgui.subpass_desc.pipelineBindPoint 		= VK_PIPELINE_BIND_POINT_GRAPHICS;
+		rp_imgui.subpass_desc.inputAttachmentCount 		= 0;
+		rp_imgui.subpass_desc.pInputAttachments 		= NULL;
+		rp_imgui.subpass_desc.colorAttachmentCount 		= 1;
+		rp_imgui.subpass_desc.pColorAttachments 		= &rp_imgui.attach_ref;
+		rp_imgui.subpass_desc.pResolveAttachments 		= NULL;
+		rp_imgui.subpass_desc.pDepthStencilAttachment 	= NULL;
+		rp_imgui.subpass_desc.preserveAttachmentCount 	= 0;
+		rp_imgui.subpass_desc.pPreserveAttachments 		= NULL;
+
+		rp_imgui.rp_info.sType 							= VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	nf(&rp_imgui.rp_info);
+		rp_imgui.rp_info.attachmentCount 				= 1;
+		rp_imgui.rp_info.pAttachments 					= &rp_imgui.attach_desc;
+		rp_imgui.rp_info.subpassCount 					= 1;
+		rp_imgui.rp_info.pSubpasses 					= &rp_imgui.subpass_desc;
+		rp_imgui.rp_info.dependencyCount 				= 0;
+		rp_imgui.rp_info.pDependencies 					= NULL;
+
+	vr("vkCreateRenderPass", &vkres, rp_imgui.vk_render_pass,
+		vkCreateRenderPass(vob.VKL, &rp_imgui.rp_info, NULL, &rp_imgui.vk_render_pass) );
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "IMGUI FRAMEBUFFER");		/**/
+	///////////////////////////////////////////////////
+
+	VK_ImageView vk_imgview_imgui[swap_image_count];
+
+	for(int i = 0; i < swap_image_count; i++) {
+		vk_imgview_imgui[i].img_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+	nf(&vk_imgview_imgui[i].img_view_info);
+		vk_imgview_imgui[i].img_view_info.image 				= vk_image_swapimgs[i];
+		vk_imgview_imgui[i].img_view_info.viewType 				= VK_IMAGE_VIEW_TYPE_2D;
+		vk_imgview_imgui[i].img_view_info.format 				= VK_FORMAT_B8G8R8A8_UNORM;
+		vk_imgview_imgui[i].img_view_info.components.r			= VK_COMPONENT_SWIZZLE_IDENTITY;
+		vk_imgview_imgui[i].img_view_info.components.g			= VK_COMPONENT_SWIZZLE_IDENTITY;
+		vk_imgview_imgui[i].img_view_info.components.b			= VK_COMPONENT_SWIZZLE_IDENTITY;
+		vk_imgview_imgui[i].img_view_info.components.a			= VK_COMPONENT_SWIZZLE_IDENTITY;
+		vk_imgview_imgui[i].img_view_info.subresourceRange 		= rpass_info.img_subres_range;
+
+	vr("vkCreateImageView", &vkres, vk_imgview_imgui[i].vk_image_view,
+		vkCreateImageView(vob.VKL, &vk_imgview_imgui[i].img_view_info, NULL, &vk_imgview_imgui[i].vk_image_view) ); }
+
+	VK_FrameBuff fb_imgui[swap_image_count];
+
+		for(int i = 0; i < swap_image_count; i++) {
+			fb_imgui[i].fb_info.sType 				= VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+		nf(&fb_imgui[i].fb_info);
+			fb_imgui[i].fb_info.renderPass 			= rp_imgui.vk_render_pass;
+			fb_imgui[i].fb_info.attachmentCount 	= 1;
+			fb_imgui[i].fb_info.pAttachments 		= &vk_imgview_imgui[i].vk_image_view;
+			fb_imgui[i].fb_info.width 				= APP_W;
+			fb_imgui[i].fb_info.height 				= APP_H;
+			fb_imgui[i].fb_info.layers 				= 1;
+
+		vr("vkCreateFramebuffer", &vkres, fb_imgui[i].vk_framebuffer,
+			vkCreateFramebuffer(vob.VKL, &fb_imgui[i].fb_info, NULL, &fb_imgui[i].vk_framebuffer) ); }
+
+	VkRenderPassBeginInfo vkrpbegininfo_imgui[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		vkrpbegininfo_imgui[i].sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		vkrpbegininfo_imgui[i].pNext 				= NULL;
+		vkrpbegininfo_imgui[i].renderPass 			= rp_imgui.vk_render_pass;
+		vkrpbegininfo_imgui[i].framebuffer 			= fb_imgui[i].vk_framebuffer;
+		vkrpbegininfo_imgui[i].renderArea 			= rpass_info.rect2D;
+		vkrpbegininfo_imgui[i].clearValueCount 		= 1;
+		vkrpbegininfo_imgui[i].pClearValues 		= &rpass_info.clear_val; }
+
+	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK IMAGEDATA BUFFER");	/**/
 	///////////////////////////////////////////////////
 
@@ -1605,6 +1696,19 @@ int main() {
 		vk_IMB_blit_imagedata_UND_to_TDO.dstQueueFamilyIndex 	= vob.VKQ_i;
 		vk_IMB_blit_imagedata_UND_to_TDO.image 					= blit.vk_image;
 		vk_IMB_blit_imagedata_UND_to_TDO.subresourceRange 		= rpass_info.img_subres_range;
+
+	VkImageMemoryBarrier vk_IMB_pres_CAO_to_PRS[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		vk_IMB_pres_CAO_to_PRS[i].sType 					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_pres_CAO_to_PRS[i].pNext 					= NULL;
+		vk_IMB_pres_CAO_to_PRS[i].srcAccessMask 			= 0;
+		vk_IMB_pres_CAO_to_PRS[i].dstAccessMask 			= 0;
+		vk_IMB_pres_CAO_to_PRS[i].oldLayout 				= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		vk_IMB_pres_CAO_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		vk_IMB_pres_CAO_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_CAO_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_pres_CAO_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_CAO_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_work_imagedata_SRO_to_TSO[2];
 	for(int i = 0; i < 2; i++) {
@@ -1809,7 +1913,7 @@ int main() {
 	///////////////////////////////////////////////////
 
 	// Split function into two, so that it can sync with the two "work" frames
-	for(int i = 0; i < swap_image_count*2; i++) {
+/*	for(int i = 0; i < swap_image_count*2; i++) {
 		vr("vkBeginCommandBuffer", &vkres, i,
 			vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info) );
 
@@ -1866,6 +1970,104 @@ int main() {
 		vk_present_info.pResults 				= NULL;
 
 	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "DEAR IMGUI");				/**/
+	///////////////////////////////////////////////////
+
+	ov( "IMGUI Version", IMGUI_CHECKVERSION() );
+
+	rv("ImGui::CreateContext");
+		ImGui::CreateContext();
+
+	rv("ImGui::StyleColorsDark");
+		ImGui::StyleColorsDark();
+
+	rv("ImGui::GetIO");
+		ImGuiIO &io = ImGui::GetIO();
+
+	rv("ImGui_ImplGlfw_InitForVulkan");
+		ImGui_ImplGlfw_InitForVulkan(glfw_W, true);
+
+	VkDescriptorPoolSize vk_descriptor_pool_size_imgui[] = {
+		{ VK_DESCRIPTOR_TYPE_SAMPLER, 					1000 },
+		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 	1000 },
+		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 			1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 			1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 		1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 		1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 			1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 			1000 },
+		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 	1000 },
+		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 	1000 },
+		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 			1000 } };
+
+	VkDescriptorPoolCreateInfo vk_descriptor_pool_info_imgui;
+		vk_descriptor_pool_info_imgui.sType 			= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+	nf(&vk_descriptor_pool_info_imgui);
+		vk_descriptor_pool_info_imgui.flags 			= VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+		vk_descriptor_pool_info_imgui.maxSets 			= 1000;
+		vk_descriptor_pool_info_imgui.poolSizeCount 	= std::size(vk_descriptor_pool_size_imgui);
+		vk_descriptor_pool_info_imgui.pPoolSizes 		= vk_descriptor_pool_size_imgui;
+
+	VkDescriptorPool vk_descriptor_pool_imgui;
+	vr("vkCreateDescriptorPool", &vkres, vk_descriptor_pool_imgui,
+		vkCreateDescriptorPool(vob.VKL, &vk_descriptor_pool_info_imgui, NULL, &vk_descriptor_pool_imgui) );
+
+	ImGui_ImplVulkan_InitInfo imgui_vkinit;
+		imgui_vkinit.Instance 			= vob.VKI;
+		imgui_vkinit.PhysicalDevice 	= vob.VKP;
+		imgui_vkinit.Device 			= vob.VKL;
+		imgui_vkinit.QueueFamily 		= vob.VKQ_i;
+		imgui_vkinit.Queue 				= qsync.vk_queue;
+		imgui_vkinit.PipelineCache 		= VK_NULL_HANDLE;
+		imgui_vkinit.DescriptorPool 	= vk_descriptor_pool_imgui;
+		imgui_vkinit.Subpass 			= 0;
+		imgui_vkinit.MinImageCount 		= vk_surface_capabilities.minImageCount;
+		imgui_vkinit.ImageCount 		= imgui_vkinit.MinImageCount;
+		imgui_vkinit.MSAASamples 		= VK_SAMPLE_COUNT_1_BIT;
+		imgui_vkinit.Allocator 			= NULL;
+		imgui_vkinit.CheckVkResultFn 	= NULL;
+
+	rv("ImGui_ImplVulkan_Init");
+		ImGui_ImplVulkan_Init(&imgui_vkinit, rp_imgui.vk_render_pass);
+
+	VK_Command combuf_imgui;
+		combuf_imgui.pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		combuf_imgui.pool_info.pNext							= NULL;
+		combuf_imgui.pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		combuf_imgui.pool_info.queueFamilyIndex					= vob.VKQ_i;
+
+		vr("vkCreateCommandPool", &vkres, combuf_imgui.vk_command_pool,
+			vkCreateCommandPool(vob.VKL, &combuf_imgui.pool_info, NULL, &combuf_imgui.vk_command_pool) );
+
+		combuf_imgui.comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_imgui.comm_buff_alloc_info.pNext					= NULL;
+		combuf_imgui.comm_buff_alloc_info.commandPool			= combuf_imgui.vk_command_pool;
+		combuf_imgui.comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_imgui.comm_buff_alloc_info.commandBufferCount	= 1;
+
+		vr("vkAllocateCommandBuffers", &vkres, combuf_imgui.vk_command_buffer,
+			vkAllocateCommandBuffers(vob.VKL, &combuf_imgui.comm_buff_alloc_info, &combuf_imgui.vk_command_buffer) );
+
+		combuf_imgui.comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	nf(&combuf_imgui.comm_buff_begin_info);
+		combuf_imgui.comm_buff_begin_info.pInheritanceInfo		= NULL;
+
+	vr("vkBeginCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
+		vkBeginCommandBuffer(combuf_imgui.vk_command_buffer, &combuf_imgui.comm_buff_begin_info) );
+
+		rv("ImGui_ImplVulkan_CreateFontsTexture");
+			ImGui_ImplVulkan_CreateFontsTexture(combuf_imgui.vk_command_buffer);
+
+	vr("vkEndCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
+		vkEndCommandBuffer(combuf_imgui.vk_command_buffer) );
+
+	if(valid) {
+		rv("combuf_imgui");
+			qsync.sub_info.pCommandBuffers = &combuf_imgui.vk_command_buffer;
+		vr("vkQueueSubmit", &vkres, 0,
+			vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); }
+
+	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP INIT");			/**/
 	///////////////////////////////////////////////////
 
@@ -1877,6 +2079,8 @@ int main() {
 	NS_Timer 	ftime;
 	NS_Timer 	optime;
 	NS_Timer 	prstime;
+	NS_Timer 	guitime;
+	NS_Timer 	cmdtime;
 	int  		current_sec		= time(0);
 	int  		fps_freq 		= 4;
 	int  		fps_report 		= time(0) - fps_freq;
@@ -1924,6 +2128,79 @@ int main() {
 
 	//	'Render'
 		if(valid) {
+
+			guitime = start_timer(guitime);
+
+			ImGui_ImplVulkan_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+			ImGui::ShowDemoWindow();
+			ImGui::Render();
+
+			end_timer(guitime, "IMGUI Build Time");
+
+			cmdtime = start_timer(cmdtime);
+
+			for(int i = 0; i < swap_image_count*2; i++) {
+				vr("vkBeginCommandBuffer", &vkres, i,
+					vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info) );
+
+					rv("vkCmdPipelineBarrier");
+						vkCmdPipelineBarrier (
+							combuf_pres_loop[i].vk_command_buffer,
+							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+							0, NULL, 0, NULL,
+							1, &vk_IMB_pres_PRS_to_TDO[i%swap_image_count] );
+
+					rv("vkCmdPipelineBarrier");
+						vkCmdPipelineBarrier (
+							combuf_pres_loop[i].vk_command_buffer,
+							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+							0, NULL, 0, NULL,
+							1, &vk_IMB_work_imagedata_SRO_to_TSO[i/swap_image_count] );
+
+					rv("vkCmdBlitImage");
+						vkCmdBlitImage (
+							combuf_pres_loop[i].vk_command_buffer, 
+							work.vk_image[i/swap_image_count], 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+							vk_image_swapimgs[i%swap_image_count], 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+							1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
+
+					rv("vkCmdPipelineBarrier");
+						vkCmdPipelineBarrier (
+							combuf_pres_loop[i].vk_command_buffer,
+							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+							0, NULL, 0, NULL,
+							1, &vk_IMB_work_imagedata_TSO_to_SRO[i/swap_image_count] );
+
+					rv("vkCmdPipelineBarrier");
+						vkCmdPipelineBarrier (
+							combuf_pres_loop[i].vk_command_buffer,
+							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+							0, NULL, 0, NULL,
+							1, &vk_IMB_pres_TDO_to_PRS[i%swap_image_count] );
+
+					rv("vkCmdBeginRenderPass");
+						vkCmdBeginRenderPass (
+							combuf_pres_loop[i].vk_command_buffer, &vkrpbegininfo_imgui[i%swap_image_count], VK_SUBPASS_CONTENTS_INLINE );
+
+						ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), combuf_pres_loop[i].vk_command_buffer);
+
+					rv("vkCmdEndRenderPass");
+						vkCmdEndRenderPass(combuf_pres_loop[i].vk_command_buffer);
+
+					rv("vkCmdPipelineBarrier");
+						vkCmdPipelineBarrier (
+							combuf_pres_loop[i].vk_command_buffer,
+							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+							0, NULL, 0, NULL,
+							1, &vk_IMB_pres_CAO_to_PRS[i%swap_image_count] );
+
+				vr("vkEndCommandBuffer", &vkres, i,
+					vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer) ); }
+
+			end_timer(cmdtime, "Command Buffer Build Time");
+
 
 			if(valid && !RUN_HEADLESS) {
 			//	Record presentation start time
