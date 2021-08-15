@@ -1407,31 +1407,49 @@ int main() {
 		vk_semaphore_info.sType 	= VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	nf(&vk_semaphore_info);
 
-	VkSemaphore vk_semaphore_swapchain;
+	VkSemaphore vk_semaphore_swapchain_img_acq;
+	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain_img_acq,
+		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain_img_acq) );
 
-	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain,
-		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain) );
+	VkSemaphore vk_semaphore_swapchain_imgui;
+	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain_imgui,
+		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain_imgui) );
+
+	VkSemaphore vk_semaphore_swapchain_pres;
+	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain_pres,
+		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain_pres) );
 
 	uint32_t swap_image_index = 0;
 
 	VK_QueueSync swpsync;
-
 	rv("vkGetDeviceQueue");
 		vkGetDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync.vk_queue);
-
 	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync;
 		vk_pipeline_stage_flags_swpsync = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-//	Is this section correct or needed at all? TODO
 		swpsync.sub_info.sType					= VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		swpsync.sub_info.pNext					= NULL;
 		swpsync.sub_info.waitSemaphoreCount		= 1;
-		swpsync.sub_info.pWaitSemaphores		= &vk_semaphore_swapchain;
+		swpsync.sub_info.pWaitSemaphores		= &vk_semaphore_swapchain_img_acq;
 		swpsync.sub_info.pWaitDstStageMask		= &vk_pipeline_stage_flags_swpsync;
 		swpsync.sub_info.commandBufferCount		= 1;
-		swpsync.sub_info.pCommandBuffers		= &combuf_pres_loop[0].vk_command_buffer; // TODO i? 0, 1, 2 ? 
+//		swpsync.sub_info.pCommandBuffers		= &combuf_pres_loop[0].vk_command_buffer; // TODO i? 0, 1, 2 ? 
 		swpsync.sub_info.signalSemaphoreCount	= 1;
-		swpsync.sub_info.pSignalSemaphores		= &vk_semaphore_swapchain;
+		swpsync.sub_info.pSignalSemaphores		= &vk_semaphore_swapchain_imgui;
+
+	VK_QueueSync swpsync_imgui;
+	rv("vkGetDeviceQueue");
+		vkGetDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync_imgui.vk_queue);
+	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync_imgui;
+		vk_pipeline_stage_flags_swpsync_imgui 			= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		swpsync_imgui.sub_info.sType					= VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		swpsync_imgui.sub_info.pNext					= NULL;
+		swpsync_imgui.sub_info.waitSemaphoreCount		= 1;
+		swpsync_imgui.sub_info.pWaitSemaphores			= &vk_semaphore_swapchain_imgui;
+		swpsync_imgui.sub_info.pWaitDstStageMask		= &vk_pipeline_stage_flags_swpsync_imgui;
+		swpsync_imgui.sub_info.commandBufferCount		= 1;
+//		swpsync_imgui.sub_info.pCommandBuffers		= &combuf_imgui_loop[swap_image_index].vk_command_buffer;
+		swpsync_imgui.sub_info.signalSemaphoreCount		= 1;
+		swpsync_imgui.sub_info.pSignalSemaphores		= &vk_semaphore_swapchain_pres;
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK IMAGE VIEWS");		/**/
@@ -2212,7 +2230,7 @@ int main() {
 		vk_present_info.sType 					= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 		vk_present_info.pNext 					= NULL;
 		vk_present_info.waitSemaphoreCount 		= 1;
-		vk_present_info.pWaitSemaphores 		= &vk_semaphore_swapchain;
+		vk_present_info.pWaitSemaphores 		= &vk_semaphore_swapchain_pres;
 		vk_present_info.swapchainCount 			= 1;
 		vk_present_info.pSwapchains 			= &vk_swapchain;
 		vk_present_info.pImageIndices 			= &swap_image_index;
@@ -2382,13 +2400,13 @@ int main() {
 		if(valid) {
 
 		//	Lower the workload / FPS if paused
-			if(ei.paused) {
+/*			if(ei.paused) {
 				#ifdef WIN32
 					Sleep(16);
 				#else
 					nanosleep((const struct timespec[]){{0, 16666666}}, NULL);
 				#endif
-			}
+			}*/
 
 			if(!ei.run_headless) {
 			//	Poll for GLFW window events
@@ -2416,15 +2434,15 @@ int main() {
 
 				if( !kc.has_keyboard ) {
 				//	Release 	L-Shift: 	Reseed
-					if( glfw_key.scancode ==  50 && glfw_key.action == 0 ) { ui.cmd = 1; ei.tick_loop = 1;			}
+					if( glfw_key.key == GLFW_KEY_LEFT_SHIFT && glfw_key.action == 0 ) { ui.cmd = 1; ei.tick_loop = 1;			}
 				//	Press 		X: 			Clear
-					if( glfw_key.scancode ==  53 && glfw_key.action == 1 ) { ui.cmd = 2; ei.tick_loop = 1;			}
+					if( glfw_key.key ==	GLFW_KEY_X 			&& glfw_key.action == 1 ) { ui.cmd = 2; ei.tick_loop = 1;			}
 				//	Press 		Z: 			SymSeed
-					if( glfw_key.scancode ==  52 && glfw_key.action >= 1 ) { ui.cmd = 3; ei.tick_loop = 1;			}
+					if( glfw_key.key == GLFW_KEY_Z 			&& glfw_key.action >= 1 ) { ui.cmd = 3; ei.tick_loop = 1;			}
 				//	Press 		SPACE: 		Toggle IMGUI
-					if( glfw_key.scancode ==  65 && glfw_key.action == 1 ) { ei.show_gui = (ei.show_gui) ? 0 : 1; 	}
+					if( glfw_key.key == GLFW_KEY_SPACE 		&& glfw_key.action == 1 ) { ei.show_gui = (ei.show_gui) ? 0 : 1; 	}
 				//	Press 		ESC: 		Quit
-					if( glfw_key.scancode ==   9 && glfw_key.action == 1 ) { glfwSetWindowShouldClose(glfw_W, 1); 	} }
+					if( glfw_key.key == GLFW_KEY_ESCAPE 	&& glfw_key.action == 1 ) { glfwSetWindowShouldClose(glfw_W, 1); 	} }
 
 				if(ei.show_gui) {
 					guitime = start_timer(guitime);
@@ -2490,7 +2508,7 @@ int main() {
 				if(valid) {
 				//	Acquire a VkImage from the swapchain's pool
 					vr("vkAcquireNextImageKHR", &vkres, swap_image_index,
-						vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain, VK_NULL_HANDLE, &swap_image_index) );
+						vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain_img_acq, VK_NULL_HANDLE, &swap_image_index) );
 					ov("swap_image_index", swap_image_index); }
 
 				if(valid) {
@@ -2498,16 +2516,17 @@ int main() {
 					rv("vkcombuf_pres");
 						swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
 					VkFence f = (ei.show_gui) ? VK_NULL_HANDLE : qsync.vk_fence;
+					swpsync.sub_info.pSignalSemaphores = (ei.show_gui) ? &vk_semaphore_swapchain_imgui : &vk_semaphore_swapchain_pres;
 					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
 						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, f) ); }
 
 				if(valid && ei.show_gui) {
 				//	Add IMGUI interface
 					rv("vkcombuf_IMGUI");
-						swpsync.sub_info.pCommandBuffers = &combuf_imgui_loop[swap_image_index].vk_command_buffer;
+						swpsync_imgui.sub_info.pCommandBuffers = &combuf_imgui_loop[swap_image_index].vk_command_buffer;
 					VkFence f = qsync.vk_fence;
 					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
-						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, f) ); } }
+						vkQueueSubmit(swpsync_imgui.vk_queue, 1, &swpsync_imgui.sub_info, f) ); } }
 
 			if(valid) {
 			//	Wait for the queued commands to finish execution
