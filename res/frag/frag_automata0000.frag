@@ -123,6 +123,33 @@ float reseed(int seed) {
 	float 	r3 = get_lump(fx, fy, 18.0, 29.0 + mod(ub.v63+seed, 7.0), 61.0 + mod(ub.v63+seed,28.0));
 	return clamp( sqrt((r0+r1)*r3*2.0)-r2 , 0.0, 1.0); }
 
+vec4 place( vec4 col, float sz, vec2 mxy, uint s, float off ) {
+	vec2 dxy = (vec2(gl_FragCoord) - mxy) * (vec2(gl_FragCoord) - mxy);
+	float dist = sqrt(dxy[0] + dxy[1]);
+
+	float cy = mod(ub.v63+off, 312.0) / 312.0;
+	float c2 = mod(ub.v63+off, 717.0) / 717.0;
+	float z2 = ((cos(2.0*PI*c2)/2.0)+0.5);
+	float z3 = z2/4.0;
+	float z4 = z2-z3;
+	float ds = (1.0-dist/sz);
+
+	float vr = (((cos((1.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.3 * ds * ds);
+	float vg = (((cos((2.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.3 * ds * ds);
+	float vb = (((cos((3.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.3 * ds * ds);
+
+	if(dist <= sz) { col += (s != 1u) ? vec4(-0.2,-0.2,-0.2,-0.2)*ds : vec4(vr,vg,vb,1.0); }
+	return col; }
+
+vec4 mouse(vec4 col, float sz) {
+	vec2 mxy = vec2( u32_upk(ub.v60, 12u, 0u), u32_upk(ub.v60, 12u, 12u) );
+	return place(col, sz, mxy, u32_upk(ub.v60, 2u, 24u), 0.0); }
+
+vec4 symsd(vec4 col, float sz) {
+	for(int i = 0; i < 11; i++) {
+		col = place(col, (sz/11.0)*((11.0-i)), vec2(textureSize(txdata,0)[0]/2.0,textureSize(txdata,0)[1]/2.0), i&1u, i*ub.v63); }
+	return col; }
+
 void main() {
 
 //	----    ----    ----    ----    ----    ----    ----    ----
@@ -148,7 +175,7 @@ void main() {
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Update Functions
 //	----    ----    ----    ----    ----    ----    ----    ----
-
+/*
 //	Neighborhoods
 	uint[12] nb = uint[12] (
 		ub.v0,  ub.v1,  ub.v2,  ub.v3,
@@ -185,6 +212,50 @@ void main() {
 //	Decay Curve
 	vec4 n4 = sigm(res_v, 0.5) * n * 64.0 + n;
 	res_c = res_v - n4;
+*/
+
+//	Neighborhoods
+	uint[12] nb = uint[12] (
+		ub.v0,  ub.v1,  ub.v2,  ub.v3,
+		ub.v4,  ub.v5,  ub.v6,  ub.v7,
+		ub.v8,  ub.v9,  ub.v10, ub.v11 );
+
+	uint[24] ur = uint[24] (
+		ub.v12, ub.v13, ub.v14, ub.v15, 
+		ub.v16, ub.v17, ub.v18, ub.v19,	
+		ub.v20, ub.v21, ub.v22, ub.v23,
+		ub.v24, ub.v25, ub.v26, ub.v27,	
+		ub.v28, ub.v29, ub.v30, ub.v31, 
+		ub.v32, ub.v33, ub.v34, ub.v35  );
+
+	uint[ 3] ch2 = uint[ 3] ( 2286157824u, 295261525u, 1713547946u );
+	uint[ 3] ch  = uint[ 3] ( ub.v38, ub.v39, ub.v40 );
+	uint[ 3] ch3 = uint[ 3] ( ub.v41, ub.v42, ub.v43 );
+
+//	Update Sign
+	uint[ 2] us = uint[ 2] ( ub.v36, ub.v37 );
+
+	for(uint i = 0u; i < 24u; i++) {
+		uint  	cho = u32_upk( ch[i/8u], 2u, (i*4u+0u) & 31u );
+				cho = (cho == 3u) ? u32_upk( ch2[i/8u], 2u, (i*4u+0u) & 31u ) : cho;
+		uint  	chi = u32_upk( ch[i/8u], 2u, (i*4u+2u) & 31u );
+				chi = (chi == 3u) ? u32_upk( ch2[i/8u], 2u, (i*4u+2u) & 31u ) : chi;
+		uint  	chm = u32_upk( ch3[i/8u], 2u, (i*4u+2u) & 31u );
+				chm = (chm == 3u) ? u32_upk( ch[i/8u], 2u, (i*4u+2u) & 31u ) : chm;
+
+		float nhv = bitring( nh_rings_c, nb[i/2u], (i & 1u) * 16u )[cho];
+
+		if( nhv >= utp( ur[i], 8u, 0u) && nhv <= utp( ur[i], 8u, 1u)) {
+			float h = hmp2(res_c[chm],1.2);
+			res_v[chi] += bsn(us[i/16u], ((i*2u+0u) & 31u)) * s * h; }
+		if( nhv >= utp( ur[i], 8u, 2u) && nhv <= utp( ur[i], 8u, 3u)) {
+			float h = hmp2(res_c[chm],1.2);
+			res_v[chi] += bsn(us[i/16u], ((i*2u+1u) & 31u)) * s * h; } }
+
+	vec4 n4 = sigm(res_v, 0.5) * n * 64.0 + n;
+	res_c = res_v - n4;
+
+
 
 //	CGOL TEST OVERRIDE
 /*
@@ -227,11 +298,24 @@ void main() {
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	if(ub.v63 <= 0) {
+	if( ub.v63 					 <= 0u
+	||	u32_upk(ub.v60, 6u, 26u) == 1u ) {
 		res_c[0] = reseed(0); 
 		res_c[1] = reseed(1); 
 		res_c[2] = reseed(2); 
 		res_c[3] = reseed(3); }
+
+	if( u32_upk(ub.v60, 6u, 26u) == 2u ) {
+		res_c[0] = 0.0; 
+		res_c[1] = 0.0; 
+		res_c[2] = 0.0; 
+		res_c[3] = 1.0; }
+
+	if( u32_upk(ub.v60, 6u, 26u) == 3u ) {
+		res_c = symsd(res_c, 128.0); }
+
+	if(u32_upk(ub.v60, 2u, 24u) != 0u) {
+		res_c = mouse(res_c, 38.0);	}
 
 	res_c[3] = 1.0;
 
