@@ -13,9 +13,44 @@
 
 const 	uint32_t 	VERT_FLS 	=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 	=  1;	//	Number of Fragment Shader Files
-const	int 		MAXLOG 		=  1;
-		int 		loglevel 	=  MAXLOG;
+const	int 		MAXLOG 		=  2;
+		int 		loglevel	=  MAXLOG;
 		int 		valid 		=  1;
+
+//	Keyboard input handler
+struct GLFW_key {
+	GLFWwindow* window;
+	int 		key;
+	int 		scancode;
+	int 		action;
+	int 		mods; };
+GLFW_key 	glfw_key;
+void clear_glfw_key(GLFW_key *e) {
+	e->key 		= 0;
+	e->scancode = 0;
+	e->action 	= 0;
+	e->mods 	= 0; }
+
+//	Mouse input handler
+struct GLFW_mouse {
+	GLFWwindow* window;
+	double 		xpos;
+	double 		ypos;
+	int 		button;
+	int 		action;
+	int 		mods;
+	double 		xoffset;
+	double 		yoffset; };
+GLFW_mouse 	glfw_mouse;
+void clear_glfw_mouse(GLFW_mouse *e) {
+	e->mods 	= 0;
+	e->xoffset 	= 0;
+	e->yoffset 	= 0; }
+
+struct KeyCapture {
+	bool has_mouse;
+	bool has_keyboard; };
+KeyCapture kc;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
 //	Vulkan validation layer message output
@@ -97,12 +132,12 @@ void vr(const std::string& id, std::vector<VkResult>* reslist, auto v, VkResult 
 	std::string pad 	= " ";
 	int 		padsize = (pads*padlen - id.size()) - 3;
 	for(int i = 0; i < padsize; i++) { pad = pad + " "; }
-	if(loglevel >= 0) {
+	if(loglevel >= 2) {
 		std::cout << "  " << idx_string << ":\t" << (res==0?" ":res_string) << " \t" << id << pad << " [" << v << "]\n"; } }
 
 void rv(const std::string& id) {
 //	Return void output message
-	if(loglevel >= 1) {
+	if(loglevel >= 2) {
 		std::cout << "  void: \t" << id	<< "\n"; } }
 
 void nf(auto *Vk_obj) {
@@ -313,7 +348,20 @@ struct PatternConfigData_408 {
 	float	 scl_save;
 	float	 pzm_save; };
 
-PatternConfigData_408 get_PCD_408(std::string loadfile, int idx) {
+struct EngineInfo {
+	uint32_t 	paused;
+	uint32_t 	show_gui;
+	uint32_t 	run_headless;
+	int		 	export_frequency;
+	int		 	export_batch_size;
+	uint32_t 	export_enabled;
+	uint32_t 	verbose_loops;
+	uint32_t 	loglevel;
+	uint32_t 	tick_loop;
+	int 		load_pattern;
+	uint32_t 	PCD_count; };
+
+PatternConfigData_408 get_PCD_408(std::string loadfile, int idx, EngineInfo *ei) {
 	PatternConfigData_408 pcd;
 	std::ifstream fload_pcd(loadfile.c_str(), std::ios::in | std::ios::binary);
 		fload_pcd.seekg(0, fload_pcd.end);
@@ -321,6 +369,7 @@ PatternConfigData_408 get_PCD_408(std::string loadfile, int idx) {
 		fload_pcd.seekg (( (idx + (f_len / sizeof(pcd))) % (f_len / sizeof(pcd))) * sizeof(pcd));
 		fload_pcd.read((char*)&pcd, sizeof(pcd));
 		std::cout << "\n\tPCD408 Data Count: " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
+		ei->PCD_count = (f_len / sizeof(pcd));
 	fload_pcd.close();
 	return pcd; }
 
@@ -331,6 +380,170 @@ PatternConfigData_256 new_PCD_256() {
 	PatternConfigData_256 pcd;
 		for(int i = 0; i < 64; i++) { pcd.ubi[i] = 0; }
 	return pcd; }
+
+struct UI_info {
+	uint32_t 	mx;
+	uint32_t 	my;
+	uint32_t 	mbl;
+	uint32_t 	mbr;
+	uint32_t 	cmd; };
+uint32_t pack_ui_info(UI_info ui) {
+	uint32_t packed_ui32 =
+		( (uint32_t)ui.mx	 	  )
+	+ 	( (uint32_t)ui.my 	<< 12 )
+	+ 	( (uint32_t)ui.mbl 	<< 24 )
+	+ 	( (uint32_t)ui.mbr 	<< 25 )
+	+ 	( (uint32_t)ui.cmd 	<< 26 );
+	return packed_ui32; }
+
+struct IMGUI_Config {
+	bool 		load_pattern_input;
+	bool 		load_pattern_input_confirm;
+	bool 		load_pattern_input_check_instant;
+	bool 		load_pattern_input_check_reseed;
+	int			load_pattern_input_last_value;
+	bool 		recording_config; };
+
+void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
+	
+	if( ImGui::BeginMainMenuBar() ) {
+
+		if( ImGui::BeginMenu("Application") ) {
+			if( ImGui::MenuItem( "Hide Menu", "SPACE" ) ) {
+				ei->show_gui 	= 0; }
+			if( ImGui::MenuItem( "QUIT", "ESC" ) ) {
+				glfwSetWindowShouldClose(w, 1);	}
+			ImGui::EndMenu(); }
+
+		if( ImGui::BeginMenu("Engine") ) {
+			if( ImGui::MenuItem( (ei->paused) ? "Run" : "Pause" ) ) {
+				ei->paused 		= (ei->paused) ? 0 : 1;	}
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Load Pattern" ) ) {
+				gc->load_pattern_input = true; }
+			if( ImGui::MenuItem( "Recording Controls" ) ) {
+				gc->recording_config = true; }
+			ImGui::EndMenu(); }
+
+		if( ImGui::BeginMenu("Command") ) {
+			if( ImGui::MenuItem( "Reseed", "L-Shift" ) ) {
+				ei->tick_loop	= 1;
+				ui->cmd 		= 1; }
+			if( ImGui::MenuItem( "Clear", "X" ) ) {
+				ei->tick_loop	= 1;
+				ui->cmd 		= 2; }
+			if( ImGui::MenuItem( "Symmetrical Reseed", "Z" ) ) {
+				ei->tick_loop	= 1;
+				ui->cmd 		= 3; }
+			ImGui::EndMenu(); }
+
+		ImGui::EndMainMenuBar(); }
+
+	if(gc->recording_config) {
+		if(!ImGui::Begin("Recording Controls", &gc->recording_config, 
+			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
+			ImGui::End(); } 
+		else {
+			gc->load_pattern_input_last_value = ei->load_pattern;
+			ImGui::SetNextItemWidth(128);
+			ImGui::InputInt( "Export Frequency", 	&ei->export_frequency	);
+//			ImGui::SetNextItemWidth(128);
+//			ImGui::InputInt( "Batch Size",			&ei->export_batch_size	);
+			if(ImGui::Button( (ei->export_enabled) ? "Stop" : "Start", ImVec2(64.0,0.0) )) { 
+				ei->export_enabled = (ei->export_enabled) ? 0 : 1; }
+			ImGui::End(); } }
+
+	if(gc->load_pattern_input) {
+		if(!ImGui::Begin("Load Pattern Index", &gc->load_pattern_input, 
+			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
+			ImGui::End(); } 
+		else {
+			gc->load_pattern_input_last_value = ei->load_pattern;
+			ImGui::SetNextItemWidth(128);
+			ImGui::InputInt("", &ei->load_pattern);
+		    ImGui::SameLine();
+			if(ImGui::Button("Load")) {
+				gc->load_pattern_input_confirm = true; }
+		    ImGui::SameLine();
+			if(ImGui::Button("Random")) {
+				ei->load_pattern = (rand()%(ei->PCD_count - 18080)) + 18080;	// Depreicated patterns under 17000
+				gc->load_pattern_input_confirm = true; }
+			ImGui::Checkbox("Instant Load", &gc->load_pattern_input_check_instant);
+		    ImGui::SameLine();
+			ImGui::Checkbox("Reseed", &gc->load_pattern_input_check_reseed);
+			if(	gc->load_pattern_input_check_instant
+			&&	gc->load_pattern_input_last_value != ei->load_pattern ) {
+				gc->load_pattern_input_confirm = true; }
+			ImGui::End(); } }
+}
+
+void glfw_keyboard_event(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if(kc.has_keyboard) {
+		ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods); }
+	else {
+		glfw_key.window 	= window;
+		glfw_key.key		= key;
+		glfw_key.scancode 	= scancode;
+		glfw_key.action 	= action;
+		glfw_key.mods 		= mods;
+/*		loglevel = MAXLOG;
+		hd("INPUT:", "KEY");
+		ov( "key scancode", scancode);
+		ov( "key action", 	action 	);
+		ov( "key mods", 	mods 	);
+		loglevel = -1;*/ } }
+
+void glfw_mousemove_event(GLFWwindow* window, double xpos, double ypos) {
+	glfw_mouse.window 	= window;
+	glfw_mouse.xpos		= xpos;
+	glfw_mouse.ypos 	= ypos; }
+
+void glfw_mouseclick_event(GLFWwindow* window, int button, int action, int mods) {
+	glfw_mouse.window 	= window;
+	glfw_mouse.button	= button;
+	glfw_mouse.action 	= action;
+	glfw_mouse.mods 	= mods;
+/*	loglevel = MAXLOG;
+	hd("INPUT:", "MOUSE");
+	ov( "mouse button", button 	);
+	ov( "mouse action", action 	);
+	ov( "mouse mods", 	mods 	);
+	loglevel = -1;*/ }
+
+void glfw_mousescroll_event(GLFWwindow* window, double xoffset, double yoffset) {
+	glfw_mouse.window 	= window;
+	glfw_mouse.xoffset	= xoffset;
+	glfw_mouse.yoffset 	= yoffset;
+/*	loglevel = MAXLOG;
+	hd("INPUT:", "MOUSE");
+	ov( "mouse xoffset", xoffset );
+	ov( "mouse yoffset", yoffset );
+	loglevel = -1;*/ }
+
+void update_ub( PatternConfigData_256 *pcd, UniBuf *ub ) {
+	ub->v0  = pcd->ubi[ 0]; ub->v1  = pcd->ubi[ 1]; ub->v2  = pcd->ubi[ 2]; ub->v3  = pcd->ubi[ 3];
+	ub->v4  = pcd->ubi[ 4]; ub->v5  = pcd->ubi[ 5]; ub->v6  = pcd->ubi[ 6]; ub->v7  = pcd->ubi[ 7];
+	ub->v8  = pcd->ubi[ 8]; ub->v9  = pcd->ubi[ 9]; ub->v10 = pcd->ubi[10]; ub->v11 = pcd->ubi[11];
+	ub->v12 = pcd->ubi[12]; ub->v13 = pcd->ubi[13]; ub->v14 = pcd->ubi[14]; ub->v15 = pcd->ubi[15];
+	ub->v16 = pcd->ubi[16]; ub->v17 = pcd->ubi[17]; ub->v18 = pcd->ubi[18]; ub->v19 = pcd->ubi[19];
+	ub->v20 = pcd->ubi[20]; ub->v21 = pcd->ubi[21]; ub->v22 = pcd->ubi[22]; ub->v23 = pcd->ubi[23];
+	ub->v24 = pcd->ubi[24]; ub->v25 = pcd->ubi[25]; ub->v26 = pcd->ubi[26]; ub->v27 = pcd->ubi[27];
+	ub->v28 = pcd->ubi[28]; ub->v29 = pcd->ubi[29]; ub->v30 = pcd->ubi[30]; ub->v31 = pcd->ubi[31];
+	ub->v32 = pcd->ubi[32]; ub->v33 = pcd->ubi[33]; ub->v34 = pcd->ubi[34]; ub->v35 = pcd->ubi[35];
+	ub->v36 = pcd->ubi[36]; ub->v37 = pcd->ubi[37]; ub->v38 = pcd->ubi[38]; ub->v39 = pcd->ubi[39];
+	ub->v40 = pcd->ubi[40]; ub->v41 = pcd->ubi[41]; ub->v42 = pcd->ubi[42]; ub->v43 = pcd->ubi[43];
+	ub->v44 = pcd->ubi[44]; ub->v45 = pcd->ubi[45]; ub->v46 = pcd->ubi[46]; ub->v47 = pcd->ubi[47];
+	ub->v48 = pcd->ubi[48]; ub->v49 = pcd->ubi[49]; ub->v50 = pcd->ubi[50]; ub->v51 = pcd->ubi[51];
+	ub->v52 = pcd->ubi[52]; ub->v53 = pcd->ubi[53]; ub->v54 = pcd->ubi[54]; ub->v55 = pcd->ubi[55];
+	ub->v56 = pcd->ubi[56]; ub->v57 = pcd->ubi[57]; ub->v58 = pcd->ubi[58]; ub->v59 = pcd->ubi[59];
+	ub->v60 = pcd->ubi[60]; ub->v61 = pcd->ubi[61]; ub->v62 = pcd->ubi[62]; ub->v63 = pcd->ubi[63]; }
+
+void loadPattern_PCD408_to_256( EngineInfo *ei, PatternConfigData_256 *pcd ) {
+	PatternConfigData_408 pcd_load 	= get_PCD_408("res/data/save_global.vkpat", ei->load_pattern, ei);
+		for(int i = 0; i < 48; i++) { 
+			pcd->ubi[i] =  pcd_load.ubv_save[i]; }
+	memcpy(&pcd->ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
+	memcpy(&pcd->ubi[61], &pcd_load.pzm_save, sizeof(uint32_t)); }
 
 int main() {
 
@@ -352,12 +565,19 @@ int main() {
 //			W:	16384 	8192 	4096	2048	1024	512		256
 //			H:	8192 	4096  	2048	1024	512		256		128
 
-	const	uint32_t 	APP_W 			=  1024;	//	Window & Simulation Width
-	const	uint32_t 	APP_H 			=   512;	//	Window & Simulation Height
-	const	uint32_t 	RUN_HEADLESS	=     0; 	//	Disable GLFW window presentation ( 0, 1 )
+	const 	uint32_t 	APP_W 	=  1024;	//	Window & Simulation Width
+	const 	uint32_t 	APP_H 	=   512;	//	Window & Simulation Height
 
-			int			load_pcd_index	=   -40; 	//	PatternConfigData index to load from save file
-			uint32_t	imgdat_freq		=     0; 	//	Export/Save frames to disk every n frames ( 0 = disable )
+	EngineInfo ei;
+		ei.paused 				= 0;		//	Pause Simulation
+		ei.show_gui 			= 1;		//	Render Dear IMGUI
+		ei.run_headless 		= 0;		//	Use Headless Mode
+		ei.export_frequency 	= 8;		//	Export image file every n frames
+		ei.export_batch_size 	= 300;		//	Pause recording after n exported frames
+		ei.export_enabled		= 0;
+		ei.verbose_loops 		= 16;		//	Use verbose logging for n Main Loop iterations
+		ei.load_pattern 		= 18372;	//	Load this index from the pattern archive file
+		ei.tick_loop 			= 0;		//	Run the main loop n times, ignoring pause state
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "APPLICATION INIT");		/**/
@@ -372,7 +592,7 @@ int main() {
 //	Config Notification Messages
 	ov("Application Width", 	APP_W			);
 	ov("Application Height", 	APP_H			);
-	ov("load_pcd_index", 		load_pcd_index	);
+	ov("ei.load_pattern", 		ei.load_pattern	);
 	for(int i = 0; i < VERT_FLS; i++) {	iv("Vertex Shaders", 			filepath_vert[i], 		i ); }
 	for(int i = 0; i < FRAG_FLS; i++) {	iv("Fragment Shaders", 			filepath_frag[i], 		i ); }
 
@@ -593,10 +813,11 @@ int main() {
 	VkSurfaceCapabilitiesKHR 	vk_surface_capabilities;
 	GLFWwindow* 				glfw_W;
 
-	if(!RUN_HEADLESS) {
+	if(!ei.run_headless) {
 		glfwWindowHint(GLFW_CLIENT_API,	GLFW_NO_API);
 		glfwWindowHint(GLFW_RESIZABLE, 	GL_FALSE);
 
+		ov("glfwCreateWindow", glfw_W);
 		glfw_W = glfwCreateWindow(APP_W, APP_H, vkcfg.app_info.pApplicationName, NULL, NULL);
 
 		vr("glfwGetPhysicalDevicePresentationSupport", &vkres, "GLFW", VkResult(
@@ -680,7 +901,7 @@ int main() {
 	uint32_t swap_image_count = 0;
 	VkImage vk_image_swapimgs[swap_image_count];
 
-	if(!RUN_HEADLESS) {
+	if(!ei.run_headless) {
 	vr("vkCreateSwapchainKHR", &vkres, vk_swapchain,
 		vkCreateSwapchainKHR(vob.VKL, &vk_swapchhain_info, NULL, &vk_swapchain) );
 
@@ -991,6 +1212,31 @@ int main() {
 	///////////////////////////////////////////////////
 
 	// Are all of these used? TODO
+
+	VK_Command combuf_imgui_loop[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		combuf_imgui_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		combuf_imgui_loop[i].pool_info.pNext							= NULL;
+		combuf_imgui_loop[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		combuf_imgui_loop[i].pool_info.queueFamilyIndex					= vob.VKQ_i;
+
+		vr("vkCreateCommandPool", &vkres, combuf_imgui_loop[i].vk_command_pool,
+			vkCreateCommandPool(vob.VKL, &combuf_imgui_loop[i].pool_info, NULL, &combuf_imgui_loop[i].vk_command_pool) );
+
+		combuf_imgui_loop[i].comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_imgui_loop[i].comm_buff_alloc_info.pNext					= NULL;
+		combuf_imgui_loop[i].comm_buff_alloc_info.commandPool			= combuf_imgui_loop[i].vk_command_pool;
+		combuf_imgui_loop[i].comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_imgui_loop[i].comm_buff_alloc_info.commandBufferCount	= 1;
+
+		vr("vkAllocateCommandBuffers", &vkres, combuf_imgui_loop[i].vk_command_buffer,
+			vkAllocateCommandBuffers(vob.VKL, &combuf_imgui_loop[i].comm_buff_alloc_info, &combuf_imgui_loop[i].vk_command_buffer) );
+
+		combuf_imgui_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	nf(&combuf_imgui_loop[i].comm_buff_begin_info);
+		combuf_imgui_loop[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
+
+
 
 	VK_Command combuf_pres_init[swap_image_count];
 	for(int i = 0; i < swap_image_count; i++) {
@@ -1913,7 +2159,7 @@ int main() {
 	///////////////////////////////////////////////////
 
 	// Split function into two, so that it can sync with the two "work" frames
-/*	for(int i = 0; i < swap_image_count*2; i++) {
+	for(int i = 0; i < swap_image_count*2; i++) {
 		vr("vkBeginCommandBuffer", &vkres, i,
 			vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info) );
 
@@ -1973,144 +2219,142 @@ int main() {
 	 /**/	hd("STAGE:", "DEAR IMGUI");				/**/
 	///////////////////////////////////////////////////
 
-	ov( "IMGUI Version", IMGUI_CHECKVERSION() );
+	if(!ei.run_headless) {
+		ov( "IMGUI Version", IMGUI_CHECKVERSION() );
 
-	rv("ImGui::CreateContext");
-		ImGui::CreateContext();
+		rv("ImGui::CreateContext");
+			ImGui::CreateContext();
 
-	rv("ImGui::StyleColorsDark");
-		ImGui::StyleColorsDark();
+		rv("ImGui::StyleColorsDark");
+			ImGui::StyleColorsDark();
 
-	rv("ImGui::GetIO");
-		ImGuiIO &io = ImGui::GetIO();
+		rv("ImGui::GetIO");
+			ImGuiIO &io = ImGui::GetIO();
 
-	rv("ImGui_ImplGlfw_InitForVulkan");
-		ImGui_ImplGlfw_InitForVulkan(glfw_W, true);
+		rv("ImGui_ImplGlfw_InitForVulkan");
+			ImGui_ImplGlfw_InitForVulkan(glfw_W, true);
 
-	VkDescriptorPoolSize vk_descriptor_pool_size_imgui[] = {
-		{ VK_DESCRIPTOR_TYPE_SAMPLER, 					1000 },
-		{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 	1000 },
-		{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 			1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 			1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 		1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 		1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 			1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 			1000 },
-		{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 	1000 },
-		{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 	1000 },
-		{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 			1000 } };
+		VkDescriptorPoolSize vk_descriptor_pool_size_imgui[] = {
+			{ VK_DESCRIPTOR_TYPE_SAMPLER, 					1000 },
+			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 	1000 },
+			{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 			1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 			1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 		1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 		1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 			1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 			1000 },
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 	1000 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 	1000 },
+			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 			1000 } };
 
-	VkDescriptorPoolCreateInfo vk_descriptor_pool_info_imgui;
-		vk_descriptor_pool_info_imgui.sType 			= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	nf(&vk_descriptor_pool_info_imgui);
-		vk_descriptor_pool_info_imgui.flags 			= VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-		vk_descriptor_pool_info_imgui.maxSets 			= 1000;
-		vk_descriptor_pool_info_imgui.poolSizeCount 	= std::size(vk_descriptor_pool_size_imgui);
-		vk_descriptor_pool_info_imgui.pPoolSizes 		= vk_descriptor_pool_size_imgui;
+		VkDescriptorPoolCreateInfo vk_descriptor_pool_info_imgui;
+			vk_descriptor_pool_info_imgui.sType 			= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		nf(&vk_descriptor_pool_info_imgui);
+			vk_descriptor_pool_info_imgui.flags 			= VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+			vk_descriptor_pool_info_imgui.maxSets 			= 1000;
+			vk_descriptor_pool_info_imgui.poolSizeCount 	= std::size(vk_descriptor_pool_size_imgui);
+			vk_descriptor_pool_info_imgui.pPoolSizes 		= vk_descriptor_pool_size_imgui;
 
-	VkDescriptorPool vk_descriptor_pool_imgui;
-	vr("vkCreateDescriptorPool", &vkres, vk_descriptor_pool_imgui,
-		vkCreateDescriptorPool(vob.VKL, &vk_descriptor_pool_info_imgui, NULL, &vk_descriptor_pool_imgui) );
+		VkDescriptorPool vk_descriptor_pool_imgui;
+		vr("vkCreateDescriptorPool", &vkres, vk_descriptor_pool_imgui,
+			vkCreateDescriptorPool(vob.VKL, &vk_descriptor_pool_info_imgui, NULL, &vk_descriptor_pool_imgui) );
 
-	ImGui_ImplVulkan_InitInfo imgui_vkinit;
-		imgui_vkinit.Instance 			= vob.VKI;
-		imgui_vkinit.PhysicalDevice 	= vob.VKP;
-		imgui_vkinit.Device 			= vob.VKL;
-		imgui_vkinit.QueueFamily 		= vob.VKQ_i;
-		imgui_vkinit.Queue 				= qsync.vk_queue;
-		imgui_vkinit.PipelineCache 		= VK_NULL_HANDLE;
-		imgui_vkinit.DescriptorPool 	= vk_descriptor_pool_imgui;
-		imgui_vkinit.Subpass 			= 0;
-		imgui_vkinit.MinImageCount 		= vk_surface_capabilities.minImageCount;
-		imgui_vkinit.ImageCount 		= imgui_vkinit.MinImageCount;
-		imgui_vkinit.MSAASamples 		= VK_SAMPLE_COUNT_1_BIT;
-		imgui_vkinit.Allocator 			= NULL;
-		imgui_vkinit.CheckVkResultFn 	= NULL;
+		ImGui_ImplVulkan_InitInfo imgui_vkinit;
+			imgui_vkinit.Instance 			= vob.VKI;
+			imgui_vkinit.PhysicalDevice 	= vob.VKP;
+			imgui_vkinit.Device 			= vob.VKL;
+			imgui_vkinit.QueueFamily 		= vob.VKQ_i;
+			imgui_vkinit.Queue 				= qsync.vk_queue;
+			imgui_vkinit.PipelineCache 		= VK_NULL_HANDLE;
+			imgui_vkinit.DescriptorPool 	= vk_descriptor_pool_imgui;
+			imgui_vkinit.Subpass 			= 0;
+			imgui_vkinit.MinImageCount 		= vk_surface_capabilities.minImageCount;
+			imgui_vkinit.ImageCount 		= imgui_vkinit.MinImageCount;
+			imgui_vkinit.MSAASamples 		= VK_SAMPLE_COUNT_1_BIT;
+			imgui_vkinit.Allocator 			= NULL;
+			imgui_vkinit.CheckVkResultFn 	= NULL;
 
-	rv("ImGui_ImplVulkan_Init");
-		ImGui_ImplVulkan_Init(&imgui_vkinit, rp_imgui.vk_render_pass);
+		rv("ImGui_ImplVulkan_Init");
+			ImGui_ImplVulkan_Init(&imgui_vkinit, rp_imgui.vk_render_pass);
 
-	VK_Command combuf_imgui;
-		combuf_imgui.pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_imgui.pool_info.pNext							= NULL;
-		combuf_imgui.pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_imgui.pool_info.queueFamilyIndex					= vob.VKQ_i;
+		VK_Command combuf_imgui;
+			combuf_imgui.pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+			combuf_imgui.pool_info.pNext							= NULL;
+			combuf_imgui.pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+			combuf_imgui.pool_info.queueFamilyIndex					= vob.VKQ_i;
 
-		vr("vkCreateCommandPool", &vkres, combuf_imgui.vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_imgui.pool_info, NULL, &combuf_imgui.vk_command_pool) );
+			vr("vkCreateCommandPool", &vkres, combuf_imgui.vk_command_pool,
+				vkCreateCommandPool(vob.VKL, &combuf_imgui.pool_info, NULL, &combuf_imgui.vk_command_pool) );
 
-		combuf_imgui.comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_imgui.comm_buff_alloc_info.pNext					= NULL;
-		combuf_imgui.comm_buff_alloc_info.commandPool			= combuf_imgui.vk_command_pool;
-		combuf_imgui.comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_imgui.comm_buff_alloc_info.commandBufferCount	= 1;
+			combuf_imgui.comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			combuf_imgui.comm_buff_alloc_info.pNext					= NULL;
+			combuf_imgui.comm_buff_alloc_info.commandPool			= combuf_imgui.vk_command_pool;
+			combuf_imgui.comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			combuf_imgui.comm_buff_alloc_info.commandBufferCount	= 1;
 
-		vr("vkAllocateCommandBuffers", &vkres, combuf_imgui.vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_imgui.comm_buff_alloc_info, &combuf_imgui.vk_command_buffer) );
+			vr("vkAllocateCommandBuffers", &vkres, combuf_imgui.vk_command_buffer,
+				vkAllocateCommandBuffers(vob.VKL, &combuf_imgui.comm_buff_alloc_info, &combuf_imgui.vk_command_buffer) );
 
-		combuf_imgui.comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_imgui.comm_buff_begin_info);
-		combuf_imgui.comm_buff_begin_info.pInheritanceInfo		= NULL;
+			combuf_imgui.comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		nf(&combuf_imgui.comm_buff_begin_info);
+			combuf_imgui.comm_buff_begin_info.pInheritanceInfo		= NULL;
 
-	vr("vkBeginCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
-		vkBeginCommandBuffer(combuf_imgui.vk_command_buffer, &combuf_imgui.comm_buff_begin_info) );
+		vr("vkBeginCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
+			vkBeginCommandBuffer(combuf_imgui.vk_command_buffer, &combuf_imgui.comm_buff_begin_info) );
 
-		rv("ImGui_ImplVulkan_CreateFontsTexture");
-			ImGui_ImplVulkan_CreateFontsTexture(combuf_imgui.vk_command_buffer);
+			rv("ImGui_ImplVulkan_CreateFontsTexture");
+				ImGui_ImplVulkan_CreateFontsTexture(combuf_imgui.vk_command_buffer);
 
-	vr("vkEndCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
-		vkEndCommandBuffer(combuf_imgui.vk_command_buffer) );
+		vr("vkEndCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
+			vkEndCommandBuffer(combuf_imgui.vk_command_buffer) );
 
-	if(valid) {
-		rv("combuf_imgui");
-			qsync.sub_info.pCommandBuffers = &combuf_imgui.vk_command_buffer;
-		vr("vkQueueSubmit", &vkres, 0,
-			vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); }
+		if(valid) {
+			rv("combuf_imgui");
+				qsync.sub_info.pCommandBuffers = &combuf_imgui.vk_command_buffer;
+			vr("vkQueueSubmit", &vkres, 0,
+				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
+	else { rv("Headless Mode Enabled!"); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP INIT");			/**/
 	///////////////////////////////////////////////////
 
-	uint32_t 	frame_index 	= 0;	// Frame Index
+	uint32_t 	frame_index 	= 0;	// Loop Frame Index
+	uint32_t 	work_index 		= 0;	// Work Image Generation Frame Index
 	uint32_t	imgdat_idx		= 0;	// Export Image Data Index
-	uint32_t	verbose_loops 	= 12;	// How many loops to output full diagnostics
+	uint32_t	verbose_loops 	= 120;	// How many loops to output full diagnostics
 
 //	FPS tracking init
 	NS_Timer 	ftime;
 	NS_Timer 	optime;
 	NS_Timer 	prstime;
+	NS_Timer 	uitime;
 	NS_Timer 	guitime;
 	NS_Timer 	cmdtime;
 	int  		current_sec		= time(0);
 	int  		fps_freq 		= 4;
 	int  		fps_report 		= time(0) - fps_freq;
 
-	PatternConfigData_256 pcd 		= new_PCD_256();
+	PatternConfigData_256 pcd 	= new_PCD_256();
 
-	PatternConfigData_408 pcd_load 	= get_PCD_408("res/data/save_global.vkpat", load_pcd_index);
-		for(int i = 0; i < 48; i++) { 
-			pcd.ubi[i] = pcd_load.ubv_save[i]; }
-	memcpy(&pcd.ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
-	memcpy(&pcd.ubi[61], &pcd_load.pzm_save, sizeof(uint32_t));
+	loadPattern_PCD408_to_256( &ei, &pcd );
 
 //	Uniform Buffer Object ( 64 * 32 bits maximum )
 	UniBuf ub;
-		ub.v0  = pcd.ubi[ 0]; ub.v1  = pcd.ubi[ 1]; ub.v2  = pcd.ubi[ 2]; ub.v3  = pcd.ubi[ 3];
-		ub.v4  = pcd.ubi[ 4]; ub.v5  = pcd.ubi[ 5]; ub.v6  = pcd.ubi[ 6]; ub.v7  = pcd.ubi[ 7];
-		ub.v8  = pcd.ubi[ 8]; ub.v9  = pcd.ubi[ 9]; ub.v10 = pcd.ubi[10]; ub.v11 = pcd.ubi[11];
-		ub.v12 = pcd.ubi[12]; ub.v13 = pcd.ubi[13]; ub.v14 = pcd.ubi[14]; ub.v15 = pcd.ubi[15];
-		ub.v16 = pcd.ubi[16]; ub.v17 = pcd.ubi[17]; ub.v18 = pcd.ubi[18]; ub.v19 = pcd.ubi[19];
-		ub.v20 = pcd.ubi[20]; ub.v21 = pcd.ubi[21]; ub.v22 = pcd.ubi[22]; ub.v23 = pcd.ubi[23];
-		ub.v24 = pcd.ubi[24]; ub.v25 = pcd.ubi[25]; ub.v26 = pcd.ubi[26]; ub.v27 = pcd.ubi[27];
-		ub.v28 = pcd.ubi[28]; ub.v29 = pcd.ubi[29]; ub.v30 = pcd.ubi[30]; ub.v31 = pcd.ubi[31];
-		ub.v32 = pcd.ubi[32]; ub.v33 = pcd.ubi[33]; ub.v34 = pcd.ubi[34]; ub.v35 = pcd.ubi[35];
-		ub.v36 = pcd.ubi[36]; ub.v37 = pcd.ubi[37]; ub.v38 = pcd.ubi[38]; ub.v39 = pcd.ubi[39];
-		ub.v40 = pcd.ubi[40]; ub.v41 = pcd.ubi[41]; ub.v42 = pcd.ubi[42]; ub.v43 = pcd.ubi[43];
-		ub.v44 = pcd.ubi[44]; ub.v45 = pcd.ubi[45]; ub.v46 = pcd.ubi[46]; ub.v47 = pcd.ubi[47];
-		ub.v48 = pcd.ubi[48]; ub.v49 = pcd.ubi[49]; ub.v50 = pcd.ubi[50]; ub.v51 = pcd.ubi[51];
-		ub.v52 = pcd.ubi[52]; ub.v53 = pcd.ubi[53]; ub.v54 = pcd.ubi[54]; ub.v55 = pcd.ubi[55];
-		ub.v56 = pcd.ubi[56]; ub.v57 = pcd.ubi[57]; ub.v58 = pcd.ubi[58]; ub.v59 = pcd.ubi[59];
-		ub.v60 = pcd.ubi[60]; ub.v61 = pcd.ubi[61]; ub.v62 = pcd.ubi[62]; ub.v63 = pcd.ubi[63];
+
+	update_ub( &pcd, &ub );
+
+	UI_info ui;
+		ui.mx 	= 0;
+		ui.my 	= 0;
+		ui.mbl 	= 0;
+		ui.mbr 	= 0;
+		ui.cmd 	= 0;
+
+	IMGUI_Config gc;
+		gc.load_pattern_input_check_instant = true;
+		gc.load_pattern_input_check_reseed 	= true;
+		
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
@@ -2122,6 +2366,11 @@ int main() {
 	//	Record loop start time
     	ftime = start_timer(ftime);
 
+	//	Reset shader commands
+		if(!ei.paused) { ui.cmd = 0; }
+		clear_glfw_key(&glfw_key);
+		clear_glfw_mouse(&glfw_mouse);
+
 	//	Timing (seconds) setup
 		current_sec = time(0);
 		if( current_sec - fps_report >= fps_freq + 1) { fps_report = current_sec; }
@@ -2129,106 +2378,87 @@ int main() {
 	//	'Render'
 		if(valid) {
 
-			guitime = start_timer(guitime);
+		//	Lower the workload / FPS if paused
+			if(ei.paused) { nanosleep((const struct timespec[]){{0, 16666666}}, NULL); }
 
-			ImGui_ImplVulkan_NewFrame();
-			ImGui_ImplGlfw_NewFrame();
-			ImGui::NewFrame();
-			ImGui::ShowDemoWindow();
-			ImGui::Render();
+			if(!ei.run_headless) {
+				//	Poll for GLFW window events
+					glfwPollEvents();
 
-			end_timer(guitime, "IMGUI Build Time");
+				//	Does IMGUI want to capture input?
+					ImGuiIO& io = ImGui::GetIO();
 
-			cmdtime = start_timer(cmdtime);
+					kc.has_keyboard = io.WantCaptureKeyboard;
+					kc.has_mouse 	= io.WantCaptureMouse;
 
-			for(int i = 0; i < swap_image_count*2; i++) {
-				vr("vkBeginCommandBuffer", &vkres, i,
-					vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info) );
+					glfwSetKeyCallback( glfw_W, glfw_keyboard_event	);
 
-					rv("vkCmdPipelineBarrier");
-						vkCmdPipelineBarrier (
-							combuf_pres_loop[i].vk_command_buffer,
-							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-							0, NULL, 0, NULL,
-							1, &vk_IMB_pres_PRS_to_TDO[i%swap_image_count] );
+					if( !kc.has_mouse ) {
+						glfwSetCursorPosCallback 	( glfw_W, glfw_mousemove_event 	 );
+						glfwSetMouseButtonCallback	( glfw_W, glfw_mouseclick_event	 );
+						glfwSetScrollCallback		( glfw_W, glfw_mousescroll_event );
+						ui.mx = glfw_mouse.xpos;
+						ui.my = glfw_mouse.ypos;
+						if(glfw_mouse.button == 0) { ui.mbl = glfw_mouse.action; }
+						if(glfw_mouse.button == 1) { ui.mbr = glfw_mouse.action; } }
+					else { ui.mbl = 0; ui.mbr = 0; }
 
-					rv("vkCmdPipelineBarrier");
-						vkCmdPipelineBarrier (
-							combuf_pres_loop[i].vk_command_buffer,
-							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-							0, NULL, 0, NULL,
-							1, &vk_IMB_work_imagedata_SRO_to_TSO[i/swap_image_count] );
+					if( !kc.has_keyboard ) {
+					//	Release 	L-Shift: 	Reseed
+						if( glfw_key.scancode ==  50 && glfw_key.action == 0 ) { ui.cmd = 1; ei.tick_loop = 1;			}
+					//	Press 		X: 			Clear
+						if( glfw_key.scancode ==  53 && glfw_key.action == 1 ) { ui.cmd = 2; ei.tick_loop = 1;			}
+					//	Press 		Z: 			SymSeed
+						if( glfw_key.scancode ==  52 && glfw_key.action >= 1 ) { ui.cmd = 3; ei.tick_loop = 1;			}
+					//	Press 		SPACE: 		Toggle IMGUI
+						if( glfw_key.scancode ==  65 && glfw_key.action == 1 ) { ei.show_gui = (ei.show_gui) ? 0 : 1; 	}
+					//	Press 		ESC: 		Quit
+						if( glfw_key.scancode ==   9 && glfw_key.action == 1 ) { glfwSetWindowShouldClose(glfw_W, 1); 	} }
 
-					rv("vkCmdBlitImage");
-						vkCmdBlitImage (
-							combuf_pres_loop[i].vk_command_buffer, 
-							work.vk_image[i/swap_image_count], 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-							vk_image_swapimgs[i%swap_image_count], 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-							1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
+				if(ei.show_gui) {
+					guitime = start_timer(guitime);
+						ImGui_ImplVulkan_NewFrame();
+						ImGui_ImplGlfw_NewFrame();
+						ImGui::NewFrame();
+						imgui_menu( glfw_W, &ui, &ei, &gc );
+//						ImGui::ShowDemoWindow();
+						ImGui::Render();
+					end_timer(guitime, "IMGUI Build Time");
 
-					rv("vkCmdPipelineBarrier");
-						vkCmdPipelineBarrier (
-							combuf_pres_loop[i].vk_command_buffer,
-							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-							0, NULL, 0, NULL,
-							1, &vk_IMB_work_imagedata_TSO_to_SRO[i/swap_image_count] );
+					if(gc.load_pattern_input_confirm) {
+						gc.load_pattern_input_confirm = false;
+						loadPattern_PCD408_to_256( &ei, &pcd );
+						update_ub( &pcd, &ub );
+						if(gc.load_pattern_input_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
 
-					rv("vkCmdPipelineBarrier");
-						vkCmdPipelineBarrier (
-							combuf_pres_loop[i].vk_command_buffer,
-							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-							0, NULL, 0, NULL,
-							1, &vk_IMB_pres_TDO_to_PRS[i%swap_image_count] );
+					cmdtime = start_timer(cmdtime);
+						for(int i = 0; i < swap_image_count; i++) {
+							vr("vkBeginCommandBuffer", &vkres, i,
+								vkBeginCommandBuffer(combuf_imgui_loop[i].vk_command_buffer, &combuf_imgui_loop[i].comm_buff_begin_info) );
 
-					rv("vkCmdBeginRenderPass");
-						vkCmdBeginRenderPass (
-							combuf_pres_loop[i].vk_command_buffer, &vkrpbegininfo_imgui[i%swap_image_count], VK_SUBPASS_CONTENTS_INLINE );
+								rv("vkCmdBeginRenderPass");
+									vkCmdBeginRenderPass (
+										combuf_imgui_loop[i].vk_command_buffer, &vkrpbegininfo_imgui[i%swap_image_count], VK_SUBPASS_CONTENTS_INLINE );
 
-						ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), combuf_pres_loop[i].vk_command_buffer);
+									ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), combuf_imgui_loop[i].vk_command_buffer);
 
-					rv("vkCmdEndRenderPass");
-						vkCmdEndRenderPass(combuf_pres_loop[i].vk_command_buffer);
+								rv("vkCmdEndRenderPass");
+									vkCmdEndRenderPass(combuf_imgui_loop[i].vk_command_buffer);
 
-					rv("vkCmdPipelineBarrier");
-						vkCmdPipelineBarrier (
-							combuf_pres_loop[i].vk_command_buffer,
-							VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-							0, NULL, 0, NULL,
-							1, &vk_IMB_pres_CAO_to_PRS[i%swap_image_count] );
+								rv("vkCmdPipelineBarrier");
+									vkCmdPipelineBarrier (
+										combuf_imgui_loop[i].vk_command_buffer,
+										VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+										0, NULL, 0, NULL,
+										1, &vk_IMB_pres_CAO_to_PRS[i%swap_image_count] );
 
-				vr("vkEndCommandBuffer", &vkres, i,
-					vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer) ); }
-
-			end_timer(cmdtime, "Command Buffer Build Time");
-
-
-			if(valid && !RUN_HEADLESS) {
-			//	Record presentation start time
-				prstime = start_timer(prstime);
-			//	Acquire a VkImage from the swapchain's pool
-				vr("vkAcquireNextImageKHR", &vkres, swap_image_index,
-					vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain, VK_NULL_HANDLE, &swap_image_index) );
-				ov("swap_image_index", swap_image_index); }
-
-			if(valid && !RUN_HEADLESS) {
-			//	Copy the "Work" Image to the "Swap" Image
-				rv("vkcombuf_pres");
-					swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
-				if(valid) {
-				//	Present the "Swap" Image and release it back to the swapchain pool, also resetting the semaphore
-					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
-						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, VK_NULL_HANDLE /*qsync.vk_fence*/) ); } }
-
-			if(valid && !RUN_HEADLESS) {
-				vr("vkQueuePresentKHR", &vkres, swap_image_index,
-					vkQueuePresentKHR(swpsync.vk_queue, &vk_present_info) );
-				end_timer(prstime, "Present Queue Time"); }
-
-		//	Report current frame index
-			ov("frame_index", frame_index);
+							vr("vkEndCommandBuffer", &vkres, i,
+								vkEndCommandBuffer(combuf_imgui_loop[i].vk_command_buffer) ); }
+					end_timer(cmdtime, "Command Buffer Build Time"); } }
 
 		//	Update Uniform Buffer values
 			ub.v63 = frame_index;
+			ub.v60 = pack_ui_info(ui);
 
 		//	Send UB values to GPU
 			rv("memcpy");
@@ -2236,49 +2466,73 @@ int main() {
 
     		optime = start_timer(optime);
 
-			if(valid) {
-			//	Submit 'work' commands to the GPU graphics queue
-				rv("vkcombuf_work");
-					qsync.sub_info.pCommandBuffers = &combuf_work_loop[frame_index%2].vk_command_buffer;
+			if(!ei.paused || ei.tick_loop) {
 				if(valid) {
+				//	Submit 'work' commands to the GPU graphics queue
+					rv("vkcombuf_work");
+						qsync.sub_info.pCommandBuffers = &combuf_work_loop[(frame_index+1)%2].vk_command_buffer;
+					VkFence f = (ei.run_headless) ? qsync.vk_fence : VK_NULL_HANDLE;
 					vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
-						vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, qsync.vk_fence) ); }
+						vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, f) ); } }
+
+			if(!ei.run_headless) {
 				if(valid) {
-				//	Wait for the queued commands to finish execution
-					do {
-						vr("vkWaitForFences <100ms>", &vkres, qsync.vk_fence,
-							vkWaitForFences(vob.VKL, 1, &qsync.vk_fence, VK_TRUE, 100000000) );
-					} while (vkres[vkres.size()-1] == VK_TIMEOUT); }
+				//	Acquire a VkImage from the swapchain's pool
+					vr("vkAcquireNextImageKHR", &vkres, swap_image_index,
+						vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain, VK_NULL_HANDLE, &swap_image_index) );
+					ov("swap_image_index", swap_image_index); }
 
 				if(valid) {
-				//	Reset the fence for reuse in the next iteration
-					vr("vkResetFences", &vkres, qsync.vk_fence,
-						vkResetFences(vob.VKL, 1, &qsync.vk_fence) ); } } }
+				//	Copy the "Work" Image to the "Swap" Image
+					rv("vkcombuf_pres");
+						swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
+					VkFence f = (ei.show_gui) ? VK_NULL_HANDLE : qsync.vk_fence;
+					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
+						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, f) ); }
 
-			if(valid && imgdat_freq > 0 && frame_index % imgdat_freq == 0) {
+				if(valid && ei.show_gui) {
+				//	Add IMGUI interface
+					rv("vkcombuf_IMGUI");
+						swpsync.sub_info.pCommandBuffers = &combuf_imgui_loop[swap_image_index].vk_command_buffer;
+					VkFence f = qsync.vk_fence;
+					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
+						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, f) ); } }
+
+			if(valid) {
+			//	Wait for the queued commands to finish execution
+				do {
+					vr("vkWaitForFences <100ms>", &vkres, qsync.vk_fence,
+						vkWaitForFences(vob.VKL, 1, &qsync.vk_fence, VK_TRUE, 100000000) );
+				} while (vkres[vkres.size()-1] == VK_TIMEOUT); }
+
+    		end_timer(optime, "Work Queue Time");
+
+			if(valid) {
+			//	Reset the fence for reuse in the next iteration
+				vr("vkResetFences", &vkres, qsync.vk_fence,
+					vkResetFences(vob.VKL, 1, &qsync.vk_fence) ); }
+
+			if(valid && !ei.run_headless) {
+				vr("vkQueuePresentKHR", &vkres, swap_image_index,
+					vkQueuePresentKHR(swpsync.vk_queue, &vk_present_info) ); }
+
+			if(!ei.paused || ei.tick_loop) { frame_index++; }
+
+			if(valid && ei.export_enabled && ei.export_frequency > 0 && frame_index % ei.export_frequency == 0 && frame_index > 0) {
 			//	Submit 'imagedata' commands to the GPU graphics queue
 				rv("combuf_work_imagedata");
 					qsync.sub_info.pCommandBuffers = &combuf_work_imagedata[frame_index%2].vk_command_buffer;
-				if(valid) {
-					vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
-						vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
+				vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
+					vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) );
 
-//		loglevel = MAXLOG;
-    	end_timer(optime, "Work Queue Time");
-//		if(frame_index >= verbose_loops) { loglevel = -1; }
+					optime = start_timer(optime);
+					if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
+					save_image(pvoid_imagedata_work, "IMG"+std::to_string(imgdat_idx), APP_W, APP_H );
+					if(frame_index >= verbose_loops) { loglevel = -1; }
+					end_timer(optime, "Save ImageData");
+					imgdat_idx++; }
 
-		if(imgdat_freq > 0 && frame_index % imgdat_freq == 0 && frame_index > 0 && valid) {
-    		optime = start_timer(optime);
-			if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
-			save_image(pvoid_imagedata_work, "IMG"+std::to_string(imgdat_idx), APP_W, APP_H );
-			if(frame_index >= verbose_loops) { loglevel = -1; }
-    		end_timer(optime, "Save ImageData");
-			imgdat_idx++; }
-
-		frame_index++;
-
-	//	Poll for GLFW window events
-		glfwPollEvents();
+		if(frame_index == verbose_loops) { loglevel = -1; } }
 
 	//	End of loop
 		if(fps_report == current_sec) {
@@ -2292,8 +2546,9 @@ int main() {
 		hd("STAGE:", "LOOP");
 
 		if(frame_index == verbose_loops) { loglevel = -1; }
+		if(ei.tick_loop > 0) { ei.tick_loop--; }
 
-	} while ( valid && ((!RUN_HEADLESS && !glfwWindowShouldClose(glfw_W)) || RUN_HEADLESS) );
+	} while ( valid && ((!ei.run_headless && !glfwWindowShouldClose(glfw_W)) || ei.run_headless) );
 
 	loglevel = MAXLOG;
 
@@ -2303,7 +2558,7 @@ int main() {
 
 	if(!valid) 	 							{ hd("STAGE:", "ABORTED"); }
 
-	if(!RUN_HEADLESS) {
+	if(!ei.run_headless) {
 		if(glfwWindowShouldClose(glfw_W)) 	{ hd("STAGE:",  "CLOSED"); }
 		rv("glfwDestroyWindow");
 			glfwDestroyWindow(glfw_W); }
