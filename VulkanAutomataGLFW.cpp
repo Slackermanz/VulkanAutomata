@@ -568,8 +568,8 @@ int main() {
 //			W:	16384 	8192 	4096	2048	1024	512		256
 //			H:	8192 	4096  	2048	1024	512		256		128
 
-	const 	uint32_t 	APP_W 	=  512;	//	Window & Simulation Width
-	const 	uint32_t 	APP_H 	=   256;	//	Window & Simulation Height
+	const 	uint32_t 	APP_W 	=  1024;	//	Window & Simulation Width
+	const 	uint32_t 	APP_H 	=   512;	//	Window & Simulation Height
 
 	EngineInfo ei;
 		ei.paused 				= 0;		//	Pause Simulation
