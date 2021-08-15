@@ -10,6 +10,9 @@
 #include <fstream>
 #include <chrono>
 #include <cstring>
+#ifdef WIN32
+#include <windows.h>
+#endif
 
 const 	uint32_t 	VERT_FLS 	=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 	=  1;	//	Number of Fragment Shader Files
@@ -565,8 +568,8 @@ int main() {
 //			W:	16384 	8192 	4096	2048	1024	512		256
 //			H:	8192 	4096  	2048	1024	512		256		128
 
-	const 	uint32_t 	APP_W 	=  1024;	//	Window & Simulation Width
-	const 	uint32_t 	APP_H 	=   512;	//	Window & Simulation Height
+	const 	uint32_t 	APP_W 	=  512;	//	Window & Simulation Width
+	const 	uint32_t 	APP_H 	=   256;	//	Window & Simulation Height
 
 	EngineInfo ei;
 		ei.paused 				= 0;		//	Pause Simulation
@@ -2379,41 +2382,49 @@ int main() {
 		if(valid) {
 
 		//	Lower the workload / FPS if paused
-			if(ei.paused) { nanosleep((const struct timespec[]){{0, 16666666}}, NULL); }
+			if(ei.paused) {
+				#ifdef WIN32
+					Sleep(16);
+				#else
+					nanosleep((const struct timespec[]){{0, 16666666}}, NULL);
+				#endif
+			}
 
 			if(!ei.run_headless) {
-				//	Poll for GLFW window events
-					glfwPollEvents();
+			//	Poll for GLFW window events
+				glfwPollEvents();
 
-				//	Does IMGUI want to capture input?
-					ImGuiIO& io = ImGui::GetIO();
+			//	Does IMGUI want to capture input?
+				ImGuiIO& io = ImGui::GetIO();
 
-					kc.has_keyboard = io.WantCaptureKeyboard;
-					kc.has_mouse 	= io.WantCaptureMouse;
+				kc.has_keyboard = io.WantCaptureKeyboard;
+				kc.has_mouse 	= io.WantCaptureMouse;
 
-					glfwSetKeyCallback( glfw_W, glfw_keyboard_event	);
+				glfwSetKeyCallback( glfw_W, glfw_keyboard_event	);
 
-					if( !kc.has_mouse ) {
-						glfwSetCursorPosCallback 	( glfw_W, glfw_mousemove_event 	 );
-						glfwSetMouseButtonCallback	( glfw_W, glfw_mouseclick_event	 );
-						glfwSetScrollCallback		( glfw_W, glfw_mousescroll_event );
-						ui.mx = glfw_mouse.xpos;
-						ui.my = glfw_mouse.ypos;
-						if(glfw_mouse.button == 0) { ui.mbl = glfw_mouse.action; }
-						if(glfw_mouse.button == 1) { ui.mbr = glfw_mouse.action; } }
-					else { ui.mbl = 0; ui.mbr = 0; }
+				if(!ei.show_gui) { kc.has_mouse = false; kc.has_keyboard = false; }
 
-					if( !kc.has_keyboard ) {
-					//	Release 	L-Shift: 	Reseed
-						if( glfw_key.scancode ==  50 && glfw_key.action == 0 ) { ui.cmd = 1; ei.tick_loop = 1;			}
-					//	Press 		X: 			Clear
-						if( glfw_key.scancode ==  53 && glfw_key.action == 1 ) { ui.cmd = 2; ei.tick_loop = 1;			}
-					//	Press 		Z: 			SymSeed
-						if( glfw_key.scancode ==  52 && glfw_key.action >= 1 ) { ui.cmd = 3; ei.tick_loop = 1;			}
-					//	Press 		SPACE: 		Toggle IMGUI
-						if( glfw_key.scancode ==  65 && glfw_key.action == 1 ) { ei.show_gui = (ei.show_gui) ? 0 : 1; 	}
-					//	Press 		ESC: 		Quit
-						if( glfw_key.scancode ==   9 && glfw_key.action == 1 ) { glfwSetWindowShouldClose(glfw_W, 1); 	} }
+				if( !kc.has_mouse ) {
+					glfwSetCursorPosCallback 	( glfw_W, glfw_mousemove_event 	 );
+					glfwSetMouseButtonCallback	( glfw_W, glfw_mouseclick_event	 );
+					glfwSetScrollCallback		( glfw_W, glfw_mousescroll_event );
+					ui.mx = glfw_mouse.xpos;
+					ui.my = glfw_mouse.ypos;
+					if(glfw_mouse.button == 0) { ui.mbl = glfw_mouse.action; }
+					if(glfw_mouse.button == 1) { ui.mbr = glfw_mouse.action; } }
+				else { ui.mbl = 0; ui.mbr = 0; }
+
+				if( !kc.has_keyboard ) {
+				//	Release 	L-Shift: 	Reseed
+					if( glfw_key.scancode ==  50 && glfw_key.action == 0 ) { ui.cmd = 1; ei.tick_loop = 1;			}
+				//	Press 		X: 			Clear
+					if( glfw_key.scancode ==  53 && glfw_key.action == 1 ) { ui.cmd = 2; ei.tick_loop = 1;			}
+				//	Press 		Z: 			SymSeed
+					if( glfw_key.scancode ==  52 && glfw_key.action >= 1 ) { ui.cmd = 3; ei.tick_loop = 1;			}
+				//	Press 		SPACE: 		Toggle IMGUI
+					if( glfw_key.scancode ==  65 && glfw_key.action == 1 ) { ei.show_gui = (ei.show_gui) ? 0 : 1; 	}
+				//	Press 		ESC: 		Quit
+					if( glfw_key.scancode ==   9 && glfw_key.action == 1 ) { glfwSetWindowShouldClose(glfw_W, 1); 	} }
 
 				if(ei.show_gui) {
 					guitime = start_timer(guitime);
