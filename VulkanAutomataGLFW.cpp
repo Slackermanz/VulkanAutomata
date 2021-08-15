@@ -1813,11 +1813,11 @@ int main() {
 		rp_imgui.attach_desc.flags 						= 0;
 		rp_imgui.attach_desc.format 					= VK_FORMAT_B8G8R8A8_UNORM;
 		rp_imgui.attach_desc.samples 					= VK_SAMPLE_COUNT_1_BIT;
-		rp_imgui.attach_desc.loadOp 					= VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		rp_imgui.attach_desc.loadOp 					= VK_ATTACHMENT_LOAD_OP_LOAD;
 		rp_imgui.attach_desc.storeOp 					= VK_ATTACHMENT_STORE_OP_STORE;
 		rp_imgui.attach_desc.stencilLoadOp 				= VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		rp_imgui.attach_desc.stencilStoreOp 			= VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		rp_imgui.attach_desc.initialLayout 				= VK_IMAGE_LAYOUT_UNDEFINED;
+		rp_imgui.attach_desc.initialLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		rp_imgui.attach_desc.finalLayout 				= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 		rp_imgui.attach_ref.attachment 					= 0;
@@ -2525,7 +2525,7 @@ int main() {
 					rv("vkcombuf_IMGUI");
 						swpsync_imgui.sub_info.pCommandBuffers = &combuf_imgui_loop[swap_image_index].vk_command_buffer;
 					VkFence f = qsync.vk_fence;
-					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
+					vr("vkQueueSubmit", &vkres, swpsync_imgui.sub_info.pCommandBuffers,
 						vkQueueSubmit(swpsync_imgui.vk_queue, 1, &swpsync_imgui.sub_info, f) ); } }
 
 			if(valid) {
