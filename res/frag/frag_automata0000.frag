@@ -150,6 +150,41 @@ vec4 symsd(vec4 col, float sz) {
 		col = place(col, (sz/11.0)*((11.0-i)), vec2(textureSize(txdata,0)[0]/2.0,textureSize(txdata,0)[1]/2.0), i&1u, i*ub.v63); }
 	return col; }
 
+vec4 show_data(vec4 col) {
+	uint[32] ubval = uint[32] (
+		ub.v0,  ub.v1,  ub.v2,  ub.v3,	ub.v4,  ub.v5,  ub.v6,  ub.v7,
+		ub.v8,  ub.v9,  ub.v10, ub.v11,	ub.v12, ub.v13, ub.v14, ub.v15,
+		ub.v16, ub.v17, ub.v18, ub.v19,	ub.v20, ub.v21, ub.v22, ub.v23,
+		ub.v24, ub.v25, ub.v26, ub.v27,	ub.v28, ub.v29, ub.v30, ub.v31/*,
+		ub.v32, ub.v33, ub.v34, ub.v35,	ub.v36, ub.v37, ub.v38, ub.v39,
+		ub.v40, ub.v41, ub.v42, ub.v43,	ub.v44, ub.v45, ub.v46, ub.v47,
+		ub.v48, ub.v49, ub.v50, ub.v51,	ub.v52, ub.v53, ub.v54, ub.v55,
+		ub.v56, ub.v57, ub.v58, ub.v59,	ub.v60, ub.v61, ub.v62, ub.v63*/ );
+	uint[32] ubval2 = uint[32] (
+		/*ub.v0,  ub.v1,  ub.v2,  ub.v3,	ub.v4,  ub.v5,  ub.v6,  ub.v7,
+		ub.v8,  ub.v9,  ub.v10, ub.v11,	ub.v12, ub.v13, ub.v14, ub.v15,
+		ub.v16, ub.v17, ub.v18, ub.v19,	ub.v20, ub.v21, ub.v22, ub.v23,
+		ub.v24, ub.v25, ub.v26, ub.v27,	ub.v28, ub.v29, ub.v30, ub.v31,*/
+		ub.v32, ub.v33, ub.v34, ub.v35,	ub.v36, ub.v37, ub.v38, ub.v39,
+		ub.v40, ub.v41, ub.v42, ub.v43,	ub.v44, ub.v45, ub.v46, ub.v47,
+		ub.v48, ub.v49, ub.v50, ub.v51,	ub.v52, ub.v53, ub.v54, ub.v55,
+		ub.v56, ub.v57, ub.v58, ub.v59,	ub.v60, ub.v61, ub.v62, ub.v63 );
+	for(uint i = 0u; i < 32u; i++) {
+		for(uint j = 0u; j < 32u; j++) {
+			if( uint(gl_FragCoord[1])/4u == i + 8u
+			&& 	uint(gl_FragCoord[0])/4u == j + 8u ) {
+				float v = float(u32_upk(ubval[i], 1u, j));
+				col[0] = v; col[1] = v; col[2] = v;	} } }
+
+	for(uint i = 32u; i < 64u; i++) {
+		for(uint j = 0u; j < 32u; j++) {
+			if( uint(gl_FragCoord[1])/4u == i + 8u
+			&& 	uint(gl_FragCoord[0])/4u == j + 8u ) {
+				float v = float(u32_upk(ubval2[i-32u], 1u, j));
+				col[0] = v; col[1] = v; col[2] = v;	} } }
+
+	return col; }
+
 void main() {
 
 //	----    ----    ----    ----    ----    ----    ----    ----
@@ -318,6 +353,8 @@ void main() {
 		res_c = mouse(res_c, 38.0);	}
 
 	res_c[3] = 1.0;
+
+//	res_c = show_data(res_c);
 
 	out_col = res_c;
 
