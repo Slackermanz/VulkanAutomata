@@ -9,10 +9,8 @@
 #include <vector>
 #include <fstream>
 #include <chrono>
+#include <thread>
 #include <cstring>
-#ifdef WIN32
-#include <windows.h>
-#endif
 
 const 	uint32_t 	VERT_FLS 	=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 	=  1;	//	Number of Fragment Shader Files
@@ -400,11 +398,12 @@ uint32_t pack_ui_info(UI_info ui) {
 	return packed_ui32; }
 
 struct IMGUI_Config {
-	bool 		load_pattern_input;
-	bool 		load_pattern_input_confirm;
-	bool 		load_pattern_input_check_instant;
-	bool 		load_pattern_input_check_reseed;
-	int			load_pattern_input_last_value;
+	bool 		load_shader;
+	bool 		load_pattern;
+	bool 		load_pattern_confirm;
+	bool 		load_pattern_check_instant;
+	bool 		load_pattern_check_reseed;
+	int			load_pattern_last_value;
 	bool 		recording_config; };
 
 void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
@@ -414,18 +413,24 @@ void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 		if( ImGui::BeginMenu("Application") ) {
 			if( ImGui::MenuItem( "Hide Menu", "SPACE" ) ) {
 				ei->show_gui 	= 0; }
+			ImGui::Separator();
 			if( ImGui::MenuItem( "QUIT", "ESC" ) ) {
 				glfwSetWindowShouldClose(w, 1);	}
 			ImGui::EndMenu(); }
 
 		if( ImGui::BeginMenu("Engine") ) {
-			if( ImGui::MenuItem( (ei->paused) ? "Run" : "Pause" ) ) {
+			if( ImGui::MenuItem( (ei->paused) ? "Resume" : "Pause" ) ) {
 				ei->paused 		= (ei->paused) ? 0 : 1;	}
+			if( ImGui::MenuItem( "Step (1)", "S" ) ) {
+				ui->cmd = 0;
+				ei->tick_loop = 1; }
 			ImGui::Separator();
-			if( ImGui::MenuItem( "Load Pattern" ) ) {
-				gc->load_pattern_input = true; }
-			if( ImGui::MenuItem( "Recording Controls" ) ) {
+			if( ImGui::MenuItem( "Frame Capture" ) ) {
 				gc->recording_config = true; }
+//			if( ImGui::MenuItem( "Shaders" ) ) {
+//				gc->load_shader = true; }
+			if( ImGui::MenuItem( "Load Pattern" ) ) {
+				gc->load_pattern = true; }
 			ImGui::EndMenu(); }
 
 		if( ImGui::BeginMenu("Command") ) {
@@ -442,12 +447,21 @@ void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 		ImGui::EndMainMenuBar(); }
 
+//	if(gc->load_shader) {
+//		if(!ImGui::Begin("Select Shader", &gc->load_shader, 
+//			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
+//			ImGui::End(); } 
+//		else {
+//			if(ImGui::Button( "Select File", 	ImVec2(112.0,0.0) )) { }
+//			if(ImGui::Button( "Compile", 		ImVec2(112.0,0.0) )) { }
+//			if(ImGui::Button( "Load SPIR-V", 	ImVec2(112.0,0.0) )) { }
+//			ImGui::End(); } }
+
 	if(gc->recording_config) {
 		if(!ImGui::Begin("Recording Controls", &gc->recording_config, 
 			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
 			ImGui::End(); } 
 		else {
-			gc->load_pattern_input_last_value = ei->load_pattern;
 			ImGui::SetNextItemWidth(128);
 			ImGui::InputInt( "Export Frequency", 	&ei->export_frequency	);
 //			ImGui::SetNextItemWidth(128);
@@ -456,27 +470,27 @@ void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 				ei->export_enabled = (ei->export_enabled) ? 0 : 1; }
 			ImGui::End(); } }
 
-	if(gc->load_pattern_input) {
-		if(!ImGui::Begin("Load Pattern Index", &gc->load_pattern_input, 
+	if(gc->load_pattern) {
+		if(!ImGui::Begin("Load Pattern Index", &gc->load_pattern, 
 			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
 			ImGui::End(); } 
 		else {
-			gc->load_pattern_input_last_value = ei->load_pattern;
+			gc->load_pattern_last_value = ei->load_pattern;
 			ImGui::SetNextItemWidth(128);
 			ImGui::InputInt("", &ei->load_pattern);
 		    ImGui::SameLine();
 			if(ImGui::Button("Load")) {
-				gc->load_pattern_input_confirm = true; }
+				gc->load_pattern_confirm = true; }
 		    ImGui::SameLine();
 			if(ImGui::Button("Random")) {
 				ei->load_pattern = (rand()%(ei->PCD_count - 18080)) + 18080;	// Depreicated patterns under 17000
-				gc->load_pattern_input_confirm = true; }
-			ImGui::Checkbox("Instant Load", &gc->load_pattern_input_check_instant);
+				gc->load_pattern_confirm = true; }
+			ImGui::Checkbox("Instant Load", &gc->load_pattern_check_instant);
 		    ImGui::SameLine();
-			ImGui::Checkbox("Reseed", &gc->load_pattern_input_check_reseed);
-			if(	gc->load_pattern_input_check_instant
-			&&	gc->load_pattern_input_last_value != ei->load_pattern ) {
-				gc->load_pattern_input_confirm = true; }
+			ImGui::Checkbox("Reseed", &gc->load_pattern_check_reseed);
+			if(	gc->load_pattern_check_instant
+			&&	gc->load_pattern_last_value != ei->load_pattern ) {
+				gc->load_pattern_confirm = true; }
 			ImGui::End(); } }
 }
 
@@ -502,10 +516,13 @@ void glfw_mousemove_event(GLFWwindow* window, double xpos, double ypos) {
 	glfw_mouse.ypos 	= ypos; }
 
 void glfw_mouseclick_event(GLFWwindow* window, int button, int action, int mods) {
-	glfw_mouse.window 	= window;
-	glfw_mouse.button	= button;
-	glfw_mouse.action 	= action;
-	glfw_mouse.mods 	= mods;
+	if(kc.has_mouse) {
+		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods); }
+	else {
+		glfw_mouse.window 	= window;
+		glfw_mouse.button	= button;
+		glfw_mouse.action 	= action;
+		glfw_mouse.mods 	= mods; }
 /*	loglevel = MAXLOG;
 	hd("INPUT:", "MOUSE");
 	ov( "mouse button", button 	);
@@ -514,9 +531,12 @@ void glfw_mouseclick_event(GLFWwindow* window, int button, int action, int mods)
 	loglevel = -1;*/ }
 
 void glfw_mousescroll_event(GLFWwindow* window, double xoffset, double yoffset) {
-	glfw_mouse.window 	= window;
-	glfw_mouse.xoffset	= xoffset;
-	glfw_mouse.yoffset 	= yoffset;
+	if(kc.has_mouse) {
+		ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset); }
+	else {
+		glfw_mouse.window 	= window;
+		glfw_mouse.xoffset	= xoffset;
+		glfw_mouse.yoffset 	= yoffset; }
 /*	loglevel = MAXLOG;
 	hd("INPUT:", "MOUSE");
 	ov( "mouse xoffset", xoffset );
@@ -547,6 +567,9 @@ void loadPattern_PCD408_to_256( EngineInfo *ei, PatternConfigData_256 *pcd ) {
 			pcd->ubi[i] =  pcd_load.ubv_save[i]; }
 	memcpy(&pcd->ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
 	memcpy(&pcd->ubi[61], &pcd_load.pzm_save, sizeof(uint32_t)); }
+
+void framesleep(int fps) {
+	std::this_thread::sleep_for(std::chrono::milliseconds(1000/fps)); }
 
 int main() {
 
@@ -2373,9 +2396,11 @@ int main() {
 		ui.cmd 	= 0;
 
 	IMGUI_Config gc;
-		gc.load_pattern_input_check_instant = true;
-		gc.load_pattern_input_check_reseed 	= true;
-		
+		gc.load_shader					= false;
+		gc.load_pattern					= false;
+		gc.recording_config				= false;
+		gc.load_pattern_check_instant 	= true;
+		gc.load_pattern_check_reseed 	= true;
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
@@ -2400,13 +2425,7 @@ int main() {
 		if(valid) {
 
 		//	Lower the workload / FPS if paused
-/*			if(ei.paused) {
-				#ifdef WIN32
-					Sleep(16);
-				#else
-					nanosleep((const struct timespec[]){{0, 16666666}}, NULL);
-				#endif
-			}*/
+			if(ei.paused) { framesleep( 60 ); }
 
 			if(!ei.run_headless) {
 			//	Poll for GLFW window events
@@ -2439,6 +2458,8 @@ int main() {
 					if( glfw_key.key ==	GLFW_KEY_X 			&& glfw_key.action == 1 ) { ui.cmd = 2; ei.tick_loop = 1;			}
 				//	Press 		Z: 			SymSeed
 					if( glfw_key.key == GLFW_KEY_Z 			&& glfw_key.action >= 1 ) { ui.cmd = 3; ei.tick_loop = 1;			}
+				//	Press 		S: 			Step
+					if( glfw_key.key == GLFW_KEY_S 			&& glfw_key.action >= 1 ) { ui.cmd = 0; ei.tick_loop = 1;			}
 				//	Press 		SPACE: 		Toggle IMGUI
 					if( glfw_key.key == GLFW_KEY_SPACE 		&& glfw_key.action == 1 ) { ei.show_gui = (ei.show_gui) ? 0 : 1; 	}
 				//	Press 		ESC: 		Quit
@@ -2450,15 +2471,15 @@ int main() {
 						ImGui_ImplGlfw_NewFrame();
 						ImGui::NewFrame();
 						imgui_menu( glfw_W, &ui, &ei, &gc );
-//						ImGui::ShowDemoWindow();
+						//ImGui::ShowDemoWindow();
 						ImGui::Render();
 					end_timer(guitime, "IMGUI Build Time");
 
-					if(gc.load_pattern_input_confirm) {
-						gc.load_pattern_input_confirm = false;
+					if(gc.load_pattern_confirm) {
+						gc.load_pattern_confirm = false;
 						loadPattern_PCD408_to_256( &ei, &pcd );
 						update_ub( &pcd, &ub );
-						if(gc.load_pattern_input_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
+						if(gc.load_pattern_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
 
 					cmdtime = start_timer(cmdtime);
 						for(int i = 0; i < swap_image_count; i++) {
