@@ -47,48 +47,6 @@ or
 
 ---
 
-Controls:
-
-`(LSHIFT+)Left Mouse` : Place Cells
-
-`(LSHIFT+)Right Mouse` :  (Left drag, right drag) Edit Scale value | (Shift) Remove Cells 
-
-`(LSHIFT+)Middle Mouse Click` : Save Pattern | (Shift) Save Pattern and move to newest pattern on file
-
-`(LSHIFT+)Forward Mouse Thumb or RIGHT ARROW` : Increment Saved Pattern Index | (Shift) Increment Saved Pattern Index by 100
-
-`(LSHIFT+)Back Mouse Thumb or LEFT ARROW` : Decrement Saved Pattern Index | (Shift) Decrement Saved Pattern Index by 100
-
-`R` : Randomise all pattern config values
-
-`LSHIFT` : Reseed surface
-
-`V` : Mutate one step from currently loaded pattern (Main mutation tool)
-
-`C` : Mutate one step from currently displayed pattern
-
-`X` : Erase surface
-
-`Z` : Apply symmetrical seed
-
-`Q` : Reload currently loaded pattern (erase unsaved mutations)
-
-`1` : Default view mode
-
-`6` : Toggle Linear Parameter Map
-
-`Numpad ENTER` : begin recording frames
-
-`Numpad .` : Make video from exported frames
-
-`Numpad +` : Increase recording frame-skip
-
-`Numpad -` : Decrease recording frame-skip
-
-`SPACEBAR` : Toggle Pause
-
----
-
 Contacts & Networking:
 
  - Website: https://slackermanz.com
