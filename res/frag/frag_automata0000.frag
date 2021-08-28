@@ -46,9 +46,27 @@ const uint MAX_RADIUS = 12u;
 
 uint u32_upk(uint u32, uint bts, uint off) { return (u32 >> off) & ((1u << bts)-1u); }
 
+float lmap() { return (gl_FragCoord[0] / textureSize(txdata,0)[0]); }
+float vmap() { return (gl_FragCoord[1] / textureSize(txdata,0)[1]); }
+float cmap() { return sqrt	( ((gl_FragCoord[0] - textureSize(txdata,0)[0]*0.5) / textureSize(txdata,0)[0]*0.5)
+							* ((gl_FragCoord[0] - textureSize(txdata,0)[0]*0.5) / textureSize(txdata,0)[0]*0.5)
+							+ ((gl_FragCoord[1] - textureSize(txdata,0)[1]*0.5) / textureSize(txdata,0)[1]*0.5)
+							* ((gl_FragCoord[1] - textureSize(txdata,0)[1]*0.5) / textureSize(txdata,0)[1]*0.5) ); }
+
+float vwm() {
+	float 	scale_raw 	= uintBitsToFloat(ub.v62);
+	float 	zoom 		= uintBitsToFloat(ub.v61);
+	float	scale_new	= scale_raw;
+	uint 	mode 		= u32_upk(ub.v59, 2u, 0u);
+	if( mode == 1u ) { //	Linear Parameter Map
+		scale_new = ((lmap() + zoom) * (scale_raw / (1.0 + zoom * 2.0))) * 2.0; }
+	if( mode == 2u ) { //	Circular Parameter Map
+		scale_new = ((sqrt(cmap()) + zoom) * (scale_raw / (1.0 + zoom * 2.0))) * 2.0; }
+	return scale_new; }
+
 float  tp(uint n, float s) 			{ return (float(n+1u)/256.0) * ((s*0.5)/128.0); }
 float bsn(uint v, uint  o) 			{ return float(u32_upk(v,1u,o)*2u)-1.0; }
-float utp(uint v, uint  w, uint o) 	{ return tp(u32_upk(v,w,w*o), uintBitsToFloat(ub.v62)); }
+float utp(uint v, uint  w, uint o) 	{ return tp(u32_upk(v,w,w*o), vwm()); }
 
 vec4  sigm(vec4  x, float w) { return 1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) ); }
 float hmp2(float x, float w) { return 3.0*((x-0.5)*(x-0.5))+0.25; }
@@ -62,33 +80,37 @@ vec4  gdv( ivec2 of, sampler2D tx ) {
 vec4[2] nbhd( vec2 r, sampler2D tx ) {
 //	Precision limit of signed float32 for [n] neighbors in a 16 bit texture (symmetry preservation)
 	uint	chk = 2147483648u /
-			(	( 	uint( r[0]*r[0]*PI + r[0]*PI + PI	)
-				- 	uint( r[1]*r[1]*PI + r[1]*PI		) ) * 128u );
+			(	( 	uint( r[0]*r[0]*PI + r[0]*PI + PI + 1u	)
+				- 	uint( r[1]*r[1]*PI + r[1]*PI			) ) * 128u );
 	float	psn = (chk >= 65536u) ? 65536.0 : float(chk);
 	vec4	a = vec4(0.0,0.0,0.0,0.0);
 	vec4 	b = vec4(0.0,0.0,0.0,0.0);
-	for(float i = 0.0; i <= r[0]; i++) {
-		for(float j = 1.0; j <= r[0]; j++) {
-			float	d = round(sqrt(i*i+j*j));
-			float	w = 1.0;
-			if( d <= r[0] && d > r[1] ) {
-					 b 	+= w * psn * 4.0;
-				vec4 t0  = gdv( ivec2( i, j), tx ) * w * psn; a += t0 - fract(t0);
-				vec4 t1  = gdv( ivec2( j,-i), tx ) * w * psn; a += t1 - fract(t1);
-				vec4 t2  = gdv( ivec2(-i,-j), tx ) * w * psn; a += t2 - fract(t2);
-				vec4 t3  = gdv( ivec2(-j, i), tx ) * w * psn; a += t3 - fract(t3); } } }
-	return vec4[2](a, b); }
+	float	w = 1.0;	// Weighting, unused
+	if(r[0] == 0.0) { return vec4[2]( gdv( ivec2(0,0), tx )*w*psn, vec4(psn,psn,psn,psn) ); }
+	else 			{
+		for(float i = 0.0; i <= r[0]; i++) {
+			for(float j = 1.0; j <= r[0]; j++) {
+				float	d = round(sqrt(i*i+j*j));
+						w = 1.0;	//	Per-Neighbor Weighting, unused
+				if( d <= r[0] && d > r[1] ) {
+						 b 	+= w * psn * 4.0;
+					vec4 t0  = gdv( ivec2( i, j), tx ) * w * psn; a += t0 - fract(t0);
+					vec4 t1  = gdv( ivec2( j,-i), tx ) * w * psn; a += t1 - fract(t1);
+					vec4 t2  = gdv( ivec2(-i,-j), tx ) * w * psn; a += t2 - fract(t2);
+					vec4 t3  = gdv( ivec2(-j, i), tx ) * w * psn; a += t3 - fract(t3); } } }
+		return vec4[2](a, b); } }
 
 vec4 bitring(vec4[MAX_RADIUS][2] rings, uint bits, uint of) {
 	vec4 sum = vec4(0.0,0.0,0.0,0.0);
 	vec4 tot = vec4(0.0,0.0,0.0,0.0);
 	for(uint i = 0u; i < MAX_RADIUS; i++) {
 		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i][0]; tot += rings[i][1]; } }
-	return sigm( (sum / tot), LN ); }
+	return sigm( (sum / tot), LN ); } // TODO
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 //	Used to reseed the surface with lumpy noise
+//	TODO - Breaks down at 2048+ resolution
 float get_xc(float x, float y, float xmod) {
 	float sq = sqrt(mod(x*y+y, xmod)) / sqrt(xmod);
 	float xc = mod((x*x)+(y*y), xmod) / xmod;
@@ -114,31 +136,28 @@ float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
 	for(float i = 0.0; i <= nhsz; i += 1.0) {
 			xcaf 	= clamp((xcnf*xcaf + xcnf*xcaf) * (xcnf+xcnf), 0.0, 1.0); }
 	return xcaf; }
-float reseed(int seed) {
+float reseed(uint seed, float scl, float amp) {
 	float 	fx = gl_FragCoord[0];
 	float 	fy = gl_FragCoord[1];
-	float 	r0 = get_lump(fx, fy,  6.0, 19.0 + mod(ub.v63+seed,17.0), 23.0 + mod(ub.v63+seed,43.0));
-	float 	r1 = get_lump(fx, fy, 24.0, 13.0 + mod(ub.v63+seed,29.0), 17.0 + mod(ub.v63+seed,31.0));
-	float 	r2 = get_lump(fx, fy, 12.0, 13.0 + mod(ub.v63+seed,11.0), 51.0 + mod(ub.v63+seed,37.0));
-	float 	r3 = get_lump(fx, fy, 18.0, 29.0 + mod(ub.v63+seed, 7.0), 61.0 + mod(ub.v63+seed,28.0));
-	return clamp( sqrt((r0+r1)*r3*2.0)-r2 , 0.0, 1.0); }
+	float 	r0 = get_lump(fx, fy, round( 6.0  * scl), 19.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,17.0), 23.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,43.0));
+	float 	r1 = get_lump(fx, fy, round( 22.0 * scl), 13.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,29.0), 17.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,31.0));
+	float 	r2 = get_lump(fx, fy, round( 14.0 * scl), 13.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,11.0), 51.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,37.0));
+	float 	r3 = get_lump(fx, fy, round( 18.0 * scl), 29.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed, 7.0), 61.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,28.0));
+	return clamp( sqrt((r0+r1)*r3*(amp+1.2))-r2*(amp*1.8+0.2) , 0.0, 1.0); }
 
 vec4 place( vec4 col, float sz, vec2 mxy, uint s, float off ) {
 	vec2 dxy = (vec2(gl_FragCoord) - mxy) * (vec2(gl_FragCoord) - mxy);
 	float dist = sqrt(dxy[0] + dxy[1]);
-
-	float cy = mod(ub.v63+off, 312.0) / 312.0;
-	float c2 = mod(ub.v63+off, 717.0) / 717.0;
+	float cy = mod(u32_upk(ub.v63, 24u, 0u)+off, 213.0) / 213.0;
+	float c2 = mod(u32_upk(ub.v63, 24u, 0u)+off, 377.0) / 377.0;
 	float z2 = ((cos(2.0*PI*c2)/2.0)+0.5);
 	float z3 = z2/4.0;
 	float z4 = z2-z3;
 	float ds = (1.0-dist/sz);
-
-	float vr = (((cos((1.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.3 * ds * ds);
-	float vg = (((cos((2.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.3 * ds * ds);
-	float vb = (((cos((3.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.3 * ds * ds);
-
-	if(dist <= sz) { col += (s != 1u) ? vec4(-0.2,-0.2,-0.2,-0.2)*ds : vec4(vr,vg,vb,1.0); }
+	float vr = (((cos((1.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.38 * ds * ds);
+	float vg = (((cos((2.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.38 * ds * ds);
+	float vb = (((cos((3.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.38 * ds * ds);
+	if(dist <= sz) { col += (s != 1u) ? vec4(-0.38,-0.38,-0.38,-0.38)*ds : vec4(vr,vg,vb,1.0); }
 	return col; }
 
 vec4 mouse(vec4 col, float sz) {
@@ -146,41 +165,88 @@ vec4 mouse(vec4 col, float sz) {
 	return place(col, sz, mxy, u32_upk(ub.v60, 2u, 24u), 0.0); }
 
 vec4 symsd(vec4 col, float sz) {
+	vec2 posxy = vec2(textureSize(txdata,0)[0]/2.0,textureSize(txdata,0)[1]/2.0);
 	for(int i = 0; i < 11; i++) {
-		col = place(col, (sz/11.0)*((11.0-i)), vec2(textureSize(txdata,0)[0]/2.0,textureSize(txdata,0)[1]/2.0), i&1u, i*ub.v63); }
+		uint sn = ((i&2u)==0u) ? 1u : 0u;
+		col = place(col, (sz/11.0)*((11.0-i)), 		posxy + vec2(  0.0, 0.0 ), sn, i*u32_upk(ub.v63, 24u, 0u));
+		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(   sz, 0.0 ), sn, i*u32_upk(ub.v63, 24u, 0u));
+		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(  -sz, 0.0 ), sn, i*u32_upk(ub.v63, 24u, 0u));
+		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(  0.0,  sz ), sn, i*u32_upk(ub.v63, 24u, 0u));
+		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(  0.0, -sz ), sn, i*u32_upk(ub.v63, 24u, 0u)); }
 	return col; }
 
+vec4 conv(vec2 r, sampler2D tx) {
+	vec4[2] nh = nbhd(r, tx);
+	return 	nh[0] / nh[1]; }
+
+vec4 blendseed(vec4 col, uint seed, float str) {
+
+	//		str 	 = str * reseed(seed + 17u, 0.8, 0.0) + str * 0.5;
+
+	float 	amp 	 = 2.4 - (0.6 + str * 2.0);
+
+	float	randr	 = reseed(seed + 0u, 1.0, amp);
+	float	randg	 = reseed(seed + 1u, 1.0, amp);
+	float	randb	 = reseed(seed + 3u, 1.0, amp);
+	float	randa	 = reseed(seed + 5u, 1.0, amp);
+
+	float 	blend	 = sqrt(reseed(seed + 7u, 0.3, 1.0) * reseed(seed + 11u, 0.6, 0.4)) + reseed(seed + 13u, 1.2, 0.0);
+
+	float 	strsq	 = str * str;
+
+			col 	 = ( col 	- col	 * strsq 	 ) + conv( vec2(round(11.0*str)+1.0, 0.0), txdata ) * strsq;
+
+			col[0]	 = ( col[0]	- col[0] * str * 0.5 ) + sqrt(randr * blend) * str;
+			col[1]	 = ( col[1]	- col[1] * str * 0.5 ) + sqrt(randg * blend) * str;
+			col[2]	 = ( col[2]	- col[2] * str * 0.5 ) + sqrt(randb * blend) * str;
+			col[3]	 = ( col[3]	- col[3] * str * 0.5 ) + sqrt(randa * blend) * str;
+
+			col 	 = ( col 	- col	 * str 		 ) + conv( vec2(1.0, 0.0), txdata ) * str;
+
+	return 	col; }
+
+//	Seems to be very unstable, can compile as invalid SPIR-V
+//	Split into seperate arrays, it seems to work (???)
+//	Disabled (no entry point) by default, used for debugging
 vec4 show_data(vec4 col) {
-	uint[32] ubval = uint[32] (
+	uint[16] ubval_0 = uint[16] (
 		ub.v0,  ub.v1,  ub.v2,  ub.v3,	ub.v4,  ub.v5,  ub.v6,  ub.v7,
-		ub.v8,  ub.v9,  ub.v10, ub.v11,	ub.v12, ub.v13, ub.v14, ub.v15,
-		ub.v16, ub.v17, ub.v18, ub.v19,	ub.v20, ub.v21, ub.v22, ub.v23,
-		ub.v24, ub.v25, ub.v26, ub.v27,	ub.v28, ub.v29, ub.v30, ub.v31/*,
-		ub.v32, ub.v33, ub.v34, ub.v35,	ub.v36, ub.v37, ub.v38, ub.v39,
-		ub.v40, ub.v41, ub.v42, ub.v43,	ub.v44, ub.v45, ub.v46, ub.v47,
-		ub.v48, ub.v49, ub.v50, ub.v51,	ub.v52, ub.v53, ub.v54, ub.v55,
-		ub.v56, ub.v57, ub.v58, ub.v59,	ub.v60, ub.v61, ub.v62, ub.v63*/ );
-	uint[32] ubval2 = uint[32] (
-		/*ub.v0,  ub.v1,  ub.v2,  ub.v3,	ub.v4,  ub.v5,  ub.v6,  ub.v7,
-		ub.v8,  ub.v9,  ub.v10, ub.v11,	ub.v12, ub.v13, ub.v14, ub.v15,
-		ub.v16, ub.v17, ub.v18, ub.v19,	ub.v20, ub.v21, ub.v22, ub.v23,
-		ub.v24, ub.v25, ub.v26, ub.v27,	ub.v28, ub.v29, ub.v30, ub.v31,*/
-		ub.v32, ub.v33, ub.v34, ub.v35,	ub.v36, ub.v37, ub.v38, ub.v39,
-		ub.v40, ub.v41, ub.v42, ub.v43,	ub.v44, ub.v45, ub.v46, ub.v47,
-		ub.v48, ub.v49, ub.v50, ub.v51,	ub.v52, ub.v53, ub.v54, ub.v55,
-		ub.v56, ub.v57, ub.v58, ub.v59,	ub.v60, ub.v61, ub.v62, ub.v63 );
-	for(uint i = 0u; i < 32u; i++) {
+		ub.v8,  ub.v9,  ub.v10, ub.v11,	ub.v12, ub.v13, ub.v14, ub.v15 );
+	for(uint i = 0u; i < 16u; i++) {
 		for(uint j = 0u; j < 32u; j++) {
 			if( uint(gl_FragCoord[1])/4u == i + 8u
 			&& 	uint(gl_FragCoord[0])/4u == j + 8u ) {
-				float v = float(u32_upk(ubval[i], 1u, j));
+				float v = float(u32_upk(ubval_0[i-0u], 1u, j));
 				col[0] = v; col[1] = v; col[2] = v;	} } }
 
-	for(uint i = 32u; i < 64u; i++) {
+	uint[16] ubval_1 = uint[16] (
+		ub.v16, ub.v17, ub.v18, ub.v19,	ub.v20, ub.v21, ub.v22, ub.v23,
+		ub.v24, ub.v25, ub.v26, ub.v27,	ub.v28, ub.v29, ub.v30, ub.v31 );
+	for(uint i = 16u; i < 32u; i++) {
 		for(uint j = 0u; j < 32u; j++) {
 			if( uint(gl_FragCoord[1])/4u == i + 8u
 			&& 	uint(gl_FragCoord[0])/4u == j + 8u ) {
-				float v = float(u32_upk(ubval2[i-32u], 1u, j));
+				float v = float(u32_upk(ubval_1[i-16u], 1u, j));
+				col[0] = v; col[1] = v; col[2] = v;	} } }
+
+	uint[16] ubval_2 = uint[16] (
+		ub.v32, ub.v33, ub.v34, ub.v35,	ub.v36, ub.v37, ub.v38, ub.v39,
+		ub.v40, ub.v41, ub.v42, ub.v43,	ub.v44, ub.v45, ub.v46, ub.v47 );
+	for(uint i = 32u; i < 48u; i++) {
+		for(uint j = 0u; j < 32u; j++) {
+			if( uint(gl_FragCoord[1])/4u == i + 8u
+			&& 	uint(gl_FragCoord[0])/4u == j + 8u ) {
+				float v = float(u32_upk(ubval_2[i-32u], 1u, j));
+				col[0] = v; col[1] = v; col[2] = v;	} } }
+
+	uint[16] ubval_3 = uint[16] (
+		ub.v48, ub.v49, ub.v50, ub.v51,	ub.v52, ub.v53, ub.v54, ub.v55,
+		ub.v56, ub.v57, ub.v58, ub.v59,	ub.v60, ub.v61, ub.v62, ub.v63 );
+	for(uint i = 48u; i < 64u; i++) {
+		for(uint j = 0u; j < 32u; j++) {
+			if( uint(gl_FragCoord[1])/4u == i + 8u
+			&& 	uint(gl_FragCoord[0])/4u == j + 8u ) {
+				float v = float(u32_upk(ubval_3[i-48u], 1u, j));
 				col[0] = v; col[1] = v; col[2] = v;	} } }
 
 	return col; }
@@ -211,6 +277,7 @@ void main() {
 //	Update Functions
 //	----    ----    ----    ----    ----    ----    ----    ----
 /*
+//	For patterns before ~18080 in the PCD408 global.vkpat
 //	Neighborhoods
 	uint[12] nb = uint[12] (
 		ub.v0,  ub.v1,  ub.v2,  ub.v3,
@@ -247,10 +314,11 @@ void main() {
 //	Decay Curve
 	vec4 n4 = sigm(res_v, 0.5) * n * 64.0 + n;
 	res_c = res_v - n4;
-*/
+/**/
 
+//	For patterns after ~18080 in the PCD408 global.vkpat
 //	Neighborhoods
-	uint[12] nb = uint[12] (
+/**/uint[12] nb = uint[12] (
 		ub.v0,  ub.v1,  ub.v2,  ub.v3,
 		ub.v4,  ub.v5,  ub.v6,  ub.v7,
 		ub.v8,  ub.v9,  ub.v10, ub.v11 );
@@ -290,7 +358,7 @@ void main() {
 	vec4 n4 = sigm(res_v, 0.5) * n * 64.0 + n;
 	res_c = res_v - n4;
 
-
+/**/
 
 //	CGOL TEST OVERRIDE
 /*
@@ -333,12 +401,14 @@ void main() {
 //	Shader Output
 //	----    ----    ----    ----    ----    ----    ----    ----
 
-	if( ub.v63 					 <= 0u
+	//res_c = conv( vec2(1.0, 0.0) , txdata );
+
+	if( u32_upk(ub.v63, 24u, 0u) <= 0u
 	||	u32_upk(ub.v60, 6u, 26u) == 1u ) {
-		res_c[0] = reseed(0); 
-		res_c[1] = reseed(1); 
-		res_c[2] = reseed(2); 
-		res_c[3] = reseed(3); }
+		res_c[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, 1.0, 0.4 ); 
+		res_c[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, 1.0, 0.4 ); 
+		res_c[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, 1.0, 0.4 ); 
+		res_c[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, 1.0, 0.4 ); }
 
 	if( u32_upk(ub.v60, 6u, 26u) == 2u ) {
 		res_c[0] = 0.0; 
@@ -349,14 +419,21 @@ void main() {
 	if( u32_upk(ub.v60, 6u, 26u) == 3u ) {
 		res_c = symsd(res_c, 128.0); }
 
+	if( u32_upk(ub.v60, 6u, 26u) == 4u ) {
+		res_c = blendseed(res_c, u32_upk(ub.v63, 8u, 24u), vmap() * cmap() * 1.4 ); }
+
 	if(u32_upk(ub.v60, 2u, 24u) != 0u) {
 		res_c = mouse(res_c, 38.0);	}
 
-	res_c[3] = 1.0;
+//	ShowData - Very slow if enabled, even if 'unused'
+//	...	Modes are probably best facilitated by specialization constants
+//	if(u32_upk(ub.v59, 1u, 2u) != 0u) {
+//		res_c = show_data(res_c); }
 
-//	res_c = show_data(res_c);
+//	Force alpha to 1.0
+	res_c[3] 	= 1.0;
 
-	out_col = res_c;
+	out_col 	= res_c;
 
 }
 

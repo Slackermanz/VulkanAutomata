@@ -312,9 +312,11 @@ struct UniBuf {
 	uint32_t v48; uint32_t v49; uint32_t v50; uint32_t v51;	uint32_t v52; uint32_t v53; uint32_t v54; uint32_t v55;
 	uint32_t v56; uint32_t v57; uint32_t v58; uint32_t v59;	uint32_t v60; uint32_t v61; uint32_t v62; uint32_t v63; };
 
-void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h) {
+void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h, GLFW_mouse m, bool cursor = false) {
 	fname = "out/" + fname + ".PAM";
 	ov("Save Image", fname);
+//		char* buffer = new char[w*h*4];
+//		memcpy(buffer, image_data, w*h*4);
 	std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
 		file 	<<	"P7" 							<< "\n"
 			 	<< 	"WIDTH "	<< w 				<< "\n"
@@ -323,7 +325,24 @@ void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h) {
 			 	<< 	"MAXVAL "	<< "255"			<< "\n"
 			 	<< 	"TUPLTYPE "	<< "RGB_ALPHA"		<< "\n"
 			 	<< 	"ENDHDR"	<< "\n";
-		file.write( (const char*)image_data, w*h*4 );
+//		file.write( (const char*)buffer, w*h*4 );
+	if(!cursor) {
+		file.write( (const char*)image_data, w*h*4 ); }
+	else {
+		int maxsize = w*h*4;
+		char* buffer = new char[maxsize];
+		memcpy(buffer, image_data, maxsize);
+		int xoff = int(m.xpos*4+maxsize)%maxsize;
+		int yoff = int(m.ypos*w*4+maxsize)%maxsize;
+		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i-w*4*2+maxsize)%maxsize] = UINT8_MAX; 	}
+		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i-w*4*1+maxsize)%maxsize] = UINT8_MAX; 	}
+		for(int i = -3*4; i < 3*4; i++) { buffer[(xoff+yoff+i-w*4*0+maxsize)%maxsize] = UINT8_MAX; 	}
+		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i+w*4*1+maxsize)%maxsize] = UINT8_MAX; 	}
+		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i+w*4*2+maxsize)%maxsize] = UINT8_MAX; 	}
+		for(int i = -1*4; i < 1*4; i++) { buffer[(xoff+yoff+i-w*4*1+maxsize)%maxsize] = 0; 			}
+		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i-w*4*0+maxsize)%maxsize] = 0; 			}
+		for(int i = -1*4; i < 1*4; i++) { buffer[(xoff+yoff+i+w*4*1+maxsize)%maxsize] = 0; 			}
+		file.write( (const char*)buffer, w*h*4 ); }
 	file.close(); }
 
 struct NS_Timer {
@@ -342,6 +361,8 @@ void end_timer(NS_Timer t, std::string msg) {
 		std::to_string( int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(t.ft-t.st).count()) ) + " FPS";
 	ov(msg, ftime); }
 
+void tog(bool *b) { *b = (*b) ? false : true; }
+
 struct PatternConfigData_408 {
 	uint32_t scd_save[48];
 	uint32_t ubi_save[4];
@@ -350,12 +371,15 @@ struct PatternConfigData_408 {
 	float	 pzm_save; };
 
 struct EngineInfo {
-	uint32_t 	paused;
-	uint32_t 	show_gui;
-	uint32_t 	run_headless;
+	bool 		paused;
+	bool 		show_gui;
+	bool 		run_headless;
+	uint32_t	imgdat_idx;
 	int		 	export_frequency;
 	int		 	export_batch_size;
-	uint32_t 	export_enabled;
+	int		 	export_batch_left;
+	int		 	export_batch_last;
+	bool 		export_enabled;
 	uint32_t 	verbose_loops;
 	uint32_t 	loglevel;
 	uint32_t 	tick_loop;
@@ -369,7 +393,7 @@ PatternConfigData_408 get_PCD_408(std::string loadfile, int idx, EngineInfo *ei)
 		int f_len = fload_pcd.tellg();
 		fload_pcd.seekg (( (idx + (f_len / sizeof(pcd))) % (f_len / sizeof(pcd))) * sizeof(pcd));
 		fload_pcd.read((char*)&pcd, sizeof(pcd));
-		std::cout << "\n\tPCD408 Data Count: " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
+		std::cout << "\n\tPCD408 Data Count: " << idx << " / " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
 		ei->PCD_count = (f_len / sizeof(pcd));
 	fload_pcd.close();
 	return pcd; }
@@ -397,6 +421,24 @@ uint32_t pack_ui_info(UI_info ui) {
 	+ 	( (uint32_t)ui.cmd 	<< 26 );
 	return packed_ui32; }
 
+struct FT_info {
+	uint32_t 	frame;
+	uint32_t 	seed; };
+uint32_t pack_ft_info(FT_info ft) {
+	uint32_t packed_ui32 =
+		( (uint32_t)ft.frame	   )
+	+ 	( (uint32_t)ft.seed	 << 24 );
+	return packed_ui32; }
+
+struct VW_info {
+	uint32_t 	pmap;		//	Parameter Map Index
+	uint32_t 	sdat; };	//	Show Data Flag
+uint32_t pack_vw_info(VW_info vw) {
+	uint32_t packed_ui32 =
+		( (uint32_t)vw.pmap	 	  )
+	+ 	( (uint32_t)vw.sdat << 2  );
+	return packed_ui32; }
+
 struct IMGUI_Config {
 	bool 		load_shader;
 	bool 		load_pattern;
@@ -404,49 +446,355 @@ struct IMGUI_Config {
 	bool 		load_pattern_check_instant;
 	bool 		load_pattern_check_reseed;
 	int			load_pattern_last_value;
+	bool		load_pattern_random;
+	bool		save_to_archive;
+	bool		mutate_menu;
+	bool		mutate_full_random;
+	bool		mutate_set_target;
+	bool		mutate_backstep;
+	bool		mutate_backstep_retry;
+	int			mutate_backstep_idx;
+	int			mutate_backstep_last_value;
+	bool		mutate_flip;
+	int			mutate_flip_str;
+	bool		throttle_menu;
+	bool		throttle_enabled;
+	int			throttle_target;
+	bool		mode_planar;
+	bool		mode_linear;
+	bool		mode_circular;
+	bool		mode_showdata;
+	int			pmap_index;
+	int			pmap_index_last;
+	bool		scale_zoom_menu;
+	bool		scale_update;
+	float		scale_value;
+	float		scale_last_value;
+	bool		zoom_update;
+	float		zoom_value;
+	float		zoom_last_value;
+	bool		show_notification;
+	int			notification_index;
+	NS_Timer	notification_timer;
+	float		notification_age;
+	NS_Timer	notification_float_timer;
+	float		notification_float_age;
+	bool		show_notification_float;
+	float		notification_float_value;
+	int 		glfw_mouse_xpos_last;
+	bool		glfw_mod_LCTRL;
+	bool		glfw_mod_LSHIFT;
+	bool		scale_has_panned;
+	bool		record_imgui;
 	bool 		recording_config; };
+
+const char* notification_list[18] = {
+	"Welcome!",
+	"Saved to Archive (PCD256)",
+	"Target Updated\nScale & Zoom Discarded",
+	"Target Updated\nScale & Zoom Confirmed",
+	"Scale & Zoom Discarded",
+	"Scale & Zoom Confirmed",
+	"GUI disabled\nNote: GUI is always visible while paused",
+	"GUI enabled",
+	"Recording enabled",
+	"Recording disabled",
+	"Reset image filename index\nNote: This does not delete previously exported frames",
+	"Scale randomized\nZoom reset to zero",
+	"Planar Parameter Map",
+	"Linear Parameter Map",
+	"Circular Parameter Map",
+	"Scale",
+	"Frame-time Throttle enabled",
+	"Frame-time Throttle disabled"
+};
+
+void send_notif(int idx, IMGUI_Config *gc, bool clear = true) {
+	gc->notification_index 	= idx;
+	gc->notification_timer	= start_timer( gc->notification_timer );
+	gc->show_notification 	= true;
+	gc->notification_age 	= 1.0f;
+	if(clear) { gc->show_notification_float = false; } }
+
+void send_notif_float(int idx, float f, IMGUI_Config *gc) {
+	gc->notification_float_value = f;
+	gc->show_notification_float	 = true;
+	gc->notification_float_timer = start_timer( gc->notification_float_timer );
+	send_notif(idx, gc, false); }
+
+void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
+
+//	Toggle IMGUI
+	if( idx == 0 ) {
+		if( ei->paused ) {
+			if( ei->show_gui ) 	{ send_notif(6, gc); }
+			else				{ send_notif(7, gc); } }
+		tog(&ei->show_gui);	}
+
+//	Pause/Resume
+	if( idx == 1 ) { tog(&ei->paused); }
+
+//	Step [1] frame
+	if( idx == 2 ) {
+		ui->cmd 		= 0;
+		ei->paused 		= true;
+		ei->tick_loop 	= 1; }
+
+//	Load Archive Pattern
+	if( idx == 3 ) { 
+		gc->load_pattern_confirm 	= true; }
+
+//	Random Archive Pattern
+	if( idx == 4 ) {
+		gc->load_pattern_random 	= true;
+		gc->load_pattern_confirm 	= true; }
+
+//	Next Archive Pattern
+	if( idx == 5 ) {
+		gc->load_pattern_confirm 	= true;
+		ei->load_pattern 			= ( ei->load_pattern + 1 ) % ei->PCD_count; }
+
+//	Prev Archive Pattern
+	if( idx == 6 ) {
+		gc->load_pattern_confirm 	= true;
+		ei->load_pattern 			= ( ei->load_pattern + ei->PCD_count - 1 ) % ei->PCD_count; }
+
+//	Save to PCD256 Archive
+	if( idx == 7 ) { 
+		gc->save_to_archive 		= true; }
+
+//	Fully Randomize
+	if( idx == 8 ) {
+		send_notif(11, gc);
+		gc->scale_value				= (float(rand()%512*256)/768.0f) + 8.0f;
+		gc->zoom_value				= 0.0f;
+		gc->scale_update			= true;
+		gc->zoom_update				= true;
+		gc->mutate_full_random 		= true;
+		/*gc->mutate_backstep_idx 	= -1;
+		gc->mutate_backstep 		= true;*/ }
+
+//	"Import" pattern as target
+	if( idx == 9 ) {
+		send_notif(3, gc);
+		gc->mutate_backstep_idx 	= -1;
+		gc->mutate_set_target		= true;
+		gc->mutate_backstep 		= true; }
+
+//	"Update" pattern as target
+//	if( idx == 19 ) {
+//		send_notif(2, gc);
+//		gc->mutate_backstep_idx = -1;
+//		gc->mutate_backstep 	= true; }
+
+//	Mutate target pattern
+	if( idx == 10 ) {
+	//	send_notif(4, gc);
+		gc->mutate_backstep_retry 	= true;
+		gc->mutate_backstep 		= true;
+		gc->mutate_flip 			= true; }
+
+//	Command Shader: Random Reseed
+	if( idx == 11 ) {
+		ei->tick_loop	= 1;
+		ui->cmd 		= 1; }
+
+//	Command Shader: Erase
+	if( idx == 12 ) {
+		ei->tick_loop	= 1;
+		ui->cmd 		= 2; }
+
+//	Command Shader: Symmetrical Reseed
+	if( idx == 13 ) {
+		ei->tick_loop	= 1;
+		ui->cmd 		= 3; }
+
+//	Shader Mode: Planar Parameter Map
+	if( idx == 14 ) {
+		if(&gc->mode_planar) 	{
+			send_notif(12, gc);
+			gc->pmap_index		= 0;
+			gc->mode_linear		= false; 
+			gc->mode_circular	= false; } }
+
+//	Shader Mode: Linear Parameter Map
+	if( idx == 15 ) {
+		if(&gc->mode_linear) 	{
+			send_notif(13, gc);
+			gc->pmap_index		= 1;
+			gc->mode_planar		= false; 
+			gc->mode_circular	= false; } }
+
+//	Shader Mode: Circular Parameter Map
+	if( idx == 16 ) {
+		if(&gc->mode_circular) 	{
+			send_notif(14, gc);
+			gc->pmap_index		= 2;
+			gc->mode_planar		= false; 
+			gc->mode_linear		= false; } }
+
+//	Shader Mode: Show Uniform Buffer Data
+	if( idx == 17 ) { }
+
+//	Toggle Frame Throttle
+	if( idx == 18 ) {
+		if( gc->throttle_enabled ) 	{ send_notif(17, gc); }
+		else						{ send_notif(16, gc); }
+		tog(&gc->throttle_enabled); }
+
+//	Toggle Recording / Export to disk
+	if( idx == 20 ) {
+		if( !ei->export_enabled ) { send_notif(8, gc); } else { send_notif(9, gc); }
+		tog(&ei->export_enabled);
+		if( ei->export_batch_left == 0
+		&&	ei->export_batch_size  > 0 ) {
+			ei->export_batch_left =  ei->export_batch_size; } }
+
+//	Reset export image filename index
+	if( idx == 21 ) {
+		send_notif(10, gc);
+		ei->imgdat_idx = 0; }
+
+//	Confirm update of Scale value
+	if( idx == 22 ) {
+		gc->scale_update		=  true; }
+
+//	Confirm update of Zoom value
+	if( idx == 23 ) {
+		gc->zoom_update			=  true; }
+
+//	Confirm update of Backstep index
+	if( idx == 24 ) {
+		gc->mutate_backstep 	=  true; }
+
+//	Confirm update of Recording Batch Size
+	if( idx == 25 ) {
+		ei->export_batch_left 			= ei->export_batch_size;
+		gc->mutate_backstep_last_value 	= gc->mutate_backstep_idx; }
+
+//	Increase export frequency
+	if( idx == 26 ) { ei->export_frequency++; }
+
+//	Decrease export frequency
+	if( idx == 27 ) { ei->export_frequency--; }
+
+//	Set default parameter mapping
+	if( idx == 28 ) {
+		send_notif(12, gc);
+		gc->mode_planar 		= true;
+		gc->pmap_index			= 0; }
+
+//	Shader Mode: Planar Parameter Map (ComboBox)
+	if( idx == 29 ) {
+		send_notif(12+gc->pmap_index, gc);
+		gc->mode_planar 	= (gc->pmap_index == 0) ? true : false;
+		gc->mode_linear 	= (gc->pmap_index == 1) ? true : false;
+		gc->mode_circular 	= (gc->pmap_index == 2) ? true : false; }
+
+//	Shader Mode: Set as Planar Parameter Map
+	if( idx == 30 ) { 
+		send_notif(12, gc);
+		gc->pmap_index = 0; }
+
+//	Shader Mode: Set as Linear Parameter Map
+	if( idx == 31 ) {
+		send_notif(13, gc);
+		gc->pmap_index = 1; }
+
+//	Shader Mode: Set as Circular Parameter Map
+	if( idx == 32 ) {
+		send_notif(14, gc);
+		gc->pmap_index = 2; }
+
+	if( idx == 33 ) {
+		ei->tick_loop	= 1;
+		ui->cmd 		= 4; }
+
+	if( idx == 34 ) {
+		ei->tick_loop	= 12;
+		ui->cmd 		= 4; }
+
+}
+
+bool check_input_update(auto *val, auto *last) {
+	if( *val != *last ) { *last = *val; return  true; }
+	else 				{ 				return false; } }
 
 void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 	
 	if( ImGui::BeginMainMenuBar() ) {
-
 		if( ImGui::BeginMenu("Application") ) {
-			if( ImGui::MenuItem( "Hide Menu", "SPACE" ) ) {
-				ei->show_gui 	= 0; }
+			if( ImGui::MenuItem( (ei->show_gui) ? "Hide GUI" : "Show GUI", "ESC" ) ) 	{ do_action(  0, ui, ei, gc ); }
 			ImGui::Separator();
-			if( ImGui::MenuItem( "QUIT", "ESC" ) ) {
-				glfwSetWindowShouldClose(w, 1);	}
+			if( ImGui::MenuItem( "Help", "F1", false, false ) ) 						{ }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "QUIT", "ALT-F4" ) ) 									{ glfwSetWindowShouldClose(w, 1); }
 			ImGui::EndMenu(); }
+		ImGui::Separator();
 
-		if( ImGui::BeginMenu("Engine") ) {
-			if( ImGui::MenuItem( (ei->paused) ? "Resume" : "Pause" ) ) {
-				ei->paused 		= (ei->paused) ? 0 : 1;	}
-			if( ImGui::MenuItem( "Step (1)", "S" ) ) {
-				ui->cmd = 0;
-				ei->tick_loop = 1; }
+		if( ImGui::BeginMenu("Archive") ) {
+		//	if( ImGui::MenuItem( "Reload" ) ) 											{ do_action(  3, ui, ei, gc ); }
+		//	ImGui::Separator();
+			if( ImGui::MenuItem( "Random Pattern", "TAB" ) )							{ do_action(  4, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Next", "MB-Forward" ) ) 								{ do_action(  5, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Previous", "MB-Back" ) ) 								{ do_action(  6, ui, ei, gc ); }
 			ImGui::Separator();
-			if( ImGui::MenuItem( "Frame Capture" ) ) {
-				gc->recording_config = true; }
-//			if( ImGui::MenuItem( "Shaders" ) ) {
-//				gc->load_shader = true; }
-			if( ImGui::MenuItem( "Load Pattern" ) ) {
-				gc->load_pattern = true; }
+			if( ImGui::MenuItem( "Load Pattern", "..." ) ) 								{ gc->load_pattern 		= true; }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Save to Archive", "CTRL-S" ) ) 						{ do_action(  7, ui, ei, gc ); }
 			ImGui::EndMenu(); }
+		ImGui::Separator();
+
+		if( ImGui::BeginMenu("Playback") ) {
+			if( ImGui::MenuItem( (ei->paused) ? "Resume" : "Pause", "SPACE" ) ) 		{ do_action(  1, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Step [1]", "S" ) ) 									{ do_action(  2, ui, ei, gc ); }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Throttle", "... | T" ) ) 								{ gc->throttle_menu 	= true; }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Recording", "... | Num-ENTER" ) ) 					{ gc->recording_config 	= true; }
+			ImGui::EndMenu(); }
+		ImGui::Separator();
+
+		if( ImGui::BeginMenu("Modify") ) {
+			if( ImGui::MenuItem( "Randomize", "R" ) ) 									{ do_action(  8, ui, ei, gc ); }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Mutate Target", "V" ) ) 								{ do_action( 10, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Update Target", "MB-Mid" ) ) 							{ do_action(  9, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Reload Target", "Q" ) ) 								{ do_action( 24, ui, ei, gc ); }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Mutation Controls", "..." ) ) 						{ gc->mutate_menu 		= true; }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Scale & Zoom", "..." ) ) 								{ gc->scale_zoom_menu 	= true; }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Shader Selection", "...", false, false ) ) 			{ gc->load_shader 		= true; }
+			ImGui::EndMenu(); }
+		ImGui::Separator();
 
 		if( ImGui::BeginMenu("Command") ) {
-			if( ImGui::MenuItem( "Reseed", "L-Shift" ) ) {
-				ei->tick_loop	= 1;
-				ui->cmd 		= 1; }
-			if( ImGui::MenuItem( "Clear", "X" ) ) {
-				ei->tick_loop	= 1;
-				ui->cmd 		= 2; }
-			if( ImGui::MenuItem( "Symmetrical Reseed", "Z" ) ) {
-				ei->tick_loop	= 1;
-				ui->cmd 		= 3; }
+			if( ImGui::MenuItem( "Clear", "X" ) ) 										{ do_action( 12, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Reseed: Symmetric", "Z" ) ) 							{ do_action( 13, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Reseed: Random", "L-Shift" ) ) 						{ do_action( 11, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Reseed: Blend [12]", "C" ) ) 							{ do_action( 34, ui, ei, gc ); }
 			ImGui::EndMenu(); }
+		ImGui::Separator();
+
+		if( ImGui::BeginMenu("Mode") ) {
+			if( ImGui::MenuItem( "Reset", 		NULL, 	false, 				false 	) )	{  }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Planar Map", 	 "1", 	&gc->mode_planar 			) )	{ do_action( 14, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Linear Map", 	 "2", 	&gc->mode_linear 			) )	{ do_action( 15, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Circular Map", "3", 	&gc->mode_circular		 	) )	{ do_action( 16, ui, ei, gc ); }
+			if( !(	gc->mode_planar
+				||	gc->mode_linear
+				||	gc->mode_circular ) ) 												{ do_action( 28, ui, ei, gc ); }
+			ImGui::Separator();
+			if( ImGui::MenuItem( "Show Data", 	 "0", 	&gc->mode_showdata, false 	) )	{ do_action( 17, ui, ei, gc ); }
+			ImGui::EndMenu(); }
+		ImGui::Separator();
 
 		ImGui::EndMainMenuBar(); }
 
+//	TODO This will need to be re-imagined later on.
 //	if(gc->load_shader) {
 //		if(!ImGui::Begin("Select Shader", &gc->load_shader, 
 //			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
@@ -457,40 +805,157 @@ void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 //			if(ImGui::Button( "Load SPIR-V", 	ImVec2(112.0,0.0) )) { }
 //			ImGui::End(); } }
 
+	  /////////////////////////////////////
+	 // 	Notifications				//
+	/////////////////////////////////////
+
+	if(gc->show_notification) {
+		ImGui::SetNextWindowPos(ImVec2(4,28), ImGuiCond_Always);
+		float 	color_flash = gc->notification_age * gc->notification_age;
+				color_flash = (color_flash >= 0.5f) ? color_flash - 0.5f : 0.0f;
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(color_flash, color_flash * 0.8f, color_flash * 0.6f, gc->notification_age));
+		if(!ImGui::Begin( "Notification", &gc->show_notification,
+				ImGuiWindowFlags_NoDecoration
+			| 	ImGuiWindowFlags_AlwaysAutoResize 
+			|	ImGuiWindowFlags_NoSavedSettings
+			| 	ImGuiWindowFlags_NoFocusOnAppearing
+			| 	ImGuiWindowFlags_NoNav
+			|	ImGuiWindowFlags_NoMove )) {
+			ImGui::End(); } 
+		else {
+        	ImGui::Text("%s", notification_list[gc->notification_index] );
+			ImGui::End(); }
+		ImGui::PopStyleColor(); }
+
+	if(gc->show_notification_float) {
+		int txtoffset = strlen(notification_list[gc->notification_index]);
+			txtoffset = (txtoffset * 8) + ((txtoffset <= 1) ? 0 :20);
+		ImGui::SetNextWindowPos(ImVec2(4 + txtoffset, 28 ), ImGuiCond_Always);
+		float 	color_flash = gc->notification_float_age * gc->notification_float_age;
+				color_flash = (color_flash >= 0.5f) ? color_flash - 0.5f : 0.0f;
+		ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(color_flash, color_flash * 0.8f, color_flash * 0.6f, gc->notification_float_age));
+		if(!ImGui::Begin( "NotificationFloat", &gc->show_notification_float,
+				ImGuiWindowFlags_NoDecoration
+			| 	ImGuiWindowFlags_AlwaysAutoResize 
+			|	ImGuiWindowFlags_NoSavedSettings
+			| 	ImGuiWindowFlags_NoFocusOnAppearing
+			| 	ImGuiWindowFlags_NoNav
+			|	ImGuiWindowFlags_NoMove )) {
+			ImGui::End(); } 
+		else {
+        	ImGui::Text("%f", gc->notification_float_value );
+			ImGui::End(); }
+		ImGui::PopStyleColor(); }
+
+	  /////////////////////////////////////
+	 // 	Menus						//
+	/////////////////////////////////////
+
+	if(gc->scale_zoom_menu) {
+		if(!ImGui::Begin("Scale & Zoom", &gc->scale_zoom_menu, 
+			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
+			ImGui::End(); } 
+		else {
+			ImGui::SetNextItemWidth(256);
+            ImGui::SliderFloat("S0", 	&gc->scale_value, 	0.0f, 	256.0f,		"%.4f"	);
+		    ImGui::SameLine();
+			ImGui::SetNextItemWidth(0);
+			ImGui::InputFloat ("Scale", &gc->scale_value, 	0.01f, 	1024.0f, 	""		);
+			ImGui::SetNextItemWidth(256);
+            ImGui::SliderFloat("S1", 	&gc->scale_value, 	256.0f, 1024.0f,	"%.4f"	);
+		    ImGui::SameLine();
+        	ImGui::Text( "[Shift+MBR]" );
+			ImGui::Separator();
+			ImGui::SetNextItemWidth(256);
+            ImGui::SliderFloat("Z0", 	&gc->zoom_value, 	0.0f, 	32.0f, 		"%.4f", ImGuiSliderFlags_Logarithmic );
+		    ImGui::SameLine();
+			ImGui::SetNextItemWidth(0);
+			ImGui::InputFloat ("Zoom", 	&gc->zoom_value, 	0.01f, 	32.0f, 		""		);
+			if( check_input_update(&gc->scale_value, &gc->scale_last_value) ) 					{ do_action( 22, ui, ei, gc ); }
+			if( check_input_update(&gc->zoom_value,  &gc->zoom_last_value ) ) 					{ do_action( 23, ui, ei, gc ); }
+			ImGui::End(); } }
+
+	if(gc->throttle_menu) {
+		if(!ImGui::Begin("FPS Throttle", &gc->throttle_menu, 
+			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
+			ImGui::End(); } 
+		else {
+			ImGui::SetNextItemWidth(96);
+			ImGui::InputInt( "ms", 		&gc->throttle_target	);
+			if(ImGui::Button( (gc->throttle_enabled) ? "Disable" : "Enable", ImVec2(112.0,0.0) )) { do_action( 18, ui, ei, gc ); }
+			ImGui::End(); } }
+
+	if(gc->mutate_menu) {
+		if(!ImGui::Begin("Mutate", 		&gc->mutate_menu, 
+			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
+			ImGui::End(); } 
+		else {
+//			const char* tpat = (gc->mutate_backstep_idx == -1) ? "Current" : "Modified";
+//        	ImGui::Text( "Pattern Targeting: ( %s )", tpat );
+			if(ImGui::Button( "Reload Target", ImVec2(112.0,0.0) )) 							{ do_action( 24, ui, ei, gc ); }
+		    ImGui::SameLine();
+			if(ImGui::Button( "Update Target", ImVec2(112.0,0.0) )) 							{ do_action(  9, ui, ei, gc ); }
+			ImGui::SetNextItemWidth(112);
+			ImGui::InputInt("Target History", &gc->mutate_backstep_idx);
+			ImGui::Separator();
+			if(ImGui::Button( "Mutate Target", ImVec2(112.0,0.0) )) 							{ do_action( 10, ui, ei, gc ); }
+		    ImGui::SameLine();
+			if(ImGui::Button( "Fully Randomize", ImVec2(112.0,0.0) )) 							{ do_action(  8, ui, ei, gc ); }
+			ImGui::SetNextItemWidth(112);
+			ImGui::InputInt("Bit Flip Chance",  &gc->mutate_flip_str);
+//			ImGui::Separator();
+//        	ImGui::Text( "Note:\n Import Confirms Scale/Zoom\n Update Discards Scale/Zoom" );
+			ImGui::Separator();
+			if(ImGui::Button( "Scale & Zoom", ImVec2(112.0,0.0) )) 								{ tog(&gc->scale_zoom_menu); }
+		    ImGui::SameLine();
+            const char* pmap_names[] = { "Planar Map", "Linear Map", "Circular Map" };
+			ImGui::SetNextItemWidth(112);
+            ImGui::Combo("", &gc->pmap_index, pmap_names, IM_ARRAYSIZE(pmap_names));
+        	ImGui::Text( "Scale: %f", gc->scale_value );
+        	ImGui::Text( "Zoom:  %f", gc->zoom_value  );
+			if( check_input_update(&gc->mutate_backstep_idx, &gc->mutate_backstep_last_value) ) { do_action( 24, ui, ei, gc ); }
+			if( check_input_update(&gc->pmap_index, &gc->pmap_index_last) ) 					{ do_action( 29, ui, ei, gc ); }
+			ImGui::End(); } }
+
 	if(gc->recording_config) {
 		if(!ImGui::Begin("Recording Controls", &gc->recording_config, 
 			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
 			ImGui::End(); } 
 		else {
-			ImGui::SetNextItemWidth(128);
-			ImGui::InputInt( "Export Frequency", 	&ei->export_frequency	);
-//			ImGui::SetNextItemWidth(128);
-//			ImGui::InputInt( "Batch Size",			&ei->export_batch_size	);
-			if(ImGui::Button( (ei->export_enabled) ? "Stop" : "Start", ImVec2(64.0,0.0) )) { 
-				ei->export_enabled = (ei->export_enabled) ? 0 : 1; }
+			if(ImGui::Button( (ei->export_enabled) 	? "Stop" 	: "Start", ImVec2(96.0,0.0) )) 	{ do_action( 20, ui, ei, gc ); }
+		    ImGui::SameLine();
+			if(ImGui::Button( (ei->paused) 			? "Resume" 	: "Pause", ImVec2(96.0,0.0) )) 	{ do_action(  1, ui, ei, gc ); }
+			ImGui::Separator();
+			ImGui::SetNextItemWidth(112);
+			ImGui::InputInt( "Frequency",	&ei->export_frequency	);
+			ImGui::SetNextItemWidth(112);
+			ImGui::InputInt( "Batch",		&ei->export_batch_size	);
+		    ImGui::SameLine();
+        	ImGui::Text("/ %d", 	 	 	 ei->export_batch_left 	);
+			ImGui::Checkbox("Record Interface", 	&gc->record_imgui);
+			ImGui::Separator();
+			if(ImGui::Button( "Reset", ImVec2(64.0,0.0) )) 							{ do_action( 21, ui, ei, gc ); do_action( 25, ui, ei, gc ); }
+		    ImGui::SameLine();
+        	ImGui::Text("IMG%d.PAM", 		 ei->imgdat_idx 		);
+			if( check_input_update(&ei->export_batch_size, &ei->export_batch_last) ) 			{ do_action( 25, ui, ei, gc ); }
 			ImGui::End(); } }
 
 	if(gc->load_pattern) {
-		if(!ImGui::Begin("Load Pattern Index", &gc->load_pattern, 
+		if(!ImGui::Begin("Load Pattern", &gc->load_pattern, 
 			ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize )) {
 			ImGui::End(); } 
 		else {
-			gc->load_pattern_last_value = ei->load_pattern;
-			ImGui::SetNextItemWidth(128);
+			ImGui::SetNextItemWidth(112);
 			ImGui::InputInt("", &ei->load_pattern);
 		    ImGui::SameLine();
-			if(ImGui::Button("Load")) {
-				gc->load_pattern_confirm = true; }
+			if(ImGui::Button( "Load", ImVec2(64.0,0.0) )) 										{ do_action(  3, ui, ei, gc ); }
 		    ImGui::SameLine();
-			if(ImGui::Button("Random")) {
-				ei->load_pattern = (rand()%(ei->PCD_count - 18080)) + 18080;	// Depreicated patterns under 17000
-				gc->load_pattern_confirm = true; }
-			ImGui::Checkbox("Instant Load", &gc->load_pattern_check_instant);
+			if(ImGui::Button( "Random", ImVec2(64.0,0.0) ))										{ do_action(  4, ui, ei, gc ); }
+			ImGui::Checkbox("Instant", 	&gc->load_pattern_check_instant);
 		    ImGui::SameLine();
-			ImGui::Checkbox("Reseed", &gc->load_pattern_check_reseed);
+			ImGui::Checkbox("Reseed", 	&gc->load_pattern_check_reseed);
 			if(	gc->load_pattern_check_instant
-			&&	gc->load_pattern_last_value != ei->load_pattern ) {
-				gc->load_pattern_confirm = true; }
+			&&	check_input_update(&ei->load_pattern, &gc->load_pattern_last_value) ) 			{ do_action(  3, ui, ei, gc ); }
 			ImGui::End(); } }
 }
 
@@ -568,13 +1033,57 @@ void loadPattern_PCD408_to_256( EngineInfo *ei, PatternConfigData_256 *pcd ) {
 	memcpy(&pcd->ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
 	memcpy(&pcd->ubi[61], &pcd_load.pzm_save, sizeof(uint32_t)); }
 
-void framesleep(int fps) {
-	std::this_thread::sleep_for(std::chrono::milliseconds(1000/fps)); }
+std::string show_PCD256(PatternConfigData_256 *pcd) {
+	std::string out_string = "\n  PatternConfigData_256:\n";
+	for(int i = 0; i < 16; i++) {
+		out_string = out_string + "    " + std::to_string(pcd->ubi[(i*4)+0]);
+		out_string = out_string + ", " 	 + std::to_string(pcd->ubi[(i*4)+1]);
+		out_string = out_string + ", " 	 + std::to_string(pcd->ubi[(i*4)+2]);
+		out_string = out_string + ", " 	 + std::to_string(pcd->ubi[(i*4)+3]) + ", \n"; }
+	return out_string + "\n"; }
+
+void save_PCD256(std::string savefile, PatternConfigData_256 *pcd) {
+	std::cout << show_PCD256(pcd);
+	FILE* f = fopen(savefile.c_str(), "a");
+	fwrite(pcd, sizeof(PatternConfigData_256), 1, f);
+	fclose(f); }
+
+PatternConfigData_256 load_PCD256(std::string loadfile, int idx) {
+	PatternConfigData_256 pcd = new_PCD_256();
+	std::ifstream fload_pcd256(loadfile.c_str(), std::ios::in | std::ios::binary);
+		fload_pcd256.seekg(0, fload_pcd256.end);
+		int f_len = fload_pcd256.tellg();
+		fload_pcd256.seekg (( (idx + (f_len / sizeof(pcd))) % (f_len / sizeof(pcd))) * sizeof(pcd));
+		fload_pcd256.read((char*)&pcd, sizeof(pcd));
+		std::cout << "\tLoad PCD256 Data Count: " << idx << " / " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
+	fload_pcd256.close();
+	std::cout << show_PCD256(&pcd);
+	return pcd; }
+
+/*void load_PCD256(PatternConfigData_256 *pcd) {
+	std::cout << show_PCD256(pcd);
+	FILE* f = fopen("sav/PCD256_global_all.vkpat", "r");
+	fread(&pcd, sizeof(struct PatternConfigData_256), 1, f);
+	fclose(f); }*/
+
+void framesleep(int ms) {
+	std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+
+uint32_t u32_flp(uint32_t u32, uint32_t off) { return u32 ^ (1 << off); }
+uint32_t u32_set(uint32_t u32, uint32_t off) { return u32 | (1 << off); }
+uint32_t u32_clr(uint32_t u32, uint32_t off) { return u32 & (1 << off); }
+
+uint32_t mut_rnd() 	{ return rand()%UINT32_MAX; }
+
+uint32_t bit_flp(uint32_t u32, uint32_t rnd) { 
+	for(int i = 0; i < 32; i++) { if(rand()%rnd == 0) { u32 = u32_flp(u32, i); } } 
+	return u32; }
 
 int main() {
 
 //	Set the random seed
-	srand(time(0));
+	uint32_t INIT_TIME = time(0);
+	srand(INIT_TIME);
 
 //	Result storage
 	std::vector<VkResult> vkres;
@@ -595,15 +1104,18 @@ int main() {
 	const 	uint32_t 	APP_H 	=   512;	//	Window & Simulation Height
 
 	EngineInfo ei;
-		ei.paused 				= 0;		//	Pause Simulation
-		ei.show_gui 			= 1;		//	Render Dear IMGUI
-		ei.run_headless 		= 0;		//	Use Headless Mode
-		ei.export_frequency 	= 8;		//	Export image file every n frames
-		ei.export_batch_size 	= 300;		//	Pause recording after n exported frames
-		ei.export_enabled		= 0;
-		ei.verbose_loops 		= 16;		//	Use verbose logging for n Main Loop iterations
-		ei.load_pattern 		= 18372;	//	Load this index from the pattern archive file
-		ei.tick_loop 			= 0;		//	Run the main loop n times, ignoring pause state
+		ei.paused 				= false;				//	Pause Simulation
+		ei.show_gui 			=  true;				//	Render Dear IMGUI
+		ei.run_headless 		= false;				//	Use Headless Mode
+		ei.imgdat_idx 			= 0;					//	Use Headless Mode
+		ei.export_frequency 	= 8;					//	Export image file every n frames
+		ei.export_batch_size 	= 180;					//	Pause recording after n exported frames
+		ei.export_batch_left 	= ei.export_batch_size;	//	Frames remaining in batch
+		ei.export_batch_last 	= ei.export_batch_size;	//	For IMGUI handling
+		ei.export_enabled		= false;				//	Enables image exports to disk
+		ei.verbose_loops 		= 16;					//	Use verbose logging for n Main Loop iterations
+		ei.tick_loop 			= 0;					//	Run the main loop n times, ignoring pause state
+		ei.load_pattern 		= 18372;				//	Load this index from the pattern archive file
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "APPLICATION INIT");		/**/
@@ -1015,7 +1527,7 @@ int main() {
 		blit.img_info.mipLevels 			= 1;
 		blit.img_info.arrayLayers 			= 1;
 		blit.img_info.samples 				= VK_SAMPLE_COUNT_1_BIT;
-		blit.img_info.tiling 				= VK_IMAGE_TILING_OPTIMAL;
+		blit.img_info.tiling 				= VK_IMAGE_TILING_LINEAR;//VK_IMAGE_TILING_OPTIMAL;
 		blit.img_info.usage 				= VK_IMAGE_USAGE_TRANSFER_SRC_BIT
 											| VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 		blit.img_info.sharingMode 			= VK_SHARING_MODE_EXCLUSIVE;
@@ -1036,7 +1548,7 @@ int main() {
 		blit.MTB_index = findProperties(
 			&pdev[vob.VKP_i].vk_pdev_mem_props,
 			blit.vk_mem_reqs.memoryTypeBits,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
 
 		ov("memoryTypeIndex", blit.MTB_index);
 
@@ -1050,6 +1562,16 @@ int main() {
 
 		vr("vkBindImageMemory", &vkres, blit.vk_image,
 			vkBindImageMemory(vob.VKL,  blit.vk_image, blit.vk_dev_mem, 0) );
+
+
+
+	//	Map the memory location on the GPU to export image data
+		void* pvoid_blit_vk_image;
+		vr("vkMapMemory", &vkres, pvoid_blit_vk_image,
+			vkMapMemory(vob.VKL, blit.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit_vk_image) );
+
+
+
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SHADER DATA");			/**/
@@ -1356,38 +1878,39 @@ int main() {
 	nf(&combuf_work_loop[i].comm_buff_begin_info);
 		combuf_work_loop[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
 
-	VK_Command combuf_work_imagedata_init;
-		combuf_work_imagedata_init.pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_work_imagedata_init.pool_info.pNext							= NULL;
-		combuf_work_imagedata_init.pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_work_imagedata_init.pool_info.queueFamilyIndex				= vob.VKQ_i;
-		vr("vkCreateCommandPool", &vkres, combuf_work_imagedata_init.vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_work_imagedata_init.pool_info, NULL, &combuf_work_imagedata_init.vk_command_pool) );
-		combuf_work_imagedata_init.comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_work_imagedata_init.comm_buff_alloc_info.pNext				= NULL;
-		combuf_work_imagedata_init.comm_buff_alloc_info.commandPool			= combuf_work_imagedata_init.vk_command_pool;
-		combuf_work_imagedata_init.comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_work_imagedata_init.comm_buff_alloc_info.commandBufferCount	= 1;
-		vr("vkAllocateCommandBuffers", &vkres, combuf_work_imagedata_init.vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_work_imagedata_init.comm_buff_alloc_info, &combuf_work_imagedata_init.vk_command_buffer) );
-		combuf_work_imagedata_init.comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_work_imagedata_init.comm_buff_begin_info);
-		combuf_work_imagedata_init.comm_buff_begin_info.pInheritanceInfo	= NULL;
+	VK_Command combuf_work_imagedata_init[1];
+	for(int i = 0; i < 1; i++) {
+		combuf_work_imagedata_init[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		combuf_work_imagedata_init[i].pool_info.pNext							= NULL;
+		combuf_work_imagedata_init[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		combuf_work_imagedata_init[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
+		vr("vkCreateCommandPool", &vkres, combuf_work_imagedata_init[i].vk_command_pool,
+			vkCreateCommandPool(vob.VKL, &combuf_work_imagedata_init[i].pool_info, NULL, &combuf_work_imagedata_init[i].vk_command_pool) );
+		combuf_work_imagedata_init[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_work_imagedata_init[i].comm_buff_alloc_info.pNext				= NULL;
+		combuf_work_imagedata_init[i].comm_buff_alloc_info.commandPool			= combuf_work_imagedata_init[i].vk_command_pool;
+		combuf_work_imagedata_init[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_work_imagedata_init[i].comm_buff_alloc_info.commandBufferCount	= 1;
+		vr("vkAllocateCommandBuffers", &vkres, combuf_work_imagedata_init[i].vk_command_buffer,
+			vkAllocateCommandBuffers(vob.VKL, &combuf_work_imagedata_init[i].comm_buff_alloc_info, &combuf_work_imagedata_init[i].vk_command_buffer) );
+		combuf_work_imagedata_init[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	nf(&combuf_work_imagedata_init[i].comm_buff_begin_info);
+		combuf_work_imagedata_init[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
 
 	VK_Command combuf_work_imagedata[2];
 	for(int i = 0; i < 2; i++) {
 		combuf_work_imagedata[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		combuf_work_imagedata[i].pool_info.pNext							= NULL;
 		combuf_work_imagedata[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_work_imagedata[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
+		combuf_work_imagedata[i].pool_info.queueFamilyIndex					= vob.VKQ_i;
 
 		vr("vkCreateCommandPool", &vkres, combuf_work_imagedata[i].vk_command_pool,
 			vkCreateCommandPool(vob.VKL, &combuf_work_imagedata[i].pool_info, NULL, &combuf_work_imagedata[i].vk_command_pool) );
 
-		combuf_work_imagedata[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_work_imagedata[i].comm_buff_alloc_info.pNext				= NULL;
-		combuf_work_imagedata[i].comm_buff_alloc_info.commandPool		= combuf_work_imagedata[i].vk_command_pool;
-		combuf_work_imagedata[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_work_imagedata[i].comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_work_imagedata[i].comm_buff_alloc_info.pNext					= NULL;
+		combuf_work_imagedata[i].comm_buff_alloc_info.commandPool			= combuf_work_imagedata[i].vk_command_pool;
+		combuf_work_imagedata[i].comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 		combuf_work_imagedata[i].comm_buff_alloc_info.commandBufferCount	= 1;
 
 		vr("vkAllocateCommandBuffers", &vkres, combuf_work_imagedata[i].vk_command_buffer,
@@ -1395,7 +1918,30 @@ int main() {
 
 		combuf_work_imagedata[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	nf(&combuf_work_imagedata[i].comm_buff_begin_info);
-		combuf_work_imagedata[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
+		combuf_work_imagedata[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
+
+	VK_Command combuf_blit_imgui_loop[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		combuf_blit_imgui_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		combuf_blit_imgui_loop[i].pool_info.pNext							= NULL;
+		combuf_blit_imgui_loop[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		combuf_blit_imgui_loop[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
+
+		vr("vkCreateCommandPool", &vkres, combuf_blit_imgui_loop[i].vk_command_pool,
+			vkCreateCommandPool(vob.VKL, &combuf_blit_imgui_loop[i].pool_info, NULL, &combuf_blit_imgui_loop[i].vk_command_pool) );
+
+		combuf_blit_imgui_loop[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_blit_imgui_loop[i].comm_buff_alloc_info.pNext				= NULL;
+		combuf_blit_imgui_loop[i].comm_buff_alloc_info.commandPool			= combuf_blit_imgui_loop[i].vk_command_pool;
+		combuf_blit_imgui_loop[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_blit_imgui_loop[i].comm_buff_alloc_info.commandBufferCount	= 1;
+
+		vr("vkAllocateCommandBuffers", &vkres, combuf_blit_imgui_loop[i].vk_command_buffer,
+			vkAllocateCommandBuffers(vob.VKL, &combuf_blit_imgui_loop[i].comm_buff_alloc_info, &combuf_blit_imgui_loop[i].vk_command_buffer) );
+
+		combuf_blit_imgui_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	nf(&combuf_blit_imgui_loop[i].comm_buff_begin_info);
+		combuf_blit_imgui_loop[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "QUEUE SYNC");				/**/
@@ -1916,61 +2462,7 @@ int main() {
 		vkrpbegininfo_imgui[i].pClearValues 		= &rpass_info.clear_val; }
 
 	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK IMAGEDATA BUFFER");	/**/
-	///////////////////////////////////////////////////
-
-	VkBufferCreateInfo vkbuff_info_work_imagedata;
-		vkbuff_info_work_imagedata.sType 					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	nf(&vkbuff_info_work_imagedata);
-		vkbuff_info_work_imagedata.size 					= work.vk_mem_reqs[0].size;
-		vkbuff_info_work_imagedata.usage 					= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		vkbuff_info_work_imagedata.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
-		vkbuff_info_work_imagedata.queueFamilyIndexCount 	= 1;
-		vkbuff_info_work_imagedata.pQueueFamilyIndices 		= &vob.VKQ_i;
-
-	VkBuffer vk_buffer_work_imagedata;
-	vr("vkCreateBuffer", &vkres, vk_buffer_work_imagedata,
-		vkCreateBuffer(vob.VKL, &vkbuff_info_work_imagedata, NULL, &vk_buffer_work_imagedata) );
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK IMAGEDATA MEMORY");	/**/
-	///////////////////////////////////////////////////
-
-	VkMemoryRequirements vk_mem_reqs_imagedata_work;
-	rv("vkGetBufferMemoryRequirements");
-		vkGetBufferMemoryRequirements(vob.VKL, vk_buffer_work_imagedata, &vk_mem_reqs_imagedata_work);
-		ov("memreq size", 			vk_mem_reqs_imagedata_work.size);
-		ov("memreq alignment", 		vk_mem_reqs_imagedata_work.alignment);
-		ov("memreq memoryTypeBits", vk_mem_reqs_imagedata_work.memoryTypeBits);
-
-	int mem_index_imagedata_work = UINT32_MAX;
-		mem_index_imagedata_work = findProperties(
-			&pdev[vob.VKP_i].vk_pdev_mem_props,
-			vk_mem_reqs_imagedata_work.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
-	ov("memoryTypeIndex", mem_index_imagedata_work);
-
-	VkMemoryAllocateInfo vkmemallo_info_imagedata_work;
-		vkmemallo_info_imagedata_work.sType 			= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		vkmemallo_info_imagedata_work.pNext				= NULL;
-		vkmemallo_info_imagedata_work.allocationSize	= vk_mem_reqs_imagedata_work.size;
-		vkmemallo_info_imagedata_work.memoryTypeIndex	= mem_index_imagedata_work;
-
-	VkDeviceMemory vkdevmem_imagedata_work;
-	vr("vkAllocateMemory", &vkres, vkdevmem_imagedata_work,
-		vkAllocateMemory(vob.VKL, &vkmemallo_info_imagedata_work, NULL, &vkdevmem_imagedata_work) );
-
-//	Assign device (GPU) memory to hold the Image Buffer
-	vr("vkBindBufferMemory", &vkres, vk_buffer_work_imagedata,
-		vkBindBufferMemory(vob.VKL, vk_buffer_work_imagedata, vkdevmem_imagedata_work, 0) );
-
-//	Map the memory location on the GPU to export image data
-	void* pvoid_imagedata_work;
-	vr("vkMapMemory", &vkres, pvoid_imagedata_work,
-		vkMapMemory(vob.VKL, vkdevmem_imagedata_work, 0, VK_WHOLE_SIZE, 0, &pvoid_imagedata_work) );
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK IMAGEDATA BARRIERS");/**/
+	 /**/	hd("STAGE:", "BARRIERS");				/**/
 	///////////////////////////////////////////////////
 
 	// Are all of these used? TODO
@@ -2000,31 +2492,31 @@ int main() {
 		vk_IMB_pres_CAO_to_PRS[i].image 					= vk_image_swapimgs[i];
 		vk_IMB_pres_CAO_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
-	VkImageMemoryBarrier vk_IMB_work_imagedata_SRO_to_TSO[2];
+	VkImageMemoryBarrier vk_IMB_work_SRO_to_TSO[2];
 	for(int i = 0; i < 2; i++) {
-		vk_IMB_work_imagedata_SRO_to_TSO[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].pNext 					= NULL;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].srcAccessMask 			= 0;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].dstAccessMask 			= 0;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].oldLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].srcQueueFamilyIndex 	= vob.VKQ_i;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].dstQueueFamilyIndex 	= vob.VKQ_i;
-		vk_IMB_work_imagedata_SRO_to_TSO[i].image 					= work.vk_image[i];
-		vk_IMB_work_imagedata_SRO_to_TSO[i].subresourceRange 		= rpass_info.img_subres_range; }
+		vk_IMB_work_SRO_to_TSO[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_work_SRO_to_TSO[i].pNext 					= NULL;
+		vk_IMB_work_SRO_to_TSO[i].srcAccessMask 			= 0;
+		vk_IMB_work_SRO_to_TSO[i].dstAccessMask 			= 0;
+		vk_IMB_work_SRO_to_TSO[i].oldLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vk_IMB_work_SRO_to_TSO[i].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		vk_IMB_work_SRO_to_TSO[i].srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_work_SRO_to_TSO[i].dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_work_SRO_to_TSO[i].image 					= work.vk_image[i];
+		vk_IMB_work_SRO_to_TSO[i].subresourceRange 			= rpass_info.img_subres_range; }
 
-	VkImageMemoryBarrier vk_IMB_work_imagedata_TSO_to_SRO[2];
+	VkImageMemoryBarrier vk_IMB_work_TSO_to_SRO[2];
 	for(int i = 0; i < 2; i++) {
-		vk_IMB_work_imagedata_TSO_to_SRO[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].pNext 					= NULL;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].srcAccessMask 			= 0;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].dstAccessMask 			= 0;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].newLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].srcQueueFamilyIndex 	= vob.VKQ_i;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].dstQueueFamilyIndex 	= vob.VKQ_i;
-		vk_IMB_work_imagedata_TSO_to_SRO[i].image 					= work.vk_image[i];
-		vk_IMB_work_imagedata_TSO_to_SRO[i].subresourceRange 		= rpass_info.img_subres_range; }
+		vk_IMB_work_TSO_to_SRO[i].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_work_TSO_to_SRO[i].pNext 					= NULL;
+		vk_IMB_work_TSO_to_SRO[i].srcAccessMask 			= 0;
+		vk_IMB_work_TSO_to_SRO[i].dstAccessMask 			= 0;
+		vk_IMB_work_TSO_to_SRO[i].oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		vk_IMB_work_TSO_to_SRO[i].newLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		vk_IMB_work_TSO_to_SRO[i].srcQueueFamilyIndex 	= vob.VKQ_i;
+		vk_IMB_work_TSO_to_SRO[i].dstQueueFamilyIndex 	= vob.VKQ_i;
+		vk_IMB_work_TSO_to_SRO[i].image 					= work.vk_image[i];
+		vk_IMB_work_TSO_to_SRO[i].subresourceRange 		= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_blit_imagedata_TDO_to_TSO;
 		vk_IMB_blit_imagedata_TDO_to_TSO.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -2061,7 +2553,7 @@ int main() {
 		vk_IMB_pres_UND_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_UND_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_UND_to_PRS[i].image 					= vk_image_swapimgs[i];
-		vk_IMB_pres_UND_to_PRS[i].subresourceRange 		= rpass_info.img_subres_range; }
+		vk_IMB_pres_UND_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_pres_PRS_to_TDO[swap_image_count];
 	for(int i = 0; i < swap_image_count; i++) {
@@ -2074,7 +2566,7 @@ int main() {
 		vk_IMB_pres_PRS_to_TDO[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_PRS_to_TDO[i].dstQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_PRS_to_TDO[i].image 					= vk_image_swapimgs[i];
-		vk_IMB_pres_PRS_to_TDO[i].subresourceRange 		= rpass_info.img_subres_range; }
+		vk_IMB_pres_PRS_to_TDO[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_pres_TDO_to_PRS[swap_image_count];
 	for(int i = 0; i < swap_image_count; i++) {
@@ -2087,7 +2579,33 @@ int main() {
 		vk_IMB_pres_TDO_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_TDO_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_TDO_to_PRS[i].image 					= vk_image_swapimgs[i];
-		vk_IMB_pres_TDO_to_PRS[i].subresourceRange 		= rpass_info.img_subres_range; }
+		vk_IMB_pres_TDO_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
+
+	VkImageMemoryBarrier vk_IMB_swap_PRS_to_TSO[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		vk_IMB_swap_PRS_to_TSO[i].sType 					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_swap_PRS_to_TSO[i].pNext 					= NULL;
+		vk_IMB_swap_PRS_to_TSO[i].srcAccessMask 			= 0;
+		vk_IMB_swap_PRS_to_TSO[i].dstAccessMask 			= 0;
+		vk_IMB_swap_PRS_to_TSO[i].oldLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		vk_IMB_swap_PRS_to_TSO[i].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		vk_IMB_swap_PRS_to_TSO[i].srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_swap_PRS_to_TSO[i].dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_swap_PRS_to_TSO[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_swap_PRS_to_TSO[i].subresourceRange 			= rpass_info.img_subres_range; }
+
+	VkImageMemoryBarrier vk_IMB_swap_TSO_to_PRS[swap_image_count];
+	for(int i = 0; i < swap_image_count; i++) {
+		vk_IMB_swap_TSO_to_PRS[i].sType 					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_swap_TSO_to_PRS[i].pNext 					= NULL;
+		vk_IMB_swap_TSO_to_PRS[i].srcAccessMask 			= 0;
+		vk_IMB_swap_TSO_to_PRS[i].dstAccessMask 			= 0;
+		vk_IMB_swap_TSO_to_PRS[i].oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		vk_IMB_swap_TSO_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		vk_IMB_swap_TSO_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_swap_TSO_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_swap_TSO_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_swap_TSO_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD IMAGEDATA INIT");	/**/
@@ -2095,17 +2613,17 @@ int main() {
 
 	for(int i = 0; i < 1; i++) {
 		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_work_imagedata_init.vk_command_buffer, &combuf_work_imagedata_init.comm_buff_begin_info) );
+			vkBeginCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer, &combuf_work_imagedata_init[i].comm_buff_begin_info) );
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
-					combuf_work_imagedata_init.vk_command_buffer,
+					combuf_work_imagedata_init[i].vk_command_buffer,
 					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
 					0, NULL, 0, NULL,
 					1, &vk_IMB_blit_imagedata_UND_to_TDO );
 
 		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_work_imagedata_init.vk_command_buffer) ); }
+			vkEndCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer) ); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SUBMIT IMAGEDATA INIT");	/**/
@@ -2114,12 +2632,12 @@ int main() {
 	for(int i = 0; i < 1; i++) {
 		if(valid) {
 			rv("vkcombuf_work_init");
-				qsync.sub_info.pCommandBuffers = &combuf_work_imagedata_init.vk_command_buffer;
+				qsync.sub_info.pCommandBuffers = &combuf_work_imagedata_init[i].vk_command_buffer;
 			vr("vkQueueSubmit", &vkres, i,
 				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
 
 	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD IMAGEDATA EXPORT");/**/
+	 /**/	hd("STAGE:", "RECORD IMAGEDATA OUT");	/**/
 	///////////////////////////////////////////////////
 
 	for(int i = 0; i < 2; i++) {
@@ -2131,7 +2649,7 @@ int main() {
 					combuf_work_imagedata[i].vk_command_buffer,
 					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
 					0, NULL, 0, NULL,
-					1, &vk_IMB_work_imagedata_SRO_to_TSO[i] );
+					1, &vk_IMB_work_SRO_to_TSO[i] );
 
 			rv("vkCmdBlitImage");
 				vkCmdBlitImage (
@@ -2145,29 +2663,43 @@ int main() {
 					combuf_work_imagedata[i].vk_command_buffer,
 					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
 					0, NULL, 0, NULL,
-					1, &vk_IMB_work_imagedata_TSO_to_SRO[i] );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_work_imagedata[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_blit_imagedata_TDO_to_TSO );
-
-			rv("vkCmdCopyImageToBuffer");
-				vkCmdCopyImageToBuffer (
-					combuf_work_imagedata[i].vk_command_buffer, blit.vk_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					vk_buffer_work_imagedata, 1, &rpass_info.buffer_img_cpy );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_work_imagedata[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_blit_imagedata_TSO_to_TDO );
+					1, &vk_IMB_work_TSO_to_SRO[i] );
 
 		vr("vkEndCommandBuffer", &vkres, i,
 			vkEndCommandBuffer(combuf_work_imagedata[i].vk_command_buffer) ); }
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "RECORD BLIT IMGUI OUT");	/**/
+	///////////////////////////////////////////////////
+
+	for(int i = 0; i < swap_image_count; i++) {
+		vr("vkBeginCommandBuffer", &vkres, i,
+			vkBeginCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer, &combuf_blit_imgui_loop[i].comm_buff_begin_info) );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_blit_imgui_loop[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_swap_PRS_to_TSO[i] );
+
+			rv("vkCmdBlitImage");
+				vkCmdBlitImage (
+					combuf_blit_imgui_loop[i].vk_command_buffer, 
+					vk_image_swapimgs[i], 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					blit.vk_image, 				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_blit_imgui_loop[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_swap_TSO_to_PRS[i] );
+
+		vr("vkEndCommandBuffer", &vkres, i,
+			vkEndCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer) ); }
+
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD PRES INIT");		/**/
@@ -2219,7 +2751,7 @@ int main() {
 					combuf_pres_loop[i].vk_command_buffer,
 					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
 					0, NULL, 0, NULL,
-					1, &vk_IMB_work_imagedata_SRO_to_TSO[i/swap_image_count] );
+					1, &vk_IMB_work_SRO_to_TSO[i/swap_image_count] );
 
 			rv("vkCmdBlitImage");
 				vkCmdBlitImage (
@@ -2233,7 +2765,7 @@ int main() {
 					combuf_pres_loop[i].vk_command_buffer,
 					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
 					0, NULL, 0, NULL,
-					1, &vk_IMB_work_imagedata_TSO_to_SRO[i/swap_image_count] );
+					1, &vk_IMB_work_TSO_to_SRO[i/swap_image_count] );
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -2365,10 +2897,10 @@ int main() {
 
 	uint32_t 	frame_index 	= 0;	// Loop Frame Index
 	uint32_t 	work_index 		= 0;	// Work Image Generation Frame Index
-	uint32_t	imgdat_idx		= 0;	// Export Image Data Index
+//	uint32_t	imgdat_idx		= 0;	// Export Image Data Index
 	uint32_t	verbose_loops 	= 120;	// How many loops to output full diagnostics
 
-//	FPS tracking init
+//	Timers
 	NS_Timer 	ftime;
 	NS_Timer 	optime;
 	NS_Timer 	prstime;
@@ -2376,12 +2908,15 @@ int main() {
 	NS_Timer 	guitime;
 	NS_Timer 	cmdtime;
 	int  		current_sec		= time(0);
-	int  		fps_freq 		= 4;
+	int  		fps_freq 		= 1;
 	int  		fps_report 		= time(0) - fps_freq;
+
 
 	PatternConfigData_256 pcd 	= new_PCD_256();
 
 	loadPattern_PCD408_to_256( &ei, &pcd );
+
+//	pcd = load_PCD256("sav/PCD256_archive.vkpat", rand()%106 ); // Too lazy to dynamically get filesize for now
 
 //	Uniform Buffer Object ( 64 * 32 bits maximum )
 	UniBuf ub;
@@ -2395,12 +2930,63 @@ int main() {
 		ui.mbr 	= 0;
 		ui.cmd 	= 0;
 
+	FT_info ft;
+		ft.frame = 0;
+		ft.seed	 = INIT_TIME%256;
+
+	VW_info vw;
+		vw.pmap = 0;
+		vw.sdat	= 0;
+
 	IMGUI_Config gc;
-		gc.load_shader					= false;
-		gc.load_pattern					= false;
-		gc.recording_config				= false;
-		gc.load_pattern_check_instant 	= true;
-		gc.load_pattern_check_reseed 	= true;
+		gc.load_shader 					= false;
+		gc.load_pattern 				= false;
+		gc.load_pattern_confirm 		= false;
+		gc.load_pattern_check_instant 	=  true;
+		gc.load_pattern_check_reseed 	=  true;
+		gc.load_pattern_random 			= false;
+		gc.save_to_archive				= false;
+		gc.mutate_menu 					= false;
+		gc.mutate_full_random 			= false;
+		gc.mutate_backstep				= false;
+		gc.mutate_backstep_retry		= false;
+		gc.mutate_flip 					= false;
+		gc.throttle_menu 				= false;
+		gc.throttle_enabled 			= false;
+		gc.mode_planar					=  true;
+		gc.mode_linear 					= false;
+		gc.mode_circular 				= false;
+		gc.mode_showdata 				= false;
+		gc.scale_zoom_menu				= false;
+		gc.scale_update					= false;
+		gc.zoom_update					= false;
+		gc.glfw_mod_LCTRL				= false;
+		gc.glfw_mod_LSHIFT				= false;
+		gc.show_notification_float		= false;
+		gc.scale_has_panned				= false;
+		gc.recording_config 			= false;
+		gc.record_imgui					=  true;
+
+		gc.load_pattern_last_value 		= ei.load_pattern;
+		gc.mutate_flip_str 				= 80;
+		gc.mutate_backstep_idx 			= -1;
+		gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
+		gc.throttle_target				= 12;
+		gc.pmap_index					= 0;
+		gc.pmap_index_last				= gc.pmap_index;
+		gc.glfw_mouse_xpos_last			= ui.mx;
+
+		gc.notification_float_value		= 0.0f;
+
+	memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
+		gc.scale_last_value				= 0.0f;
+
+	memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t));
+		gc.zoom_last_value				= 0.0f;
+
+	NS_Timer nottime;
+		gc.notification_timer = nottime;
+		send_notif(0, &gc);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
@@ -2413,7 +2999,7 @@ int main() {
     	ftime = start_timer(ftime);
 
 	//	Reset shader commands
-		if(!ei.paused) { ui.cmd = 0; }
+		if(!ei.paused && ei.tick_loop == 0) { ui.cmd = 0; }
 		clear_glfw_key(&glfw_key);
 		clear_glfw_mouse(&glfw_mouse);
 
@@ -2425,7 +3011,8 @@ int main() {
 		if(valid) {
 
 		//	Lower the workload / FPS if paused
-			if(ei.paused) { framesleep( 60 ); }
+			if(ei.paused) { framesleep( 1000/60 ); } else {
+			if(gc.throttle_enabled) { framesleep( gc.throttle_target ); } }
 
 			if(!ei.run_headless) {
 			//	Poll for GLFW window events
@@ -2442,44 +3029,242 @@ int main() {
 				if(!ei.show_gui) { kc.has_mouse = false; kc.has_keyboard = false; }
 
 				if( !kc.has_mouse ) {
+
 					glfwSetCursorPosCallback 	( glfw_W, glfw_mousemove_event 	 );
 					glfwSetMouseButtonCallback	( glfw_W, glfw_mouseclick_event	 );
 					glfwSetScrollCallback		( glfw_W, glfw_mousescroll_event );
 					ui.mx = glfw_mouse.xpos;
 					ui.my = glfw_mouse.ypos;
-					if(glfw_mouse.button == 0) { ui.mbl = glfw_mouse.action; }
-					if(glfw_mouse.button == 1) { ui.mbr = glfw_mouse.action; } }
+
+				//	MBR: Scale Panning
+					if( gc.glfw_mouse_xpos_last != glfw_mouse.xpos
+					&& 	glfw_mouse.button 		== 1
+					&&	glfw_mouse.action 		!= 0
+					&& 	gc.glfw_mod_LSHIFT ) {
+								gc.scale_has_panned		= true;
+						int 	mx_offset 				= glfw_mouse.xpos - gc.glfw_mouse_xpos_last;
+						float 	xscale	 				= float((APP_W / 2.0) - float(mx_offset)) / float(APP_W);
+								gc.scale_value 			= gc.scale_value + gc.scale_value * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + gc.zoom_value));
+								gc.scale_update			= true;
+						send_notif_float(15, gc.scale_value, &gc); }
+
+					gc.glfw_mouse_xpos_last	= glfw_mouse.xpos;
+
+				//	Left Click
+					if( glfw_mouse.button == 0 ) { ui.mbl = glfw_mouse.action; }
+
+				//	Right Click
+					if( glfw_mouse.button == 1 ) { ui.mbr = glfw_mouse.action; }
+					if( glfw_mouse.button == 1
+					&&  gc.glfw_mod_LSHIFT ) 	 { ui.mbr = 0; }
+
+				//	Middle Mouse / ScrollWheel Click
+					if( glfw_mouse.button == 2
+					&&	glfw_mouse.action == 1 ) {
+						glfw_mouse.action  				= 0;
+						gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
+						do_action(  9, &ui, &ei, &gc ); }
+
+				//	Mouse Forward
+					if(glfw_mouse.button == 3 && glfw_mouse.action == 1) {
+						glfw_mouse.action = 0;
+						do_action(  5, &ui, &ei, &gc ); }
+
+				//	Mouse Back
+					if(glfw_mouse.button == 4 && glfw_mouse.action == 1) {
+						glfw_mouse.action = 0;
+						do_action(  6, &ui, &ei, &gc ); } }
+
 				else { ui.mbl = 0; ui.mbr = 0; }
 
 				if( !kc.has_keyboard ) {
-				//	Release 	L-Shift: 	Reseed
-					if( glfw_key.key == GLFW_KEY_LEFT_SHIFT && glfw_key.action == 0 ) { ui.cmd = 1; ei.tick_loop = 1;			}
-				//	Press 		X: 			Clear
-					if( glfw_key.key ==	GLFW_KEY_X 			&& glfw_key.action == 1 ) { ui.cmd = 2; ei.tick_loop = 1;			}
-				//	Press 		Z: 			SymSeed
-					if( glfw_key.key == GLFW_KEY_Z 			&& glfw_key.action >= 1 ) { ui.cmd = 3; ei.tick_loop = 1;			}
-				//	Press 		S: 			Step
-					if( glfw_key.key == GLFW_KEY_S 			&& glfw_key.action >= 1 ) { ui.cmd = 0; ei.tick_loop = 1;			}
-				//	Press 		SPACE: 		Toggle IMGUI
-					if( glfw_key.key == GLFW_KEY_SPACE 		&& glfw_key.action == 1 ) { ei.show_gui = (ei.show_gui) ? 0 : 1; 	}
-				//	Press 		ESC: 		Quit
-					if( glfw_key.key == GLFW_KEY_ESCAPE 	&& glfw_key.action == 1 ) { glfwSetWindowShouldClose(glfw_W, 1); 	} }
 
-				if(ei.show_gui) {
+				//	Release 	L-Shift 	Reseed
+					if( glfw_key.key 	== GLFW_KEY_LEFT_SHIFT 
+					&&	glfw_key.action	== 0
+					&& !gc.scale_has_panned ) { do_action( 11, &ui, &ei, &gc ); }
+
+				//	Press 		L-Shift 	Sticky Modifier
+					if( glfw_key.key 	== GLFW_KEY_LEFT_SHIFT
+					&&	glfw_key.action	== 1 ) { gc.glfw_mod_LSHIFT = true; }
+
+				//	Release 	L-Shift 	UnSticky Modifier
+					if( glfw_key.key 	== GLFW_KEY_LEFT_SHIFT 
+					&&	glfw_key.action	== 0 ) { gc.glfw_mod_LSHIFT = false; gc.scale_has_panned = false; }
+
+				//	Press 		X 			Clear
+					if( glfw_key.key 	== GLFW_KEY_X
+		 			&& 	glfw_key.action >= 1 ) { do_action( 12, &ui, &ei, &gc ); }
+
+				//	Press 		Z 			SymSeed
+					if( glfw_key.key 	== GLFW_KEY_Z
+		 			&& 	glfw_key.action >= 1 ) { do_action( 13, &ui, &ei, &gc ); }
+
+				//	Press 		C 			BlendSeed
+					if( glfw_key.key 	== GLFW_KEY_C
+		 			&& 	glfw_key.action >= 1 ) { do_action( 33, &ui, &ei, &gc ); }
+
+				//	Press 		TAB			Show Random Archive Pattern
+					if( glfw_key.key 	== GLFW_KEY_TAB
+		 			&& 	glfw_key.action == 1 ) { do_action(  4, &ui, &ei, &gc ); }
+
+				//	Press 		RIGHT 		Show Prev Archive Pattern
+					if( glfw_key.key 	== GLFW_KEY_RIGHT
+		 			&& 	glfw_key.action >= 1 ) { do_action(  5, &ui, &ei, &gc ); }
+
+				//	Press 		LEFT		Show Next Archive Pattern
+					if( glfw_key.key 	== GLFW_KEY_LEFT
+		 			&& 	glfw_key.action >= 1 ) { do_action(  6, &ui, &ei, &gc ); }
+
+				//	Press 		CTRL-S		Save Archive Pattern
+					if( glfw_key.key 	== GLFW_KEY_S
+		 			&& (glfw_key.mods & GLFW_MOD_CONTROL)
+		 			&& 	glfw_key.action == 1 ) { do_action(  7, &ui, &ei, &gc ); }
+
+				//	Press 		T 			Toggle Throttle
+					if( glfw_key.key 	== GLFW_KEY_T
+		 			&& 	glfw_key.action >= 1 ) { do_action( 18, &ui, &ei, &gc ); }
+
+				//	Press 		R 			Full Randomization
+					if( glfw_key.key 	== GLFW_KEY_R
+		 			&& 	glfw_key.action == 1 ) { do_action(  8, &ui, &ei, &gc ); }
+
+				//	Press 		V 			Mutate Target
+					if( glfw_key.key 	== GLFW_KEY_V
+		 			&& 	glfw_key.action == 1 ) { do_action( 10, &ui, &ei, &gc ); }
+
+				//	Press 		Q 			Reload Target
+					if( glfw_key.key 	== GLFW_KEY_Q
+		 			&& 	glfw_key.action == 1 ) { do_action( 24, &ui, &ei, &gc ); }
+
+				//	Press 		KP_ENTER 	Toggle Recording
+					if( glfw_key.key 	== GLFW_KEY_KP_ENTER
+		 			&& 	glfw_key.action == 1 ) { do_action( 20, &ui, &ei, &gc ); }
+
+				//	Press 		KP_ADD 		Increase Export Freq
+					if( glfw_key.key 	== GLFW_KEY_KP_ADD
+		 			&& 	glfw_key.action >= 1 ) { do_action( 26, &ui, &ei, &gc ); }
+
+				//	Press 		KPSUBTRACT	Decrease Export Freq
+					if( glfw_key.key 	== GLFW_KEY_KP_SUBTRACT
+		 			&& 	glfw_key.action >= 1 ) { do_action( 27, &ui, &ei, &gc ); }
+
+				//	Press 		1 			Planar Mapping
+					if( glfw_key.key 	== GLFW_KEY_1
+		 			&& 	glfw_key.action == 1 ) { do_action( 30, &ui, &ei, &gc ); do_action( 29, &ui, &ei, &gc ); }
+
+				//	Press 		2 			Linear Mapping
+					if( glfw_key.key 	== GLFW_KEY_2
+		 			&& 	glfw_key.action == 1 ) { do_action( 31, &ui, &ei, &gc ); do_action( 29, &ui, &ei, &gc ); }
+
+				//	Press 		3 			Circular Mapping
+					if( glfw_key.key 	== GLFW_KEY_3
+		 			&& 	glfw_key.action == 1 ) { do_action( 32, &ui, &ei, &gc ); do_action( 29, &ui, &ei, &gc ); }
+
+				//	Press 		S 			Step[1]
+					if( glfw_key.key 	== GLFW_KEY_S
+		 			&& !(glfw_key.mods & GLFW_MOD_CONTROL)
+		 			&& 	glfw_key.action >= 1 ) { do_action(  2, &ui, &ei, &gc ); }
+
+				//	Press 		SPACE 		Toggle Pause
+					if( glfw_key.key 	== GLFW_KEY_SPACE
+		 			&& 	glfw_key.action == 1 ) { do_action(  1, &ui, &ei, &gc ); }
+
+				//	Press 		ESCAPE 		Toggle IMGUI
+					if( glfw_key.key 	== GLFW_KEY_ESCAPE
+		 			&& 	glfw_key.action == 1 ) { do_action( 0, &ui, &ei, &gc ); } }
+
+			//	Notifications
+				if( gc.show_notification ) {
+					uint32_t uint_notif_age =
+						std::chrono::duration_cast<std::chrono::nanoseconds> (
+							std::chrono::high_resolution_clock::now()
+						- 	gc.notification_timer.st ).count();
+					if( uint_notif_age < 1200000000 ) 	{ gc.notification_age = 1.0f - float(uint_notif_age) / float(1800000000); }
+					if( uint_notif_age > 2400000000 ) 	{ tog(&gc.show_notification); } }
+
+				if( gc.show_notification_float ) {
+					uint32_t uint_notif_age =
+						std::chrono::duration_cast<std::chrono::nanoseconds> (
+							std::chrono::high_resolution_clock::now()
+						- 	gc.notification_float_timer.st ).count();
+					if( uint_notif_age < 1200000000 ) 	{ gc.notification_float_age = 1.0f - float(uint_notif_age) / float(1800000000); }
+					if( uint_notif_age > 2400000000 ) 	{ tog(&gc.show_notification_float); } }
+
+			//	Update special floats
+				//	[62]	'Scale' value
+				if( gc.scale_update ) {
+					gc.scale_update = false;
+					memcpy(&pcd.ubi[62], &gc.scale_value, sizeof(uint32_t));
+					update_ub( &pcd, &ub );	}
+				//	[61]	'Zoom' value
+				if( gc.zoom_update ) {
+					gc.zoom_update = false;
+					memcpy(&pcd.ubi[61], &gc.zoom_value, sizeof(uint32_t));
+					update_ub( &pcd, &ub );	}
+
+			//	Load random Archive pattern
+				if( gc.load_pattern_confirm ) {
+					gc.load_pattern_confirm = false;
+					if( gc.load_pattern_random ) {
+						gc.load_pattern_random = false;
+					//	Depreicated patterns under 17000
+						ei.load_pattern = (rand()%(ei.PCD_count - 18080)) + 18080;	}
+					loadPattern_PCD408_to_256( &ei, &pcd );
+					update_ub( &pcd, &ub );
+					memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
+					memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t));
+					if(gc.load_pattern_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
+
+			//	Save current target to PCD256 Archive
+				if( gc.save_to_archive ) {
+					gc.save_to_archive = false;
+					save_PCD256("sav/PCD256_archive.vkpat", &pcd);
+					send_notif(1, &gc); }
+
+				if( gc.mutate_set_target ) {
+					gc.mutate_set_target = false;
+					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
+
+				if( gc.mutate_backstep ) {
+					gc.mutate_backstep = false;
+					ui.cmd = 1;
+					ei.tick_loop = 1;
+					pcd = load_PCD256("sav/PCD256_global_all.vkpat", gc.mutate_backstep_idx);
+					update_ub( &pcd, &ub );
+					memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
+					memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t)); }
+
+				if( gc.mutate_full_random ) {
+					gc.mutate_full_random = false;
+					ui.cmd = 1;
+					ei.tick_loop = 1;
+					for(int i = 0; i < 48; i++) { pcd.ubi[i] = mut_rnd(); }
+					update_ub( &pcd, &ub );
+					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
+
+				if( gc.mutate_flip ) {
+					gc.mutate_flip = false;
+					ui.cmd = 1;
+					ei.tick_loop = 1;
+					for(int i = 0; i < 48; i++) { pcd.ubi[i] = bit_flp( pcd.ubi[i], gc.mutate_flip_str ); }
+					update_ub( &pcd, &ub );
+					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
+
+				if( gc.mutate_backstep_retry ) {
+					gc.mutate_backstep_retry = false;
+					gc.mutate_backstep_idx--;
+					gc.mutate_backstep_last_value = gc.mutate_backstep_idx; }
+
+				if(ei.show_gui || ei.paused) {
 					guitime = start_timer(guitime);
 						ImGui_ImplVulkan_NewFrame();
 						ImGui_ImplGlfw_NewFrame();
 						ImGui::NewFrame();
 						imgui_menu( glfw_W, &ui, &ei, &gc );
-						//ImGui::ShowDemoWindow();
+					//	ImGui::ShowDemoWindow();	// TODO TODO
 						ImGui::Render();
 					end_timer(guitime, "IMGUI Build Time");
-
-					if(gc.load_pattern_confirm) {
-						gc.load_pattern_confirm = false;
-						loadPattern_PCD408_to_256( &ei, &pcd );
-						update_ub( &pcd, &ub );
-						if(gc.load_pattern_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
 
 					cmdtime = start_timer(cmdtime);
 						for(int i = 0; i < swap_image_count; i++) {
@@ -2488,7 +3273,9 @@ int main() {
 
 								rv("vkCmdBeginRenderPass");
 									vkCmdBeginRenderPass (
-										combuf_imgui_loop[i].vk_command_buffer, &vkrpbegininfo_imgui[i%swap_image_count], VK_SUBPASS_CONTENTS_INLINE );
+										combuf_imgui_loop[i].vk_command_buffer,
+										&vkrpbegininfo_imgui[i%swap_image_count],
+										VK_SUBPASS_CONTENTS_INLINE );
 
 									ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), combuf_imgui_loop[i].vk_command_buffer);
 
@@ -2507,14 +3294,33 @@ int main() {
 					end_timer(cmdtime, "Command Buffer Build Time"); } }
 
 		//	Update Uniform Buffer values
-			ub.v63 = frame_index;
-			ub.v60 = pack_ui_info(ui);
+		//		[62]	'Scale' value
+		//	if( gc.scale_update ) {
+		//		gc.scale_update = false;
+		//		memcpy(&pcd.ubi[62], &gc.scale_value, sizeof(uint32_t));
+		//		update_ub( &pcd, &ub );	}
+		//		[61]	'Zoom' value
+		//	if( gc.zoom_update ) {
+		//		gc.zoom_update = false;
+		//		memcpy(&pcd.ubi[61], &gc.zoom_value, sizeof(uint32_t));
+		//		update_ub( &pcd, &ub );	}
+		//		[60]	Mouse info & Command IDs
+			ub.v60 		= pack_ui_info(ui);
+		//		[59]	Views/Modes
+			vw.pmap		= gc.pmap_index;
+			vw.sdat		= (gc.mode_showdata) ? 1u : 0u;
+			ub.v59 		= pack_vw_info(vw);
+			pcd.ubi[59] = ub.v59;
+		//		[63]	Frame Index, Time-Seed
+			ft.frame 	= frame_index;
+			ub.v63		= pack_ft_info(ft);
 
 		//	Send UB values to GPU
 			rv("memcpy");
 				memcpy(pvoid_memmap_work, &ub, sizeof(ub));
 
     		optime = start_timer(optime);
+
 
 			if(!ei.paused || ei.tick_loop) {
 				if(valid) {
@@ -2536,12 +3342,12 @@ int main() {
 				//	Copy the "Work" Image to the "Swap" Image
 					rv("vkcombuf_pres");
 						swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
-					VkFence f = (ei.show_gui) ? VK_NULL_HANDLE : qsync.vk_fence;
-					swpsync.sub_info.pSignalSemaphores = (ei.show_gui) ? &vk_semaphore_swapchain_imgui : &vk_semaphore_swapchain_pres;
+					VkFence f = (ei.show_gui || ei.paused) ? VK_NULL_HANDLE : qsync.vk_fence;
+					swpsync.sub_info.pSignalSemaphores = (ei.show_gui || ei.paused) ? &vk_semaphore_swapchain_imgui : &vk_semaphore_swapchain_pres;
 					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
 						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, f) ); }
 
-				if(valid && ei.show_gui) {
+				if(valid && (ei.show_gui || ei.paused)) {
 				//	Add IMGUI interface
 					rv("vkcombuf_IMGUI");
 						swpsync_imgui.sub_info.pCommandBuffers = &combuf_imgui_loop[swap_image_index].vk_command_buffer;
@@ -2569,19 +3375,38 @@ int main() {
 
 			if(!ei.paused || ei.tick_loop) { frame_index++; }
 
-			if(valid && ei.export_enabled && ei.export_frequency > 0 && frame_index % ei.export_frequency == 0 && frame_index > 0) {
+			if((!ei.paused || ei.tick_loop)
+			&& 	valid
+			&&  ei.export_enabled
+			&&	ei.export_frequency > 0
+			&&	frame_index % ei.export_frequency == 0
+			&& 	frame_index > 0) {
 			//	Submit 'imagedata' commands to the GPU graphics queue
-				rv("combuf_work_imagedata");
-					qsync.sub_info.pCommandBuffers = &combuf_work_imagedata[frame_index%2].vk_command_buffer;
+				bool get_gui = false;
+				if(ei.run_headless || !gc.record_imgui || !ei.show_gui) {
+					rv("combuf_work_imagedata");
+						qsync.sub_info.pCommandBuffers = &combuf_work_imagedata[(frame_index+0)%2].vk_command_buffer; }
+				else {
+					get_gui = true;
+					rv("combuf_work_imagedata");
+						qsync.sub_info.pCommandBuffers = &combuf_blit_imgui_loop[swap_image_index].vk_command_buffer; }
 				vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
 					vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) );
-
-					optime = start_timer(optime);
-					if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
-					save_image(pvoid_imagedata_work, "IMG"+std::to_string(imgdat_idx), APP_W, APP_H );
-					if(frame_index >= verbose_loops) { loglevel = -1; }
-					end_timer(optime, "Save ImageData");
-					imgdat_idx++; }
+				vr("vkDeviceWaitIdle", &vkres, "IDLE",
+					vkDeviceWaitIdle(vob.VKL) );
+				optime = start_timer(optime);
+				if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
+				save_image(pvoid_blit_vk_image, "IMG"+std::to_string(ei.imgdat_idx), APP_W, APP_H, glfw_mouse, get_gui);
+				end_timer(optime, "Save ImageData");
+				if(frame_index >= verbose_loops) { loglevel = -1; }
+				ei.imgdat_idx++;
+				if( ei.export_batch_size  > 0
+				&&	ei.export_batch_left  > 0 ) { ei.export_batch_left--; }
+				if( !ei.run_headless
+				&&	ei.export_batch_size  > 0
+				&&	ei.export_batch_left == 0 ) {
+					ei.paused = true;
+					ei.export_batch_left =  ei.export_batch_size; } }
 
 		if(frame_index == verbose_loops) { loglevel = -1; } }
 
