@@ -5,6 +5,8 @@ Developed on `Xubuntu 20.04`
 
 ---
 
+[![Alt text](https://img.youtube.com/vi/MSINHosdRjU/0.jpg)](https://www.youtube.com/watch?v=MSINHosdRjU)
+
 Demo video: https://www.youtube.com/watch?v=MSINHosdRjU
 
 ---
