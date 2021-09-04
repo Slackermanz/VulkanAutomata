@@ -190,6 +190,15 @@ struct VK_Layer_1x2D {
 	VkDeviceMemory			vk_dev_mem;
 };
 
+struct VK_Buffer_1x2D {
+	VkBufferCreateInfo		buff_info;
+	VkBuffer				vk_buffer;
+	uint32_t				MTB_index;
+	VkMemoryRequirements	vk_mem_reqs;
+	VkMemoryAllocateInfo	vk_mem_allo_info;
+	VkDeviceMemory			vk_dev_mem;
+};
+
 struct VK_Layer_2x2D {
 	VkExtent3D				ext3D[2];
 	VkImageCreateInfo		img_info[2];
@@ -344,6 +353,19 @@ void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h, GLF
 		for(int i = -1*4; i < 1*4; i++) { buffer[(xoff+yoff+i+w*4*1+maxsize)%maxsize] = 0; 			}
 		file.write( (const char*)buffer, w*h*4 ); }
 	file.close(); }
+
+void save_sound(void* image_data, std::string fname, uint32_t w, uint32_t h, GLFW_mouse m, bool cursor = false) {
+		int maxsize = w*h*4;
+		char* buffer = new char[maxsize];
+		memcpy(buffer, image_data, maxsize);
+
+		for(int yoff = 0; yoff < h; yoff++) {
+			char* line = new char[w*4];
+			for(int xoff = 0; xoff < w*4; xoff++) { line[xoff] = buffer[(xoff+yoff-w*4*0+maxsize)%maxsize]; }
+			fname = "out/S" + std::to_string(yoff) + ".sound";
+			std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
+				file.write( (const char*)line, w*4 );
+			file.close(); } }
 
 struct NS_Timer {
 	std::chrono::_V2::system_clock::time_point st;
@@ -1101,7 +1123,7 @@ int main() {
 //			H:	8192 	4096  	2048	1024	512		256		128
 
 	const 	uint32_t 	APP_W 	=  1024;	//	Window & Simulation Width
-	const 	uint32_t 	APP_H 	=   512;	//	Window & Simulation Height
+	const 	uint32_t 	APP_H 	=  512;	//	Window & Simulation Height
 
 	EngineInfo ei;
 		ei.paused 				= false;				//	Pause Simulation
@@ -1527,9 +1549,8 @@ int main() {
 		blit.img_info.mipLevels 			= 1;
 		blit.img_info.arrayLayers 			= 1;
 		blit.img_info.samples 				= VK_SAMPLE_COUNT_1_BIT;
-		blit.img_info.tiling 				= VK_IMAGE_TILING_LINEAR;//VK_IMAGE_TILING_OPTIMAL;
-		blit.img_info.usage 				= VK_IMAGE_USAGE_TRANSFER_SRC_BIT
-											| VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+		blit.img_info.tiling 				= VK_IMAGE_TILING_OPTIMAL;
+		blit.img_info.usage 				= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 		blit.img_info.sharingMode 			= VK_SHARING_MODE_EXCLUSIVE;
 		blit.img_info.queueFamilyIndexCount = 0;
 		blit.img_info.pQueueFamilyIndices 	= NULL;
@@ -1548,7 +1569,7 @@ int main() {
 		blit.MTB_index = findProperties(
 			&pdev[vob.VKP_i].vk_pdev_mem_props,
 			blit.vk_mem_reqs.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
 
 		ov("memoryTypeIndex", blit.MTB_index);
 
@@ -1566,11 +1587,59 @@ int main() {
 
 
 	//	Map the memory location on the GPU to export image data
-		void* pvoid_blit_vk_image;
-		vr("vkMapMemory", &vkres, pvoid_blit_vk_image,
-			vkMapMemory(vob.VKL, blit.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit_vk_image) );
+//		void* pvoid_blit_vk_image;
+//		vr("vkMapMemory", &vkres, pvoid_blit_vk_image,
+//			vkMapMemory(vob.VKL, blit.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit_vk_image) );
 
 
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "BLIT EXPORT BUFFER");		/**/
+	///////////////////////////////////////////////////
+
+	VK_Buffer_1x2D blit2buff;
+
+		blit2buff.buff_info.sType 					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	nf(&blit2buff.buff_info);
+		blit2buff.buff_info.size 					= blit.vk_mem_reqs.size;
+		blit2buff.buff_info.usage 					= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		blit2buff.buff_info.sharingMode 			= VK_SHARING_MODE_EXCLUSIVE;
+		blit2buff.buff_info.queueFamilyIndexCount 	= 1;
+		blit2buff.buff_info.pQueueFamilyIndices 	= &vob.VKQ_i;
+
+		vr("vkCreateBuffer", &vkres, blit2buff.vk_buffer,
+			vkCreateBuffer(vob.VKL, &blit2buff.buff_info, NULL, &blit2buff.vk_buffer) );
+
+		VkMemoryRequirements vk_memory_requirements_blit2buff;
+
+		rv("vkGetBufferMemoryRequirements");
+			vkGetBufferMemoryRequirements(vob.VKL, blit2buff.vk_buffer, &blit2buff.vk_mem_reqs);
+
+			ov("blit2buff size", 			blit2buff.vk_mem_reqs.size);
+			ov("blit2buff alignment", 		blit2buff.vk_mem_reqs.alignment);
+			ov("blit2buff memoryTypeBits", 	blit2buff.vk_mem_reqs.memoryTypeBits);
+
+		blit2buff.MTB_index = findProperties(
+			&pdev[vob.VKP_i].vk_pdev_mem_props,
+			blit2buff.vk_mem_reqs.memoryTypeBits,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
+
+			ov("memoryTypeIndex", blit2buff.MTB_index);
+
+		blit2buff.vk_mem_allo_info.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		blit2buff.vk_mem_allo_info.pNext				= NULL;
+		blit2buff.vk_mem_allo_info.allocationSize		= blit2buff.vk_mem_reqs.size;
+		blit2buff.vk_mem_allo_info.memoryTypeIndex		= blit2buff.MTB_index;
+
+		vr("vkAllocateMemory", &vkres, blit2buff.vk_dev_mem,
+			vkAllocateMemory(vob.VKL, &blit2buff.vk_mem_allo_info, NULL, &blit2buff.vk_dev_mem) );
+
+		vr("vkBindBufferMemory", &vkres, blit2buff.vk_buffer,
+			vkBindBufferMemory(vob.VKL,  blit2buff.vk_buffer, blit2buff.vk_dev_mem, 0) );
+
+	//	Map the memory location on the GPU to export image data
+		void* pvoid_blit2buff;
+		vr("vkMapMemory", &vkres, pvoid_blit2buff,
+			vkMapMemory(vob.VKL, blit2buff.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff) );
 
 
 	  ///////////////////////////////////////////////////
@@ -1760,6 +1829,31 @@ int main() {
 	///////////////////////////////////////////////////
 
 	// Are all of these used? TODO
+
+	VK_Command combuf_blit2buff_sing[1];
+	for(int i = 0; i < 1; i++) {
+		combuf_blit2buff_sing[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		combuf_blit2buff_sing[i].pool_info.pNext							= NULL;
+		combuf_blit2buff_sing[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		combuf_blit2buff_sing[i].pool_info.queueFamilyIndex					= vob.VKQ_i;
+
+		vr("vkCreateCommandPool", &vkres, combuf_blit2buff_sing[i].vk_command_pool,
+			vkCreateCommandPool(vob.VKL, &combuf_blit2buff_sing[i].pool_info, NULL, &combuf_blit2buff_sing[i].vk_command_pool) );
+
+		combuf_blit2buff_sing[i].comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		combuf_blit2buff_sing[i].comm_buff_alloc_info.pNext					= NULL;
+		combuf_blit2buff_sing[i].comm_buff_alloc_info.commandPool			= combuf_blit2buff_sing[i].vk_command_pool;
+		combuf_blit2buff_sing[i].comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		combuf_blit2buff_sing[i].comm_buff_alloc_info.commandBufferCount	= 1;
+
+		vr("vkAllocateCommandBuffers", &vkres, combuf_blit2buff_sing[i].vk_command_buffer,
+			vkAllocateCommandBuffers(vob.VKL, &combuf_blit2buff_sing[i].comm_buff_alloc_info, &combuf_blit2buff_sing[i].vk_command_buffer) );
+
+		combuf_blit2buff_sing[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	nf(&combuf_blit2buff_sing[i].comm_buff_begin_info);
+		combuf_blit2buff_sing[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
+
+
 
 	VK_Command combuf_imgui_loop[swap_image_count];
 	for(int i = 0; i < swap_image_count; i++) {
@@ -2467,6 +2561,30 @@ int main() {
 
 	// Are all of these used? TODO
 
+	VkImageMemoryBarrier vk_IMB_blit_TSO_to_TDO;
+		vk_IMB_blit_TSO_to_TDO.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_blit_TSO_to_TDO.pNext 					= NULL;
+		vk_IMB_blit_TSO_to_TDO.srcAccessMask 			= 0;
+		vk_IMB_blit_TSO_to_TDO.dstAccessMask 			= 0;
+		vk_IMB_blit_TSO_to_TDO.oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		vk_IMB_blit_TSO_to_TDO.newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vk_IMB_blit_TSO_to_TDO.srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_blit_TSO_to_TDO.dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_blit_TSO_to_TDO.image 					= blit.vk_image;
+		vk_IMB_blit_TSO_to_TDO.subresourceRange 		= rpass_info.img_subres_range;
+
+	VkImageMemoryBarrier vk_IMB_blit_TDO_to_TSO;
+		vk_IMB_blit_TDO_to_TSO.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		vk_IMB_blit_TDO_to_TSO.pNext 					= NULL;
+		vk_IMB_blit_TDO_to_TSO.srcAccessMask 			= 0;
+		vk_IMB_blit_TDO_to_TSO.dstAccessMask 			= 0;
+		vk_IMB_blit_TDO_to_TSO.oldLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		vk_IMB_blit_TDO_to_TSO.newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		vk_IMB_blit_TDO_to_TSO.srcQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_blit_TDO_to_TSO.dstQueueFamilyIndex 		= vob.VKQ_i;
+		vk_IMB_blit_TDO_to_TSO.image 					= blit.vk_image;
+		vk_IMB_blit_TDO_to_TSO.subresourceRange 		= rpass_info.img_subres_range;
+
 	VkImageMemoryBarrier vk_IMB_blit_imagedata_UND_to_TDO;
 		vk_IMB_blit_imagedata_UND_to_TDO.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		vk_IMB_blit_imagedata_UND_to_TDO.pNext 					= NULL;
@@ -2700,6 +2818,37 @@ int main() {
 		vr("vkEndCommandBuffer", &vkres, i,
 			vkEndCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer) ); }
 
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "RECORD BLIT2BUFF");		/**/
+	///////////////////////////////////////////////////
+
+	for(int i = 0; i < 1; i++) {
+		vr("vkBeginCommandBuffer", &vkres, i,
+			vkBeginCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer, &combuf_blit2buff_sing[i].comm_buff_begin_info) );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_blit2buff_sing[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_blit_TDO_to_TSO );
+
+			rv("vkCmdCopyImageToBuffer");
+				vkCmdCopyImageToBuffer (
+					combuf_blit2buff_sing[i].vk_command_buffer, 
+					blit.vk_image, 				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					blit2buff.vk_buffer,
+					1, &rpass_info.buffer_img_cpy );
+
+			rv("vkCmdPipelineBarrier");
+				vkCmdPipelineBarrier (
+					combuf_blit2buff_sing[i].vk_command_buffer,
+					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+					0, NULL, 0, NULL,
+					1, &vk_IMB_blit_TSO_to_TDO );
+
+		vr("vkEndCommandBuffer", &vkres, i,
+			vkEndCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer) ); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD PRES INIT");		/**/
@@ -2978,10 +3127,10 @@ int main() {
 
 		gc.notification_float_value		= 0.0f;
 
-	memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
+	//memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
 		gc.scale_last_value				= 0.0f;
 
-	memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t));
+	//memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t));
 		gc.zoom_last_value				= 0.0f;
 
 	NS_Timer nottime;
@@ -2994,7 +3143,7 @@ int main() {
 
 //	Main Loop code
 	do {
-
+		bool do_ub_update = false;
 	//	Record loop start time
     	ftime = start_timer(ftime);
 
@@ -3063,7 +3212,8 @@ int main() {
 					&&	glfw_mouse.action == 1 ) {
 						glfw_mouse.action  				= 0;
 						gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
-						do_action(  9, &ui, &ei, &gc ); }
+						do_action(  9, &ui, &ei, &gc );
+						if( gc.glfw_mod_LSHIFT ) { gc.save_to_archive = true; } }
 
 				//	Mouse Forward
 					if(glfw_mouse.button == 3 && glfw_mouse.action == 1) {
@@ -3191,17 +3341,6 @@ int main() {
 					if( uint_notif_age < 1200000000 ) 	{ gc.notification_float_age = 1.0f - float(uint_notif_age) / float(1800000000); }
 					if( uint_notif_age > 2400000000 ) 	{ tog(&gc.show_notification_float); } }
 
-			//	Update special floats
-				//	[62]	'Scale' value
-				if( gc.scale_update ) {
-					gc.scale_update = false;
-					memcpy(&pcd.ubi[62], &gc.scale_value, sizeof(uint32_t));
-					update_ub( &pcd, &ub );	}
-				//	[61]	'Zoom' value
-				if( gc.zoom_update ) {
-					gc.zoom_update = false;
-					memcpy(&pcd.ubi[61], &gc.zoom_value, sizeof(uint32_t));
-					update_ub( &pcd, &ub );	}
 
 			//	Load random Archive pattern
 				if( gc.load_pattern_confirm ) {
@@ -3211,16 +3350,11 @@ int main() {
 					//	Depreicated patterns under 17000
 						ei.load_pattern = (rand()%(ei.PCD_count - 18080)) + 18080;	}
 					loadPattern_PCD408_to_256( &ei, &pcd );
-					update_ub( &pcd, &ub );
+					do_ub_update = true;
 					memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
-					memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t));
+					memcpy(&gc.zoom_value, &pcd.ubi[61], sizeof(uint32_t));
 					if(gc.load_pattern_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
 
-			//	Save current target to PCD256 Archive
-				if( gc.save_to_archive ) {
-					gc.save_to_archive = false;
-					save_PCD256("sav/PCD256_archive.vkpat", &pcd);
-					send_notif(1, &gc); }
 
 				if( gc.mutate_set_target ) {
 					gc.mutate_set_target = false;
@@ -3231,16 +3365,18 @@ int main() {
 					ui.cmd = 1;
 					ei.tick_loop = 1;
 					pcd = load_PCD256("sav/PCD256_global_all.vkpat", gc.mutate_backstep_idx);
-					update_ub( &pcd, &ub );
+					do_ub_update = true;
 					memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
-					memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t)); }
+					memcpy(&gc.zoom_value, &pcd.ubi[61], sizeof(uint32_t));
+					gc.scale_update = true;
+					gc.zoom_update = true; }
 
 				if( gc.mutate_full_random ) {
 					gc.mutate_full_random = false;
 					ui.cmd = 1;
 					ei.tick_loop = 1;
 					for(int i = 0; i < 48; i++) { pcd.ubi[i] = mut_rnd(); }
-					update_ub( &pcd, &ub );
+					do_ub_update = true;
 					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
 				if( gc.mutate_flip ) {
@@ -3248,13 +3384,31 @@ int main() {
 					ui.cmd = 1;
 					ei.tick_loop = 1;
 					for(int i = 0; i < 48; i++) { pcd.ubi[i] = bit_flp( pcd.ubi[i], gc.mutate_flip_str ); }
-					update_ub( &pcd, &ub );
+					do_ub_update = true;
 					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
 				if( gc.mutate_backstep_retry ) {
 					gc.mutate_backstep_retry = false;
 					gc.mutate_backstep_idx--;
 					gc.mutate_backstep_last_value = gc.mutate_backstep_idx; }
+
+			//	Update special floats
+				//	[62]	'Scale' value
+				if( gc.scale_update ) {
+					gc.scale_update = false;
+					memcpy(&pcd.ubi[62], &gc.scale_value, sizeof(uint32_t));
+					do_ub_update = true; }
+				//	[61]	'Zoom' value
+				if( gc.zoom_update ) {
+					gc.zoom_update = false;
+					memcpy(&pcd.ubi[61], &gc.zoom_value, sizeof(uint32_t));
+					do_ub_update = true;	}
+
+			//	Save current target to PCD256 Archive
+				if( gc.save_to_archive ) {
+					gc.save_to_archive = false;
+					save_PCD256("sav/PCD256_archive.vkpat", &pcd);
+					send_notif(1, &gc); }
 
 				if(ei.show_gui || ei.paused) {
 					guitime = start_timer(guitime);
@@ -3293,6 +3447,7 @@ int main() {
 								vkEndCommandBuffer(combuf_imgui_loop[i].vk_command_buffer) ); }
 					end_timer(cmdtime, "Command Buffer Build Time"); } }
 
+			if( do_ub_update ) { update_ub( &pcd, &ub ); }
 		//	Update Uniform Buffer values
 		//		[62]	'Scale' value
 		//	if( gc.scale_update ) {
@@ -3394,9 +3549,19 @@ int main() {
 					vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) );
 				vr("vkDeviceWaitIdle", &vkres, "IDLE",
 					vkDeviceWaitIdle(vob.VKL) );
+
+			//	TODO use own sync object?
+				rv("combuf_work_imagedata");
+					qsync.sub_info.pCommandBuffers = &combuf_blit2buff_sing[0].vk_command_buffer;
+				vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
+					vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) );
+				vr("vkDeviceWaitIdle", &vkres, "IDLE",
+					vkDeviceWaitIdle(vob.VKL) );
+				
+
 				optime = start_timer(optime);
 				if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
-				save_image(pvoid_blit_vk_image, "IMG"+std::to_string(ei.imgdat_idx), APP_W, APP_H, glfw_mouse, get_gui);
+				save_image(pvoid_blit2buff, "IMG"+std::to_string(ei.imgdat_idx), APP_W, APP_H, glfw_mouse, get_gui);
 				end_timer(optime, "Save ImageData");
 				if(frame_index >= verbose_loops) { loglevel = -1; }
 				ei.imgdat_idx++;
