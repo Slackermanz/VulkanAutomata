@@ -145,7 +145,7 @@ void rv(const std::string& id) {
 void nt(const std::string& id) {
 //	Return void output message
 	if(loglevel >= 2) {
-		std::cout << "\n  notf: \n" << id	<< "\n\n"; } }
+		std::cout << id	<< "\n"; } }
 
 void nf(auto *Vk_obj) {
 //	NullFlags shorthand
@@ -515,7 +515,7 @@ struct IMGUI_Config {
 	bool		record_imgui;
 	bool 		recording_config; };
 
-const char* notification_list[18] = {
+const char* notification_list[19] = {
 	"Welcome!",
 	"Saved to Archive (PCD256)",
 	"Target Updated\nScale & Zoom Discarded",
@@ -533,7 +533,8 @@ const char* notification_list[18] = {
 	"Circular Parameter Map",
 	"Scale",
 	"Frame-time Throttle enabled",
-	"Frame-time Throttle disabled"
+	"Frame-time Throttle disabled",
+	"Zoom"
 };
 
 void send_notif(int idx, IMGUI_Config *gc, bool clear = true) {
@@ -550,7 +551,10 @@ void send_notif_float(int idx, float f, IMGUI_Config *gc) {
 	gc->notification_float_value = f;
 	gc->show_notification_float	 = true;
 	gc->notification_float_timer = start_timer( gc->notification_float_timer );
-	send_notif(idx, gc, false); }
+	send_notif(idx, gc, false);
+	if(!verbose_loops) { loglevel = MAXLOG; }
+	nt(std::to_string(f));
+	if(!verbose_loops) { loglevel = -1; } }
 
 void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
@@ -743,6 +747,16 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 	if( idx == 34 ) {
 		ei->tick_loop	= 12;
 		ui->cmd 		= 4; }
+
+	if( idx == 35 ) {
+		gc->zoom_value		+= 0.005f + gc->zoom_value * 0.05f;
+		send_notif_float(18, gc->zoom_value, gc);
+		gc->zoom_update		 = true; }
+
+	if( idx == 36 ) {
+		gc->zoom_value		-= 0.005f + gc->zoom_value * 0.05f;
+		send_notif_float(18, gc->zoom_value, gc);
+		gc->zoom_update		 = true; }
 
 }
 
@@ -3133,11 +3147,11 @@ int main() {
 
 		gc.notification_float_value		= 0.0f;
 
-	//memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
-		gc.scale_last_value				= 0.0f;
+		memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
+		gc.scale_last_value				= gc.scale_value;
 
-	//memcpy(&gc.zoom_value,  &pcd.ubi[61], sizeof(uint32_t));
-		gc.zoom_last_value				= 0.0f;
+		memcpy(&gc.zoom_value, &pcd.ubi[61], sizeof(uint32_t));
+		gc.zoom_last_value				= gc.zoom_value;
 
 	NS_Timer nottime;
 		gc.notification_timer = nottime;
@@ -3220,6 +3234,16 @@ int main() {
 						gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
 						do_action(  9, &ui, &ei, &gc );
 						if( gc.glfw_mod_LSHIFT ) { gc.save_to_archive = true; } }
+
+				//	Mouse Wheel Up
+					if( glfw_mouse.yoffset == -1 ) {
+						glfw_mouse.yoffset  =  0;
+						do_action( 36, &ui, &ei, &gc ); }
+
+				//	Mouse Wheel Down
+					if( glfw_mouse.yoffset ==  1 ) {
+						glfw_mouse.yoffset  =  0;
+						do_action( 35, &ui, &ei, &gc ); }
 
 				//	Mouse Forward
 					if(glfw_mouse.button == 3 && glfw_mouse.action == 1) {
