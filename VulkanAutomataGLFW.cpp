@@ -12,11 +12,12 @@
 #include <thread>
 #include <cstring>
 
-const 	uint32_t 	VERT_FLS 	=  1;	//	Number of Vertex Shader Files
-const 	uint32_t 	FRAG_FLS 	=  1;	//	Number of Fragment Shader Files
-const	int 		MAXLOG 		=  2;
-		int 		loglevel	=  MAXLOG;
-		int 		valid 		=  1;
+const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
+const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
+const	int 		MAXLOG 			=  2;
+		int 		loglevel		=  MAXLOG;
+		int 		valid 			=  1;
+		uint32_t	verbose_loops 	= 12;	// How many loops to output full diagnostics
 
 //	Keyboard input handler
 struct GLFW_key {
@@ -140,6 +141,11 @@ void rv(const std::string& id) {
 //	Return void output message
 	if(loglevel >= 2) {
 		std::cout << "  void: \t" << id	<< "\n"; } }
+
+void nt(const std::string& id) {
+//	Return void output message
+	if(loglevel >= 2) {
+		std::cout << "\n  notf: \n" << id	<< "\n\n"; } }
 
 void nf(auto *Vk_obj) {
 //	NullFlags shorthand
@@ -402,7 +408,6 @@ struct EngineInfo {
 	int		 	export_batch_left;
 	int		 	export_batch_last;
 	bool 		export_enabled;
-	uint32_t 	verbose_loops;
 	uint32_t 	loglevel;
 	uint32_t 	tick_loop;
 	int 		load_pattern;
@@ -415,9 +420,9 @@ PatternConfigData_408 get_PCD_408(std::string loadfile, int idx, EngineInfo *ei)
 		int f_len = fload_pcd.tellg();
 		fload_pcd.seekg (( (idx + (f_len / sizeof(pcd))) % (f_len / sizeof(pcd))) * sizeof(pcd));
 		fload_pcd.read((char*)&pcd, sizeof(pcd));
-		std::cout << "\n\tPCD408 Data Count: " << idx << " / " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
 		ei->PCD_count = (f_len / sizeof(pcd));
 	fload_pcd.close();
+	std::cout << "\n\tPCD408 Data Count: " << idx << " / " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
 	return pcd; }
 
 struct PatternConfigData_256 {
@@ -536,6 +541,9 @@ void send_notif(int idx, IMGUI_Config *gc, bool clear = true) {
 	gc->notification_timer	= start_timer( gc->notification_timer );
 	gc->show_notification 	= true;
 	gc->notification_age 	= 1.0f;
+	if(!verbose_loops) { loglevel = MAXLOG; }
+	nt(notification_list[idx]);
+	if(!verbose_loops) { loglevel = -1; }
 	if(clear) { gc->show_notification_float = false; } }
 
 void send_notif_float(int idx, float f, IMGUI_Config *gc) {
@@ -1065,7 +1073,7 @@ std::string show_PCD256(PatternConfigData_256 *pcd) {
 	return out_string + "\n"; }
 
 void save_PCD256(std::string savefile, PatternConfigData_256 *pcd) {
-	std::cout << show_PCD256(pcd);
+	std::cout << "\nSAVE:" << show_PCD256(pcd);
 	FILE* f = fopen(savefile.c_str(), "a");
 	fwrite(pcd, sizeof(PatternConfigData_256), 1, f);
 	fclose(f); }
@@ -1079,7 +1087,7 @@ PatternConfigData_256 load_PCD256(std::string loadfile, int idx) {
 		fload_pcd256.read((char*)&pcd, sizeof(pcd));
 		std::cout << "\tLoad PCD256 Data Count: " << idx << " / " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
 	fload_pcd256.close();
-	std::cout << show_PCD256(&pcd);
+	std::cout << "\nLOAD:" << show_PCD256(&pcd);
 	return pcd; }
 
 /*void load_PCD256(PatternConfigData_256 *pcd) {
@@ -1135,7 +1143,6 @@ int main() {
 		ei.export_batch_left 	= ei.export_batch_size;	//	Frames remaining in batch
 		ei.export_batch_last 	= ei.export_batch_size;	//	For IMGUI handling
 		ei.export_enabled		= false;				//	Enables image exports to disk
-		ei.verbose_loops 		= 16;					//	Use verbose logging for n Main Loop iterations
 		ei.tick_loop 			= 0;					//	Run the main loop n times, ignoring pause state
 		ei.load_pattern 		= 18372;				//	Load this index from the pattern archive file
 
@@ -3047,7 +3054,6 @@ int main() {
 	uint32_t 	frame_index 	= 0;	// Loop Frame Index
 	uint32_t 	work_index 		= 0;	// Work Image Generation Frame Index
 //	uint32_t	imgdat_idx		= 0;	// Export Image Data Index
-	uint32_t	verbose_loops 	= 120;	// How many loops to output full diagnostics
 
 //	Timers
 	NS_Timer 	ftime;
@@ -3057,7 +3063,7 @@ int main() {
 	NS_Timer 	guitime;
 	NS_Timer 	cmdtime;
 	int  		current_sec		= time(0);
-	int  		fps_freq 		= 1;
+	int  		fps_freq 		= 4;
 	int  		fps_report 		= time(0) - fps_freq;
 
 
@@ -3560,10 +3566,10 @@ int main() {
 				
 
 				optime = start_timer(optime);
-				if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
+				if(!verbose_loops) { loglevel = MAXLOG; }
 				save_image(pvoid_blit2buff, "IMG"+std::to_string(ei.imgdat_idx), APP_W, APP_H, glfw_mouse, get_gui);
 				end_timer(optime, "Save ImageData");
-				if(frame_index >= verbose_loops) { loglevel = -1; }
+				if(!verbose_loops) { loglevel = -1; }
 				ei.imgdat_idx++;
 				if( ei.export_batch_size  > 0
 				&&	ei.export_batch_left  > 0 ) { ei.export_batch_left--; }
@@ -3573,21 +3579,21 @@ int main() {
 					ei.paused = true;
 					ei.export_batch_left =  ei.export_batch_size; } }
 
-		if(frame_index == verbose_loops) { loglevel = -1; } }
+		}
 
 	//	End of loop
 		if(fps_report == current_sec) {
 			fps_report--;
-			if(frame_index >= verbose_loops) { loglevel = MAXLOG; }
+			if(!verbose_loops) { loglevel = MAXLOG; }
 			end_timer(ftime, "Full Loop Time");
-			if(frame_index >= verbose_loops) { loglevel = -1; } }
+			if(!verbose_loops) { loglevel = -1; } }
 
-		if(frame_index < verbose_loops) { end_timer(ftime, "Full Loop Time"); }
+		if(verbose_loops) { end_timer(ftime, "Full Loop Time"); }
 
 		hd("STAGE:", "LOOP");
 
-		if(frame_index == verbose_loops) { loglevel = -1; }
 		if(ei.tick_loop > 0) { ei.tick_loop--; }
+		if(verbose_loops > 0) { verbose_loops--; } else { loglevel = -1; }
 
 	} while ( valid && ((!ei.run_headless && !glfwWindowShouldClose(glfw_W)) || ei.run_headless) );
 
