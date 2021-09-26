@@ -58,6 +58,25 @@ VK_Config new_vk_config(
 		vk_config.inst_info.ppEnabledExtensionNames		= ins_ext;
 	return vk_config; }
 
+VK_LogicalDevice new_vk_logical_device(
+	uint32_t						queueCreateInfoCount,
+	const VkDeviceQueueCreateInfo*	pQueueCreateInfos,
+	uint32_t						enabledExtensionCount,
+	const char* const*				ppEnabledExtensionNames,
+	const VkPhysicalDeviceFeatures* pEnabledFeatures ) {
+	VK_LogicalDevice vk_logical_device;
+		vk_logical_device.ld_info.sType 					= VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		vk_logical_device.ld_info.pNext 					= nullptr;
+		vk_logical_device.ld_info.flags 					= 0;
+		vk_logical_device.ld_info.queueCreateInfoCount 		= queueCreateInfoCount;
+		vk_logical_device.ld_info.pQueueCreateInfos 		= pQueueCreateInfos;
+		vk_logical_device.ld_info.enabledLayerCount 		= 0;
+		vk_logical_device.ld_info.ppEnabledLayerNames 		= nullptr;
+		vk_logical_device.ld_info.enabledExtensionCount 	= enabledExtensionCount;
+		vk_logical_device.ld_info.ppEnabledExtensionNames 	= ppEnabledExtensionNames;
+		vk_logical_device.ld_info.pEnabledFeatures 			= pEnabledFeatures;
+	return vk_logical_device; }
+
 	  /////////////////////////////
 	 //	FUNCTIONS
 	/////////////////////////////
@@ -128,5 +147,19 @@ void svk_enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice
 	for(int i = 0; i < vk_physical_device->qf_count; i++) {
 		vk_queue_family[i].qf_index = i;
 		vk_queue_family[i].qf_props	= vk_qf_list[i]; } }
+
+void svk_create_logical_device( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device ) {
+	ov("vkCreateDevice", &vk_logical_device->ld,
+		vkCreateDevice( vk_physical_device->pd, &vk_logical_device->ld_info, nullptr, &vk_logical_device->ld ) ); }
+
+void svk_destroy_logical_device( VK_LogicalDevice *vk_logical_device ) {
+	rv("vkDestroyDevice");
+		vkDestroyDevice( vk_logical_device->ld, nullptr ); }
+
+
+
+
+
+
 
 

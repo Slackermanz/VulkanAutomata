@@ -23,16 +23,24 @@
 		uint32_t			pd_index; };
 
 	struct VK_PhysicalDevice {
-		uint32_t 							 pd_index;
-		VkPhysicalDevice 					 pd;
-		VkPhysicalDeviceProperties			 pd_props;
-		VkPhysicalDeviceFeatures			 pd_feats;
-		VkPhysicalDeviceMemoryProperties	 pd_memos;
-		uint32_t 							 qf_count; };
+		uint32_t 							pd_index;
+		VkPhysicalDevice 					pd;
+		VkPhysicalDeviceProperties			pd_props;
+		VkPhysicalDeviceFeatures			pd_feats;
+		VkPhysicalDeviceMemoryProperties	pd_memos;
+		uint32_t 							qf_count; };
 
 	struct VK_QueueFamily {
-		uint32_t 							 qf_index;
-		VkQueueFamilyProperties				 qf_props; };
+		uint32_t 							qf_index;
+		VkQueueFamilyProperties				qf_props; };
+
+	struct VK_QueueList {
+		uint32_t 							qf_index;
+		uint32_t							queue_max_threads; };
+
+	struct VK_LogicalDevice {
+		VkDeviceCreateInfo	ld_info;
+		VkDevice			ld; };
 
 	  /////////////////////////////
 	 //	INITS
@@ -47,6 +55,13 @@
 
 	VK_DebugUtils new_vk_debug_utils();
 
+	VK_LogicalDevice new_vk_logical_device(
+		uint32_t						queueCreateInfoCount,
+		const VkDeviceQueueCreateInfo*	pQueueCreateInfos,
+		uint32_t						enabledExtensionCount,
+		const char* const*				ppEnabledExtensionNames,
+		const VkPhysicalDeviceFeatures* pEnabledFeatures );
+
 	  /////////////////////////////
 	 //	FUNCTIONS
 	/////////////////////////////
@@ -59,5 +74,7 @@
 	void svk_enum_physical_devices	( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
 	void svk_find_physical_device	( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
 	void svk_enum_queue_families	( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
+	void svk_create_logical_device	( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device );
+	void svk_destroy_logical_device	( VK_LogicalDevice *vk_logical_device );
 
 #endif
