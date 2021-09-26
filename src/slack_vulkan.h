@@ -20,21 +20,23 @@
 		VkInstance 			vi;
 		VK_DebugUtils		vk_dbutl;
 		uint32_t			pd_count;
-		uint32_t			pd_index;
-		VkPhysicalDevice	pd; };
+		uint32_t			pd_index; };
 
 	struct VK_PhysicalDevice {
-		uint32_t 							pd_index;
-		VkPhysicalDevice 					pd;
-		VkPhysicalDeviceProperties			pd_props;
-		VkPhysicalDeviceFeatures			pd_feats;
-		VkPhysicalDeviceMemoryProperties	pd_memos; };
+		uint32_t 							 pd_index;
+		VkPhysicalDevice 					 pd;
+		VkPhysicalDeviceProperties			 pd_props;
+		VkPhysicalDeviceFeatures			 pd_feats;
+		VkPhysicalDeviceMemoryProperties	 pd_memos;
+		uint32_t 							 qf_count; };
+
+	struct VK_QueueFamily {
+		uint32_t 							 qf_index;
+		VkQueueFamilyProperties				 qf_props; };
 
 	  /////////////////////////////
 	 //	INITS
 	/////////////////////////////
-
-	VK_Context new_vk_context();
 
 	VK_Config new_vk_config(
 		const char* 		appname 	= "ApplicationName",
@@ -56,5 +58,6 @@
 	void svk_count_physical_devices	( VK_Context *vk_context );
 	void svk_enum_physical_devices	( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
 	void svk_find_physical_device	( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
+	void svk_enum_queue_families	( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
 
 #endif

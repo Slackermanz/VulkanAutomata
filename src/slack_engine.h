@@ -3,9 +3,11 @@
 
 	#include "slack_vulkan.h"
 
-	VK_Context 			engine_vulkan_init( const char *app_name = "EngineName" );
-	void 				show_pd_info( VK_Context *vk_context, VK_PhysicalDevice *vk_physical_devices, uint32_t idx = UINT32_MAX );
-	VK_PhysicalDevice 	engine_vulkan_get_physical_device( VK_Context *vk_context );
-	void 				engine_vulkan_close_context( VK_Context *vk_context );
+	void 				show_pd_info( VK_PhysicalDevice *vk_physical_device, uint32_t idx = UINT32_MAX );
+	void 				show_qf_info( VK_PhysicalDevice *vk_physical_device, VK_QueueFamily *vk_queue_families );
+	void 				engine_vulkan_context_init( VK_Context *vk_context, const char *app_name = "EngineName" );
+	void 				engine_vulkan_context_exit( VK_Context *vk_context );
+	void 				engine_vulkan_get_physical_device( VK_Context *vk_context, VK_PhysicalDevice *vk_physical_devices );
+	void 				engine_vulkan_get_queue_families( VK_PhysicalDevice *vk_physical_device, VK_QueueFamily *vk_queue_families );
 
 #endif

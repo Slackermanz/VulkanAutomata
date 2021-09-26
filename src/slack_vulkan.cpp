@@ -15,6 +15,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_utils_callback(
 	ov( msg );
 	return VK_FALSE; }
 
+	  /////////////////////////////
+	 //	INITS
+	/////////////////////////////
+
 VK_DebugUtils new_vk_debug_utils() {
 	VK_DebugUtils vk_debug_utils;
 		vk_debug_utils.vk_debug_utils_info.sType 			= VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -29,15 +33,6 @@ VK_DebugUtils new_vk_debug_utils() {
 		vk_debug_utils.vk_debug_utils_info.pfnUserCallback 	= vk_debug_utils_callback;
 		vk_debug_utils.vk_debug_utils_info.pUserData 		= nullptr;
 	return vk_debug_utils; }
-
-VK_Context new_vk_context() {
-	VK_Context vk_context;
-		vk_context.vi 		= nullptr;
-		vk_context.vk_dbutl	= new_vk_debug_utils();
-		vk_context.pd_count = 0;
-		vk_context.pd_index = UINT32_MAX;
-		vk_context.pd 		= nullptr;
-	return vk_context; }
 
 VK_Config new_vk_config(
 	const char* 		appname,
@@ -62,6 +57,10 @@ VK_Config new_vk_config(
 		vk_config.inst_info.enabledExtensionCount 		= ins_cnt;
 		vk_config.inst_info.ppEnabledExtensionNames		= ins_ext;
 	return vk_config; }
+
+	  /////////////////////////////
+	 //	FUNCTIONS
+	/////////////////////////////
 
 void svk_create_instance( VK_Config *vk_config, VK_Context *vk_context ) {
 	ov("vkCreateInstance", vk_context->vi,
@@ -97,14 +96,17 @@ void svk_enum_physical_devices( VK_PhysicalDevice *vk_physical_device, VK_Contex
 	ov("vkEnumeratePhysicalDevices", &vk_pd_list,
 		vkEnumeratePhysicalDevices( vk_context->vi, &vk_context->pd_count, vk_pd_list ) );
 	for(int i = 0; i < vk_context->pd_count; i++) {
+		ov("Physical Device", i);
 		vk_physical_device[i].pd_index 	= i;
 		vk_physical_device[i].pd 		= vk_pd_list[i];
 		rv("vkGetPhysicalDeviceProperties", i);
-			vkGetPhysicalDeviceProperties		( vk_physical_device[i].pd, &vk_physical_device[i].pd_props );
+			vkGetPhysicalDeviceProperties				( vk_physical_device[i].pd, &vk_physical_device[i].pd_props );
 		rv("vkGetPhysicalDeviceFeatures", i);
-			vkGetPhysicalDeviceFeatures			( vk_physical_device[i].pd, &vk_physical_device[i].pd_feats );
+			vkGetPhysicalDeviceFeatures					( vk_physical_device[i].pd, &vk_physical_device[i].pd_feats );
 		rv("vkGetPhysicalDeviceMemoryProperties", i);
-			vkGetPhysicalDeviceMemoryProperties	( vk_physical_device[i].pd, &vk_physical_device[i].pd_memos ); } }
+			vkGetPhysicalDeviceMemoryProperties			( vk_physical_device[i].pd, &vk_physical_device[i].pd_memos );
+		rv("vkGetPhysicalDeviceQueueFamilyProperties", i);
+			vkGetPhysicalDeviceQueueFamilyProperties	( vk_physical_device[i].pd, &vk_physical_device[i].qf_count, nullptr ); } }
 
 void svk_find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
 				vk_context->pd_index 	= UINT32_MAX;
@@ -118,5 +120,13 @@ void svk_find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Context
 	if( vk_context->pd_index != UINT32_MAX ) {
 		ov("Type", 	vk_physical_device[vk_context->pd_index].pd_props.deviceType );
 		ov("Index", vk_context->pd_index 										 ); } }
+
+void svk_enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device ) {
+	VkQueueFamilyProperties vk_qf_list[vk_physical_device->qf_count];
+	rv("vkGetPhysicalDeviceQueueFamilyProperties");
+		vkGetPhysicalDeviceQueueFamilyProperties( vk_physical_device->pd, &vk_physical_device->qf_count, vk_qf_list );
+	for(int i = 0; i < vk_physical_device->qf_count; i++) {
+		vk_queue_family[i].qf_index = i;
+		vk_queue_family[i].qf_props	= vk_qf_list[i]; } }
 
 

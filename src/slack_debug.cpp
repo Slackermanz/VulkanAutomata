@@ -4,13 +4,13 @@ void ol( std::string msg ) { std::cout << msg << "\n"; }
 void oh( std::string msg ) { ol("____________________________________________________________\n " + msg ); }
 
 void ov( std::string msg, std::string val, int idx ) {
-	std::string hed 	= "    info:   ";
+	std::string hed 	= "    ";
 	std::string pad 	= " ";
 	std::string sid		= " ";
-	int 		pads	= 12;
+	int 		pads	= 14;
 	if( idx != 2147483647 ) {
 		sid = " " + std::to_string(idx) + " ";
-		for(int i = 0; i < 13-sid.size(); i++) { sid = " " + sid; }	}
+		for(int i = 0; i < (pads+1)-sid.size(); i++) { sid = " " + sid; }	}
 	int 		padsize = (pads*4 - msg.size() - sid.size()) - 1;
 	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
 	ol(hed + msg + pad + sid + "[" + val + "]" ); }
