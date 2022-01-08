@@ -1,0 +1,7 @@
+#version 460
+
+const int WG_SIZE = 32;
+
+layout(local_size_x = WG_SIZE, local_size_y = WG_SIZE) in;
+
+void main() { }

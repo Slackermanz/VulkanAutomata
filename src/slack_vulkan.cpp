@@ -19,7 +19,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_utils_callback(
 	 //	INITS
 	/////////////////////////////
 
-VK_DebugUtils new_vk_debug_utils() {
+svk::VK_DebugUtils svk::new_vk_debug_utils() {
 	VK_DebugUtils vk_debug_utils;
 		vk_debug_utils.vk_debug_utils_info.sType 			= VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 		vk_debug_utils.vk_debug_utils_info.pNext 			= nullptr;
@@ -34,7 +34,7 @@ VK_DebugUtils new_vk_debug_utils() {
 		vk_debug_utils.vk_debug_utils_info.pUserData 		= nullptr;
 	return vk_debug_utils; }
 
-VK_Config new_vk_config(
+svk::VK_Config svk::new_vk_config(
 	const char* 		appname,
 	uint32_t			lay_cnt,
 	const char* const* 	lay_ext,
@@ -58,7 +58,7 @@ VK_Config new_vk_config(
 		vk_config.inst_info.ppEnabledExtensionNames		= ins_ext;
 	return vk_config; }
 
-VK_LogicalDevice new_vk_logical_device(
+svk::VK_LogicalDevice svk::new_vk_logical_device(
 	uint32_t						queueCreateInfoCount,
 	const VkDeviceQueueCreateInfo*	pQueueCreateInfos,
 	uint32_t						enabledExtensionCount,
@@ -77,7 +77,7 @@ VK_LogicalDevice new_vk_logical_device(
 		vk_logical_device.ld_info.pEnabledFeatures 			= pEnabledFeatures;
 	return vk_logical_device; }
 
-VK_CommandPool new_vk_command_pool(
+svk::VK_CommandPool svk::new_vk_command_pool(
 	uint32_t					qf_index,
 	VkCommandPoolCreateFlags	flags ) {
 	VK_CommandPool vk_command_pool;
@@ -87,7 +87,7 @@ VK_CommandPool new_vk_command_pool(
 		vk_command_pool.cp_info.queueFamilyIndex 	= qf_index;
 	return vk_command_pool; }
 
-/*VK_Command new_vk_command(
+/*svk::VK_Command svk::new_vk_command(
 		uint32_t						qf_index,
 		VkCommandPool 					pool,
 		VkPipelineBindPoint 			bind_type ) {
@@ -109,15 +109,15 @@ VK_CommandPool new_vk_command_pool(
 	 //	FUNCTIONS
 	/////////////////////////////
 
-void svk_create_instance( VK_Config *vk_config, VK_Context *vk_context ) {
+void svk::create_instance( VK_Config *vk_config, VK_Context *vk_context ) {
 	ov("vkCreateInstance", vk_context->vi,
 		vkCreateInstance( &vk_config->inst_info, nullptr, &vk_context->vi ) ); }
 
-void svk_destroy_instance( VK_Context *vk_context ) {
+void svk::destroy_instance( VK_Context *vk_context ) {
 	rv("vkDestroyInstance");
 		vkDestroyInstance( vk_context->vi, nullptr ); }
 
-void svk_create_debug_utils( VK_Context *vk_context ) {
+void svk::create_debug_utils( VK_Context *vk_context ) {
 	PFN_vkCreateDebugUtilsMessengerEXT vkCreateDebugUtilsMessengerEXT_pfn
 	=	reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>( 
 			vkGetInstanceProcAddr( vk_context->vi, "vkCreateDebugUtilsMessengerEXT" ) );
@@ -127,18 +127,18 @@ void svk_create_debug_utils( VK_Context *vk_context ) {
 			nullptr,
 			&vk_context->vk_dbutl.vk_debug_utils_messenger ) ); }
 
-void svk_destroy_debug_utils( VK_Context *vk_context ) {
+void svk::destroy_debug_utils( VK_Context *vk_context ) {
 	PFN_vkDestroyDebugUtilsMessengerEXT vkDestroyDebugUtilsMessengerEXT_pfn
 	=	reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>( 
 			vkGetInstanceProcAddr( vk_context->vi, "vkDestroyDebugUtilsMessengerEXT" ) );
 	rv("vkDestroyDebugUtilsMessengerEXT_pfn");
 		vkDestroyDebugUtilsMessengerEXT_pfn( vk_context->vi, vk_context->vk_dbutl.vk_debug_utils_messenger, nullptr ); }
 
-void svk_count_physical_devices( VK_Context *vk_context ) {
+void svk::count_physical_devices( VK_Context *vk_context ) {
 	ov("vkEnumeratePhysicalDevices", vk_context->pd_count,
 		vkEnumeratePhysicalDevices( vk_context->vi, &vk_context->pd_count, nullptr ) ); }
 
-void svk_enum_physical_devices( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
+void svk::enum_physical_devices( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
 	VkPhysicalDevice vk_pd_list[vk_context->pd_count];
 	ov("vkEnumeratePhysicalDevices", &vk_pd_list,
 		vkEnumeratePhysicalDevices( vk_context->vi, &vk_context->pd_count, vk_pd_list ) );
@@ -155,7 +155,7 @@ void svk_enum_physical_devices( VK_PhysicalDevice *vk_physical_device, VK_Contex
 		rv("vkGetPhysicalDeviceQueueFamilyProperties", i);
 			vkGetPhysicalDeviceQueueFamilyProperties	( vk_physical_device[i].pd, &vk_physical_device[i].qf_count, nullptr ); } }
 
-void svk_find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
+void svk::find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
 				vk_context->pd_index 	= UINT32_MAX;
 	uint32_t 	pd_type_list[5] 		= { 2, 1, 3, 4, 0 };
 	for(int i = 0; i < 5; i++) {
@@ -168,7 +168,7 @@ void svk_find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Context
 		ov("Type", 	vk_physical_device[vk_context->pd_index].pd_props.deviceType );
 		ov("Index", vk_context->pd_index 										 ); } }
 
-void svk_enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device ) {
+void svk::enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device ) {
 	VkQueueFamilyProperties vk_qf_list[vk_physical_device->qf_count];
 	rv("vkGetPhysicalDeviceQueueFamilyProperties");
 		vkGetPhysicalDeviceQueueFamilyProperties( vk_physical_device->pd, &vk_physical_device->qf_count, vk_qf_list );
@@ -176,23 +176,23 @@ void svk_enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice
 		vk_queue_family[i].qf_index = i;
 		vk_queue_family[i].qf_props	= vk_qf_list[i]; } }
 
-void svk_create_logical_device( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device ) {
+void svk::create_logical_device( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device ) {
 	ov("vkCreateDevice", &vk_logical_device->ld,
 		vkCreateDevice( vk_physical_device->pd, &vk_logical_device->ld_info, nullptr, &vk_logical_device->ld ) ); }
 
-void svk_destroy_logical_device( VK_LogicalDevice *vk_logical_device ) {
+void svk::destroy_logical_device( VK_LogicalDevice *vk_logical_device ) {
 	rv("vkDestroyDevice");
 		vkDestroyDevice( vk_logical_device->ld, nullptr ); }
 
-void svk_create_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
+void svk::create_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
 	ov("vkCreateCommandPool", &vk_command_pool->cp,
 		vkCreateCommandPool( vk_logical_device->ld, &vk_command_pool->cp_info, nullptr, &vk_command_pool->cp ) ); }
 
-void svk_destroy_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
+void svk::destroy_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
 	rv("vkDestroyCommandPool");
 		vkDestroyCommandPool( vk_logical_device->ld, vk_command_pool->cp, nullptr ); }
 
-/*void svk_allocate_command_buffer( VK_LogicalDevice *vk_logical_device, VK_Command *vk_command ) {
+/*void svk::allocate_command_buffer( VK_LogicalDevice *vk_logical_device, VK_Command *vk_command ) {
 	ov("vkAllocateCommandBuffers", &vk_command->cmd,
 		vkAllocateCommandBuffers( vk_logical_device->ld, &vk_command->cmd_info, &vk_command->cmd ) ); }*/
 
