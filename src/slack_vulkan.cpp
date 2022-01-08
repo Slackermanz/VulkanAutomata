@@ -77,6 +77,34 @@ VK_LogicalDevice new_vk_logical_device(
 		vk_logical_device.ld_info.pEnabledFeatures 			= pEnabledFeatures;
 	return vk_logical_device; }
 
+VK_CommandPool new_vk_command_pool(
+	uint32_t					qf_index,
+	VkCommandPoolCreateFlags	flags ) {
+	VK_CommandPool vk_command_pool;
+		vk_command_pool.cp_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		vk_command_pool.cp_info.pNext 				= nullptr;
+		vk_command_pool.cp_info.flags 				= flags;
+		vk_command_pool.cp_info.queueFamilyIndex 	= qf_index;
+	return vk_command_pool; }
+
+/*VK_Command new_vk_command(
+		uint32_t						qf_index,
+		VkCommandPool 					pool,
+		VkPipelineBindPoint 			bind_type ) {
+	VK_Command vk_command;
+		vk_command.qf_index 					= qf_index;
+		vk_command.bind_type 					= bind_type;
+		vk_command.cmd_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		vk_command.cmd_info.pNext 				= nullptr;
+		vk_command.cmd_info.commandPool 		= pool;
+		vk_command.cmd_info.level 				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		vk_command.cmd_info.commandBufferCount 	= 1;
+		vk_command.begin_info.sType 			= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		vk_command.begin_info.pNext 			= nullptr;
+		vk_command.begin_info.flags 			= 0;
+		vk_command.begin_info.pInheritanceInfo 	= nullptr;
+	return vk_command; }*/
+
 	  /////////////////////////////
 	 //	FUNCTIONS
 	/////////////////////////////
@@ -156,6 +184,17 @@ void svk_destroy_logical_device( VK_LogicalDevice *vk_logical_device ) {
 	rv("vkDestroyDevice");
 		vkDestroyDevice( vk_logical_device->ld, nullptr ); }
 
+void svk_create_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
+	ov("vkCreateCommandPool", &vk_command_pool->cp,
+		vkCreateCommandPool( vk_logical_device->ld, &vk_command_pool->cp_info, nullptr, &vk_command_pool->cp ) ); }
+
+void svk_destroy_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
+	rv("vkDestroyCommandPool");
+		vkDestroyCommandPool( vk_logical_device->ld, vk_command_pool->cp, nullptr ); }
+
+/*void svk_allocate_command_buffer( VK_LogicalDevice *vk_logical_device, VK_Command *vk_command ) {
+	ov("vkAllocateCommandBuffers", &vk_command->cmd,
+		vkAllocateCommandBuffers( vk_logical_device->ld, &vk_command->cmd_info, &vk_command->cmd ) ); }*/
 
 
 

@@ -13,14 +13,14 @@
 		VkDebugUtilsMessengerEXT			vk_debug_utils_messenger; };
 
 	struct VK_Config {
-		VkApplicationInfo 		app_info;
-		VkInstanceCreateInfo	inst_info; };
+		VkApplicationInfo 					app_info;
+		VkInstanceCreateInfo				inst_info; };
 
 	struct VK_Context {
-		VkInstance 			vi;
-		VK_DebugUtils		vk_dbutl;
-		uint32_t			pd_count;
-		uint32_t			pd_index; };
+		VkInstance 							vi;
+		VK_DebugUtils						vk_dbutl;
+		uint32_t							pd_count;
+		uint32_t							pd_index; };
 
 	struct VK_PhysicalDevice {
 		uint32_t 							pd_index;
@@ -34,13 +34,24 @@
 		uint32_t 							qf_index;
 		VkQueueFamilyProperties				qf_props; };
 
-	struct VK_QueueList {
-		uint32_t 							qf_index;
-		uint32_t							queue_max_threads; };
+	struct VK_DeviceQueueInfo {
+		uint32_t 							queueFamilyIndex;
+		uint32_t							queueCount; };
 
 	struct VK_LogicalDevice {
-		VkDeviceCreateInfo	ld_info;
-		VkDevice			ld; };
+		VkDeviceCreateInfo					ld_info;
+		VkDevice							ld; };
+
+	struct VK_CommandPool {
+		VkCommandPoolCreateInfo				cp_info;
+		VkCommandPool						cp; };
+
+/*	struct VK_Command {
+		uint32_t 							qf_index;
+		VkCommandBufferAllocateInfo			cmd_info;
+		VkPipelineBindPoint					bind_type;
+		VkCommandBufferBeginInfo			begin_info;
+		VkCommandBuffer						cmd; };*/
 
 	  /////////////////////////////
 	 //	INITS
@@ -62,19 +73,31 @@
 		const char* const*				ppEnabledExtensionNames,
 		const VkPhysicalDeviceFeatures* pEnabledFeatures );
 
+	VK_CommandPool new_vk_command_pool(
+		uint32_t						qf_index,
+		VkCommandPoolCreateFlags		flags = 0 );
+
+/*	VK_Command new_vk_command(
+		uint32_t						qf_index,
+		VkCommandPool 					pool,
+		VkPipelineBindPoint 			bind_type );*/
+
 	  /////////////////////////////
 	 //	FUNCTIONS
 	/////////////////////////////
 
-	void svk_create_instance		( VK_Config *vk_config, VK_Context *vk_context );
-	void svk_destroy_instance		( VK_Context *vk_context );
-	void svk_create_debug_utils		( VK_Context *vk_context );
-	void svk_destroy_debug_utils	( VK_Context *vk_context );
-	void svk_count_physical_devices	( VK_Context *vk_context );
-	void svk_enum_physical_devices	( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
-	void svk_find_physical_device	( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
-	void svk_enum_queue_families	( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
-	void svk_create_logical_device	( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device );
-	void svk_destroy_logical_device	( VK_LogicalDevice *vk_logical_device );
+	void svk_create_instance			( VK_Config *vk_config, VK_Context *vk_context );
+	void svk_destroy_instance			( VK_Context *vk_context );
+	void svk_create_debug_utils			( VK_Context *vk_context );
+	void svk_destroy_debug_utils		( VK_Context *vk_context );
+	void svk_count_physical_devices		( VK_Context *vk_context );
+	void svk_enum_physical_devices		( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
+	void svk_find_physical_device		( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
+	void svk_enum_queue_families		( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
+	void svk_create_logical_device		( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device );
+	void svk_destroy_logical_device		( VK_LogicalDevice *vk_logical_device );
+	void svk_create_command_pool		( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
+	void svk_destroy_command_pool		( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
+//	void svk_allocate_command_buffer	( VK_LogicalDevice *vk_logical_device, VK_Command *vk_command );
 
 #endif

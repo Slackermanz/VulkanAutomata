@@ -1,0 +1,44 @@
+#version 460
+
+const int WG_SIZE = 32;
+
+layout(local_size_x = WG_SIZE, local_size_y = WG_SIZE) in;
+
+//layout(set = 0, binding = 0) uniform sampler2D img_in;
+layout(set = 0, binding = 0, r8) uniform image2D img_in;
+layout(set = 0, binding = 1, r8) uniform image2D img_out;
+layout(set = 0, binding = 2, r8) uniform image3D kernel;
+
+//vec4 nb_samp( ivec2 of ) {
+//	return texelFetch( img_in, ( ivec2(gl_GlobalInvocationID.xy) + of + ivec2(textureSize(img_in,0)) ) & ( ivec2(textureSize(img_in,0)) - 1 ), 0 ); }
+
+//vec4 nb_load( ivec2 of ) {
+//	return imageLoad( img_in, ( ivec2(gl_GlobalInvocationID.xy) + of + ivec2(512,512) ) & ( ivec2(512,512) - 1 ) ); }
+//	return vec4(1.0,0.8,0.5,0.2); }
+//	float a = ((of[0]+1)+((of[1]+1)*3.0))/9.0;
+//	if(a <= 1.0 / 9.0) {
+//		uint gi1d = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * 512u;
+//		a = (float(gi1d) / 512.0);// }
+//	return vec4(a,1.0,1.0,1.0); }
+
+vec4 nb_load( ivec2 of ) {
+	return imageLoad( img_in, ( ivec2(gl_GlobalInvocationID.xy) + of + ivec2(512,512) ) & ( ivec2(512,512) - 1 ) ); }
+
+
+void main() {
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), nb_load(ivec2(0,0)) );
+
+//	uint gi1d = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * 512u;
+//	uint gi1d = 2u;
+
+//	for(int i = -1; i < 2; i++) {
+//		for(int j = -1; j < 2; j++) {
+//			imageStore( kernel, ivec3(i+1, j+1, gi1d), nb_load(ivec2(i,j)) ); } }
+
+//	imageStore( kernel, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, 0), vec4(1.0,0.0,0.0,0.0) );
+
+	for(int i = -1; i < 2; i++) {
+		for(int j = -1; j < 2; j++) {
+			imageStore( kernel, ivec3(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, (i+1)+(j+1)*3), nb_load(ivec2(i,j)) ); } }
+
+}
