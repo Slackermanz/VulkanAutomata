@@ -1,4 +1,5 @@
 #include "slack_vulkan.h"
+#include <vector>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL vk_debug_utils_callback(
 			VkDebugUtilsMessageSeverityFlagBitsEXT	messageSeverity, 
@@ -121,9 +122,9 @@ void svk::count_physical_devices( VK_Context *vk_context ) {
 		vkEnumeratePhysicalDevices( vk_context->vi, &vk_context->pd_count, nullptr ) ); }
 
 void svk::enum_physical_devices( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
-	VkPhysicalDevice vk_pd_list[vk_context->pd_count];
+	std::vector<VkPhysicalDevice> vk_pd_list(vk_context->pd_count);
 	ov("vkEnumeratePhysicalDevices", &vk_pd_list,
-		vkEnumeratePhysicalDevices( vk_context->vi, &vk_context->pd_count, vk_pd_list ) );
+		vkEnumeratePhysicalDevices( vk_context->vi, &vk_context->pd_count, vk_pd_list.data() ) );
 	for(int i = 0; i < vk_context->pd_count; i++) {
 		ov("Physical Device", i);
 		vk_physical_device[i].pd_index 	= i;
@@ -151,9 +152,9 @@ void svk::find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Contex
 		ov("Index", vk_context->pd_index 										 ); } }
 
 void svk::enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device ) {
-	VkQueueFamilyProperties vk_qf_list[vk_physical_device->qf_count];
+	std::vector<VkQueueFamilyProperties> vk_qf_list(vk_physical_device->qf_count);
 	rv("vkGetPhysicalDeviceQueueFamilyProperties");
-		vkGetPhysicalDeviceQueueFamilyProperties( vk_physical_device->pd, &vk_physical_device->qf_count, vk_qf_list );
+		vkGetPhysicalDeviceQueueFamilyProperties( vk_physical_device->pd, &vk_physical_device->qf_count, vk_qf_list.data() );
 	for(int i = 0; i < vk_physical_device->qf_count; i++) {
 		vk_queue_family[i].qf_index = i;
 		vk_queue_family[i].qf_props	= vk_qf_list[i]; } }

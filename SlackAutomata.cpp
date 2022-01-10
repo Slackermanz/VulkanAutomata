@@ -1,4 +1,5 @@
 #include "src/slack_engine.h"
+#include <vector>
 
 int main() {
 
@@ -7,29 +8,29 @@ int main() {
 		engine::init_context( &vk_ctx, "SlackAutomata" );
 
 //	Find and select Physical Device
-	svk::VK_PhysicalDevice vk_pdv[vk_ctx.pd_count];
-		engine::find_physical_devices( &vk_ctx, vk_pdv );
-		engine::show_physical_devices( &vk_ctx, vk_pdv );
+	std::vector<svk::VK_PhysicalDevice> vk_pdv(vk_ctx.pd_count);
+		engine::find_physical_devices( &vk_ctx, vk_pdv.data() );
+		engine::show_physical_devices( &vk_ctx, vk_pdv.data() );
 
 //	Identify available queue families
-	svk::VK_QueueFamily vk_qfp[vk_pdv[vk_ctx.pd_index].qf_count];
-		engine::find_queue_families( &vk_pdv[vk_ctx.pd_index], vk_qfp );
-		engine::show_queue_families( &vk_pdv[vk_ctx.pd_index], vk_qfp );
+	std::vector<svk::VK_QueueFamily> vk_qfp(vk_pdv[vk_ctx.pd_index].qf_count);
+		engine::find_queue_families( &vk_pdv[vk_ctx.pd_index], vk_qfp.data() );
+		engine::show_queue_families( &vk_pdv[vk_ctx.pd_index], vk_qfp.data() );
 
 //	Identify useful Queue Family Index(s)
 	uint32_t QFI_graphic = UINT32_MAX;
-		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp, &QFI_graphic, VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_COMPUTE_BIT );
-		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp, &QFI_graphic, VK_QUEUE_GRAPHICS_BIT );
+		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp.data(), &QFI_graphic, VK_QUEUE_GRAPHICS_BIT, VK_QUEUE_COMPUTE_BIT );
+		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp.data(), &QFI_graphic, VK_QUEUE_GRAPHICS_BIT );
 
 	uint32_t QFI_compute = UINT32_MAX;
-		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp, &QFI_compute, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT );
-		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp, &QFI_compute, VK_QUEUE_COMPUTE_BIT );
+		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp.data(), &QFI_compute, VK_QUEUE_COMPUTE_BIT, VK_QUEUE_GRAPHICS_BIT );
+		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp.data(), &QFI_compute, VK_QUEUE_COMPUTE_BIT );
 
 	uint32_t QFI_combine = UINT32_MAX;
-		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp, &QFI_combine, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT );
+		engine::find_queue_family_index( &vk_pdv[vk_ctx.pd_index], vk_qfp.data(), &QFI_combine, VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT );
 
 //	Number of queues to create on the Logical Device
-	uint32_t DEV_QUEUE_COUNT = 1;
+	constexpr uint32_t DEV_QUEUE_COUNT = 1;
 
 //	Device Queue configuration(s)
 	svk::VK_DeviceQueueInfo vk_device_queue_info[DEV_QUEUE_COUNT];
@@ -63,7 +64,11 @@ int main() {
 
 //	Add a Shader Module
 	svk::VK_Shader test_shader;
-		engine::init_shader_module( &vk_ldv, &test_shader, "bin/noop.spv" );
+#ifdef _WIN32 //todo: abstract away such differences in a filesystem abstraction (maybe std::filesystem)
+	engine::init_shader_module(&vk_ldv, &test_shader, "../noop.spv");
+#else
+	engine::init_shader_module(&vk_ldv, &test_shader, "./noop.spv");
+#endif
 		engine::show_shader_module( &test_shader );
 
 //	Cleanup and exit
