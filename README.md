@@ -5,20 +5,9 @@ GPU-Accelerated Cellular Automata Engine ( C++ / Vulkan API )
 
 This application must be built from the source code, currently.
 
-It requires the Vulkan SDK, found at: https://vulkan.lunarg.com/sdk/home
+It requires the [https://vulkan.lunarg.com/sdk/home](Vulkan SDK).
 
-Linux:
-
- - `g++ src/*.cpp SlackAutomata.cpp -lvulkan -o ./bin/SlackAutomata`
- - `./bin/SlackAutomata`
-
-Windows:
-
- - ...
-
-Mac:
-
- - ...
+To build the application, use the CMake generator of your choice (such as [make](https://www.gnu.org/software/make/) on linux, Visual Studio on windows, etc)
 
 ---
 
