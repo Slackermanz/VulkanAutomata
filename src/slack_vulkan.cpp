@@ -87,24 +87,6 @@ svk::VK_CommandPool svk::new_vk_command_pool(
 		vk_command_pool.cp_info.queueFamilyIndex 	= qf_index;
 	return vk_command_pool; }
 
-/*svk::VK_Command svk::new_vk_command(
-		uint32_t						qf_index,
-		VkCommandPool 					pool,
-		VkPipelineBindPoint 			bind_type ) {
-	VK_Command vk_command;
-		vk_command.qf_index 					= qf_index;
-		vk_command.bind_type 					= bind_type;
-		vk_command.cmd_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		vk_command.cmd_info.pNext 				= nullptr;
-		vk_command.cmd_info.commandPool 		= pool;
-		vk_command.cmd_info.level 				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		vk_command.cmd_info.commandBufferCount 	= 1;
-		vk_command.begin_info.sType 			= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		vk_command.begin_info.pNext 			= nullptr;
-		vk_command.begin_info.flags 			= 0;
-		vk_command.begin_info.pInheritanceInfo 	= nullptr;
-	return vk_command; }*/
-
 	  /////////////////////////////
 	 //	FUNCTIONS
 	/////////////////////////////
@@ -192,10 +174,36 @@ void svk::destroy_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandP
 	rv("vkDestroyCommandPool");
 		vkDestroyCommandPool( vk_logical_device->ld, vk_command_pool->cp, nullptr ); }
 
-/*void svk::allocate_command_buffer( VK_LogicalDevice *vk_logical_device, VK_Command *vk_command ) {
-	ov("vkAllocateCommandBuffers", &vk_command->cmd,
-		vkAllocateCommandBuffers( vk_logical_device->ld, &vk_command->cmd_info, &vk_command->cmd ) ); }*/
+svk::VK_Shader getShaderCodeInfo(std::string fname) {
+	std::ifstream 		file		(fname, std::ios::ate | std::ios::binary);
+	size_t 				fileSize = 	(size_t) file.tellg();
+	std::vector<char> 	buffer		(fileSize);
+	file.seekg(0);
+	file.read(buffer.data(), fileSize);
+	file.close();
+	svk::VK_Shader sc_info;
+		sc_info.shaderFilename		= fname;
+		sc_info.shaderData			= buffer;
+		sc_info.shaderBytes			= buffer.size();
+		sc_info.shaderBytesValid	= (sc_info.shaderBytes%4==0?1:0);
+	return sc_info; }
 
+void svk::create_shader_module( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+
+	*vk_shader = getShaderCodeInfo( vk_shader->shaderFilename );
+
+	vk_shader->module_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	vk_shader->module_info.pNext		= nullptr;
+	vk_shader->module_info.flags		= 0;
+	vk_shader->module_info.codeSize		= vk_shader->shaderBytes;
+	vk_shader->module_info.pCode		= reinterpret_cast<const uint32_t*>(vk_shader->shaderData.data());
+
+	ov("vkCreateShaderModule", &vk_shader->vk_shader_module,
+		vkCreateShaderModule( vk_logical_device->ld, &vk_shader->module_info, nullptr, &vk_shader->vk_shader_module ) ); }
+
+void svk::destroy_shader_module( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+	rv("vkDestroyShaderModule");
+		vkDestroyShaderModule( vk_logical_device->ld, vk_shader->vk_shader_module, nullptr ); }
 
 
 

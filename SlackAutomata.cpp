@@ -55,15 +55,20 @@ int main() {
 	svk::VK_LogicalDevice vk_ldv;
 		engine::init_logical_device( &vk_pdv[vk_ctx.pd_index], DEV_QUEUE_COUNT, vk_device_queue_create_info, &vk_ldv );
 
+	ov( "CONTEXT ESTABLISHED" );
+
 //	Create Command Pool(s) for the Device Queues
 	svk::VK_CommandPool vk_cpl[DEV_QUEUE_COUNT];
 		engine::init_command_pool( &vk_ldv, vk_device_queue_info, vk_cpl );
 
-//	Do something
-//	...
+//	Add a Shader Module
+	svk::VK_Shader test_shader;
+		engine::init_shader_module( &vk_ldv, &test_shader, "bin/noop.spv" );
+		engine::show_shader_module( &test_shader );
 
 //	Cleanup and exit
 	ov( "EXIT" );
+		engine::exit_shader_module( &vk_ldv, &test_shader );
 		engine::exit_command_pool( &vk_ldv, vk_cpl );
 		engine::exit_logical_device( &vk_ldv );
 		engine::exit_context( &vk_ctx );

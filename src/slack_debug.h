@@ -11,7 +11,10 @@
 	void ov( std::string msg, uint32_t 		val, int idx = 2147483647 );
 	void ov( std::string msg, float 		val, int idx = 2147483647 );
 	void ov( std::string msg, double 		val, int idx = 2147483647 );
+	void ov( std::string msg, size_t 		val, int idx = 2147483647 );
 	void rv( std::string msg, 				 	 int idx = 2147483647 );
 	void av( std::string msg, void* 		val, int idx = 2147483647 );
+	void av( std::string msg, const void*	val, int idx = 2147483647 );
+	void bv( std::string msg, uint32_t 		val, int idx = 2147483647 );
 
 #endif

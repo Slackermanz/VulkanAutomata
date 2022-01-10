@@ -52,6 +52,19 @@
 		void exit_command_pool(
 			svk::VK_LogicalDevice 		*vk_logical_device,
 			svk::VK_CommandPool 		*vk_command_pool );
+
+		void init_shader_module(
+			svk::VK_LogicalDevice 		*vk_logical_device,
+			svk::VK_Shader 				*vk_shader,
+			const char 					*shader_file );
+
+		void show_shader_module(
+			svk::VK_Shader 				*vk_shader );
+
+		void exit_shader_module(
+			svk::VK_LogicalDevice 		*vk_logical_device,
+			svk::VK_Shader 				*vk_shader );
+
 	}
 
 #endif

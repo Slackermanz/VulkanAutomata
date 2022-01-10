@@ -3,6 +3,8 @@
 
 	#include <vulkan/vulkan.h>
 	#include "slack_debug.h"
+	#include <vector>
+	#include <fstream>
 
 	namespace svk {
 
@@ -10,13 +12,13 @@
 		 //	STRUCTS
 		/////////////////////////////
 
-		struct VK_DebugUtils {
-			VkDebugUtilsMessengerCreateInfoEXT	vk_debug_utils_info;
-			VkDebugUtilsMessengerEXT			vk_debug_utils_messenger; };
-
 		struct VK_Config {
 			VkApplicationInfo 					app_info;
 			VkInstanceCreateInfo				inst_info; };
+
+		struct VK_DebugUtils {
+			VkDebugUtilsMessengerCreateInfoEXT	vk_debug_utils_info;
+			VkDebugUtilsMessengerEXT			vk_debug_utils_messenger; };
 
 		struct VK_Context {
 			VkInstance 							vi;
@@ -48,13 +50,13 @@
 			VkCommandPoolCreateInfo				cp_info;
 			VkCommandPool						cp; };
 
-/*		struct VK_Command {
-			uint32_t 							qf_index;
-			VkCommandBufferAllocateInfo			cmd_info;
-			VkPipelineBindPoint					bind_type;
-			VkCommandBufferBeginInfo			begin_info;
-			VkCommandBuffer						cmd; };
-*/
+		struct VK_Shader {
+			std::string 						shaderFilename;
+			std::vector<char>					shaderData;
+			size_t 								shaderBytes;
+			bool 								shaderBytesValid;
+			VkShaderModuleCreateInfo 			module_info;
+			VkShaderModule						vk_shader_module; };
 
 		  /////////////////////////////
 		 //	INITS
@@ -80,28 +82,30 @@
 			uint32_t						qf_index,
 			VkCommandPoolCreateFlags		flags = 0 );
 
-/*		VK_Command new_vk_command(
-			uint32_t						qf_index,
-			VkCommandPool 					pool,
-			VkPipelineBindPoint 			bind_type );
-*/
 		  /////////////////////////////
 		 //	FUNCTIONS
 		/////////////////////////////
 
-		void create_instance			( VK_Config *vk_config, VK_Context *vk_context );
-		void destroy_instance			( VK_Context *vk_context );
-		void create_debug_utils			( VK_Context *vk_context );
-		void destroy_debug_utils		( VK_Context *vk_context );
-		void count_physical_devices		( VK_Context *vk_context );
-		void enum_physical_devices		( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
-		void find_physical_device		( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
-		void enum_queue_families		( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
-		void create_logical_device		( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device );
-		void destroy_logical_device		( VK_LogicalDevice *vk_logical_device );
-		void create_command_pool		( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
-		void destroy_command_pool		( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
-//	void svk_allocate_command_buffer	( VK_LogicalDevice *vk_logical_device, VK_Command *vk_command );
+		void create_instance				( VK_Config *vk_config, VK_Context *vk_context );
+		void destroy_instance				( VK_Context *vk_context );
+
+		void create_debug_utils				( VK_Context *vk_context );
+		void destroy_debug_utils			( VK_Context *vk_context );
+
+		void count_physical_devices			( VK_Context *vk_context );
+		void enum_physical_devices			( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
+		void find_physical_device			( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context );
+
+		void enum_queue_families			( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
+
+		void create_logical_device			( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device );
+		void destroy_logical_device			( VK_LogicalDevice *vk_logical_device );
+
+		void create_command_pool			( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
+		void destroy_command_pool			( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
+
+		void create_shader_module			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+		void destroy_shader_module			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
 
 	}
 

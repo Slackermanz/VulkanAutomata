@@ -16,10 +16,16 @@ void ov( std::string msg, std::string val, int idx ) {
 	ol(hed + msg + pad + sid + "[" + val + "]" ); }
 
 void ov( std::string msg 							) 	{ oh( msg 								); }
-void ov( std::string msg, int 		val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
-void ov( std::string msg, uint32_t 	val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
-void ov( std::string msg, float 	val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
-void ov( std::string msg, double 	val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
-void ov( std::string msg, void	   *val, 	int idx ) 	{ ov( msg, str_p2hex(val), 			idx ); }
-void rv( std::string msg, 				 	int idx ) 	{ ov( msg, "void", 					idx ); }
-void av( std::string msg, void* 	val, 	int idx ) 	{ ov( msg, str_charray(val, 48), 	idx ); }
+void ov( std::string msg, int 			val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
+void ov( std::string msg, uint32_t 		val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
+void ov( std::string msg, float 		val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
+void ov( std::string msg, double 		val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
+void ov( std::string msg, size_t 		val, 	int idx ) 	{ ov( msg, std::to_string(val), 	idx ); }
+void ov( std::string msg, void*	   		val, 	int idx ) 	{ ov( msg, str_p2hex(val), 			idx ); }
+void rv( std::string msg, 				 		int idx ) 	{ ov( msg, "void", 					idx ); }
+void av( std::string msg, void* 		val, 	int idx ) 	{ ov( msg, str_charray(val, 48), 	idx ); }
+void av( std::string msg, const void* 	val, 	int idx ) 	{ ov( msg, str_charray(val, 48), 	idx ); }
+void bv( std::string msg, uint32_t 		val, 	int idx ) 	{ 
+	std::string s = "";
+	for(int i = 31; i >= 0; i--) { s += std::to_string( get_bit(val, i) ); }
+	ov( msg, s,	idx ); }
