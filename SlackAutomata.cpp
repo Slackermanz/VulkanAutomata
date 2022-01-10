@@ -1,4 +1,4 @@
-#include "src/slack_engine.h"
+#include "slack_engine.h"
 #include <vector>
 
 int main() {
@@ -64,11 +64,7 @@ int main() {
 
 //	Add a Shader Module
 	svk::VK_Shader test_shader;
-#ifdef _WIN32 //todo: abstract away such differences in a filesystem abstraction (maybe std::filesystem)
-	engine::init_shader_module(&vk_ldv, &test_shader, "../noop.spv");
-#else
-	engine::init_shader_module(&vk_ldv, &test_shader, "./noop.spv");
-#endif
+	engine::init_shader_module(&vk_ldv, &test_shader, "shaders/noop.frag.spv");
 		engine::show_shader_module( &test_shader );
 
 //	Cleanup and exit
