@@ -40,27 +40,11 @@ Or run `Linux_BuildMakeRun.sh` and hope for the best.
 
  - Website: https://slackermanz.com
 
- - Discord: Slackermanz#3405
-
- - Github: https://github.com/Slackermanz
-
- - Twitter: https://twitter.com/slackermanz
-
- - YouTube: https://www.youtube.com/c/slackermanz
-
- - Reddit: https://old.reddit.com/user/slackermanz
-
- - Shadertoy: https://www.shadertoy.com/user/SlackermanzCA
-
----
+ - LinkTree Hub: https://linktr.ee/slackermanz
 
 ## Communities:
 
- - 'Artificial Life' Discord: https://discord.gg/7qvBBVca7u
-
- - 'Emergence' Discord: https://discord.com/invite/J3phjtD
-
- - 'ConwayLifeLounge' Discord: https://discord.gg/BCuYCEn
+ - Discord: https://discord.gg/hqRzg74kKT
 
  - Reddit: https://old.reddit.com/r/cellular_automata
 
