@@ -1,9 +1,10 @@
 #include "slack_utils.h"
+#include <vector>
 
 std::string str_p2hex( void *val ) {
 	std::stringstream s;
-		s << std::hex << long(val);
-	return "0x"+s.str(); }
+		s << std::hex << val;
+	return s.str(); }
 
 std::string str_inplace( std::string s, std::string f, std::string r ) {
 	if( r.find( f ) != -1 ) { return s; }
@@ -15,14 +16,10 @@ std::string str_inplace( std::string s, std::string f, std::string r ) {
 		return s; } }
 
 std::string str_charray( void* val, int len ) {
-	char s[len];
-	memcpy( &s, val, len );
-	return s; }
+	return std::string((const char*)val, len); }
 
 std::string str_charray( const void* val, int len ) {
-	char s[len];
-	memcpy( &s, val, len );
-	return s; }
+	return std::string((const char*)val, len); }
 
 std::string str_pad( uint32_t val, uint32_t len, std::string chr ){
 	std::string s = std::to_string(val);
