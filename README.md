@@ -18,6 +18,18 @@ You can then press the "Configure" and "Generate" buttons, choosing the generato
 
 You can also open the root directory in Visual Studio and it should automatically do these steps for you.
 
+### On Linux
+
+Open the terminal at `./VulkanAutomata`
+
+`mkdir build`
+`cd build`
+`cmake ..`
+`make`
+`./vulkan_automata`
+
+Or run `Linux_BuildMakeRun.sh` and hope for the best.
+
 ---
 
 ## Contacts & Networking:
