@@ -3,15 +3,24 @@ GPU-Accelerated Cellular Automata Engine ( C++ / Vulkan API )
 
 ---
 
+##Building from source
+
 This application must be built from the source code, currently.
 
-It requires the [https://vulkan.lunarg.com/sdk/home](Vulkan SDK).
+It requires the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home).
 
-To build the application, use the CMake generator of your choice (such as [make](https://www.gnu.org/software/make/) on linux, Visual Studio on windows, etc)
+To build the application, use the CMake generator of your choice (such as [make](https://www.gnu.org/software/make/) on linux)
+
+###On Windows
+
+Using the CMake GUI tool, point "Where is the source code" to the root directory of the project and "Where to build the binaries" to the bin folder.
+You can then press the "Configure" and "Generate" buttons, choosing the generator of your liking, which is probably Visual Studio.
+
+You can also open the root directory in Visual Studio and it should automatically do these steps for you.
 
 ---
 
-Contacts & Networking:
+##Contacts & Networking:
 
  - Website: https://slackermanz.com
 
@@ -29,7 +38,7 @@ Contacts & Networking:
 
 ---
 
-Communities:
+##Communities:
 
  - 'Artificial Life' Discord: https://discord.gg/7qvBBVca7u
 
