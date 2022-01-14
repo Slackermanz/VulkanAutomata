@@ -51,12 +51,18 @@
 			VkCommandPool						cp; };
 
 		struct VK_Shader {
-			std::string 						shaderFilename;
-			std::vector<char>					shaderData;
-			size_t 								shaderBytes;
-			bool 								shaderBytesValid;
-			VkShaderModuleCreateInfo 			module_info;
-			VkShaderModule						vk_shader_module; };
+			std::string 								shaderFilename;
+			VkShaderStageFlagBits						vk_shader_stage;
+			std::vector<char>							shaderData;
+			size_t 										shaderBytes;
+			bool 										shaderBytesValid;
+			VkShaderModuleCreateInfo 					module_info;
+			VkShaderModule								vk_shader_module;
+			std::vector<VkDescriptorSetLayoutBinding> 	vk_dslb;
+			std::vector<VkDescriptorPoolSize>			vk_dps;
+			VkDescriptorSetLayout						vk_dsl;
+			VkDescriptorPool							vk_dsp;
+			VkDescriptorSet								vk_descriptor_set; };
 
 		  /////////////////////////////
 		 //	INITS
@@ -82,6 +88,11 @@
 			uint32_t						qf_index,
 			VkCommandPoolCreateFlags		flags = 0 );
 
+		VkDescriptorSetLayoutBinding new_vk_dslb(
+			VK_Shader*						vk_shader,
+			VkDescriptorType				descriptorType,
+			uint32_t						descriptorCount );
+
 		  /////////////////////////////
 		 //	FUNCTIONS
 		/////////////////////////////
@@ -106,6 +117,14 @@
 
 		void create_shader_module			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
 		void destroy_shader_module			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+
+		void create_descriptor_set_layout	( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+		void destroy_descriptor_set_layout	( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+
+		void create_descriptor_pool			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+		void destroy_descriptor_pool		( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+
+		void allocate_descriptor_set		( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
 
 	}
 

@@ -123,19 +123,22 @@ void engine::exit_command_pool(
 void engine::init_shader_module(
 	svk::VK_LogicalDevice 		*vk_logical_device,
 	svk::VK_Shader 				*vk_shader,
-	const char 					*shader_file ) {
+	const char 					*shader_file,
+	VkShaderStageFlagBits		vk_shader_stage ) {
 	ov( "Create Vulkan Shader Module" );
-	vk_shader->shaderFilename = shader_file;
+	vk_shader->shaderFilename 	= shader_file;
+	vk_shader->vk_shader_stage 	= vk_shader_stage;
 	svk::create_shader_module( vk_logical_device, vk_shader ); }
 
 //	Read out shader module config
 void engine::show_shader_module(
 	svk::VK_Shader *vk_shader ) {
 	ov( "Shader Module" );
-	ov( "SPIR-V Filepath", 	vk_shader->shaderFilename 		);
+	ov( "SPIR-V Filepath", 	vk_shader->shaderFilename 				);
+	ov( "Shader Stage", 	str_p2hex(vk_shader->vk_shader_stage)	);
 	ov( "Shader Bytes", 	vk_shader->module_info.codeSize			);
-	ov( "shaderBytesValid", vk_shader->shaderBytesValid 	);
-	ov( "Shader Module", 	vk_shader->vk_shader_module 	); } 
+	ov( "shaderBytesValid", vk_shader->shaderBytesValid 			);
+	ov( "Shader Module", 	vk_shader->vk_shader_module 			); } 
 
 //	Destroy Shader Module 
 void engine::exit_shader_module(
@@ -143,6 +146,47 @@ void engine::exit_shader_module(
 	svk::VK_Shader 			*vk_shader ) {
 	ov( "Destroy Shader Module" );
 		svk::destroy_shader_module( vk_logical_device, vk_shader ); }
+
+//	Add Descriptor Set Layout Binding
+void engine::add_dslb(
+	svk::VK_Shader 		*vk_shader,
+	VkDescriptorType	vk_desc_type,
+	uint32_t			desc_count ) {
+	ov( "VkDescriptorSetLayoutBinding" );
+	ov( "Type", str_p2hex(vk_desc_type), vk_shader->vk_dslb.size() );
+	ov( "Count", desc_count, vk_shader->vk_dslb.size() );
+	vk_shader->vk_dslb.push_back( svk::new_vk_dslb( vk_shader, vk_desc_type, desc_count ) ); }
+
+//	Create and Allocate the descriptor set(s)
+void engine::init_descriptor_set(
+	svk::VK_LogicalDevice 	*vk_logical_device,
+	svk::VK_Shader 			*vk_shader ) {
+	ov( "Create Vulkan Descriptor Set Layout" );
+	svk::create_descriptor_set_layout( vk_logical_device, vk_shader );
+	ov( "Create Vulkan Descriptor Pool" );
+	svk::create_descriptor_pool( vk_logical_device, vk_shader );
+	ov( "Allocate Vulkan Descriptor Set" );
+	svk::allocate_descriptor_set( vk_logical_device, vk_shader ); }
+
+//	Destroy Descriptor Pool & Descriptor Set Layout
+void engine::exit_descriptor_set(
+	svk::VK_LogicalDevice 	*vk_logical_device,
+	svk::VK_Shader 			*vk_shader ) {
+	ov( "Destroy Vulkan Descriptor Pool" );
+	svk::destroy_descriptor_pool( vk_logical_device, vk_shader );
+	ov( "Destroy Vulkan Descriptor Set Layout" );
+	svk::destroy_descriptor_set_layout( vk_logical_device, vk_shader ); }
+
+
+
+
+
+
+
+
+
+
+
 
 
 

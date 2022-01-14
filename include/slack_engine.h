@@ -56,12 +56,26 @@
 		void init_shader_module(
 			svk::VK_LogicalDevice 		*vk_logical_device,
 			svk::VK_Shader 				*vk_shader,
-			const char 					*shader_file );
+			const char 					*shader_file,
+			VkShaderStageFlagBits		vk_shader_stage );
 
 		void show_shader_module(
 			svk::VK_Shader 				*vk_shader );
 
 		void exit_shader_module(
+			svk::VK_LogicalDevice 		*vk_logical_device,
+			svk::VK_Shader 				*vk_shader );
+
+		void add_dslb(
+			svk::VK_Shader 				*vk_shader,
+			VkDescriptorType			vk_desc_type,
+			uint32_t					desc_count );
+
+		void init_descriptor_set(
+			svk::VK_LogicalDevice 		*vk_logical_device,
+			svk::VK_Shader 				*vk_shader );
+
+		void exit_descriptor_set(
 			svk::VK_LogicalDevice 		*vk_logical_device,
 			svk::VK_Shader 				*vk_shader );
 

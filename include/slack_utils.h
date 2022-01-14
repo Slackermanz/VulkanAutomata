@@ -6,6 +6,7 @@
 	#include <sstream>
 
 	std::string str_p2hex( void *val );
+	std::string str_p2hex( uint32_t val );
 	std::string str_charray( void* val, int len );
 	std::string str_charray( const void* val, int len );
 	std::string str_inplace( std::string s, std::string f, std::string r );

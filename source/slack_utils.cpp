@@ -6,6 +6,11 @@ std::string str_p2hex( void *val ) {
 		s << std::hex << val;
 	return s.str(); }
 
+std::string str_p2hex( uint32_t val ) {
+	std::stringstream s;
+		s << std::hex << val;
+	return s.str(); }
+
 std::string str_inplace( std::string s, std::string f, std::string r ) {
 	if( r.find( f ) != -1 ) { return s; }
 	else {
