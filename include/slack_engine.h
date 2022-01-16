@@ -5,8 +5,7 @@
 
 	namespace engine {
 
-		void init_context(
-			svk::VK_Context 			*vk_context,
+		svk::VK_Context init_context(
 			const char 					*app_name = "EngineName" );
 
 		void exit_context(
@@ -35,11 +34,10 @@
 			uint32_t					queue_flag_bits,
 			uint32_t					queue_flag_nots = 0 );
 
-		void init_logical_device(
+		svk::VK_LogicalDevice init_logical_device(
 			svk::VK_PhysicalDevice 		*vk_physical_device,
 			uint32_t					dev_queue_count,
-			VkDeviceQueueCreateInfo 	*vk_device_queue_info,
-			svk::VK_LogicalDevice 		*vk_logical_device );
+			VkDeviceQueueCreateInfo 	*vk_device_queue_info );
 
 		void exit_logical_device(
 			svk::VK_LogicalDevice 		*vk_logical_device );

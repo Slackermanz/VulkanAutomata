@@ -1,7 +1,10 @@
 #include "slack_engine.h"
 
 //	Create Vulkan application context
-void engine::init_context( svk::VK_Context *vk_context, const char *app_name ) {
+svk::VK_Context engine::init_context( const char *app_name ) {
+
+	svk::VK_Context result {};
+
 	ov( "Define Vulkan Extensions" );
 		const uint32_t 	VK_LAYER_EXTN_COUNT 						= 1;
 		const char* 	VK_LAYER_EXTNS[VK_LAYER_EXTN_COUNT] 		= {	"VK_LAYER_KHRONOS_validation" };
@@ -15,16 +18,18 @@ void engine::init_context( svk::VK_Context *vk_context, const char *app_name ) {
 			VK_INSTANCE_EXTN_COUNT, VK_INSTANCE_EXTNS );
 
 	ov( "Create Vulkan Instance" );
-		svk::create_instance( &vk_config, vk_context );
+		svk::create_instance( &vk_config, &result);
 
 	ov( "Init Struct: svk::VK_DebugUtils" );
-		vk_context->vk_dbutl = svk::new_vk_debug_utils();
+		result.vk_dbutl = svk::new_vk_debug_utils();
 
 	ov( "Create Vulkan Debug Utils" );
-		svk::create_debug_utils( vk_context );
+		svk::create_debug_utils( &result );
 
 	ov( "Vulkan Physical Device count" );
-		svk::count_physical_devices( vk_context ); }
+		svk::count_physical_devices( &result ); 
+	
+	return result; }
 
 //	Cestroy Vulkan application context
 void engine::exit_context( svk::VK_Context *vk_context ) {
@@ -84,17 +89,20 @@ void engine::find_queue_family_index(
 	if( *qf_index == UINT32_MAX ) { ov("Selected Index", "NOT FOUND"); } }
 
 //	Create logical device
-void engine::init_logical_device(
+svk::VK_LogicalDevice engine::init_logical_device(
 	svk::VK_PhysicalDevice 		*vk_physical_device,
 	uint32_t					dev_queue_count,
-	VkDeviceQueueCreateInfo		*vk_device_queue_info,
-	svk::VK_LogicalDevice 		*vk_logical_device ) {
+	VkDeviceQueueCreateInfo		*vk_device_queue_info) {
+
+	svk::VK_LogicalDevice result {};
 
 	ov( "Init Vulkan Logical Device" );
-		*vk_logical_device = svk::new_vk_logical_device( dev_queue_count, vk_device_queue_info, 0, nullptr, nullptr );
+		result = svk::new_vk_logical_device( dev_queue_count, vk_device_queue_info, 0, nullptr, nullptr );
 
 	ov( "Create Vulkan Logical Device" );
-		svk::create_logical_device( vk_physical_device, vk_logical_device ); }
+		svk::create_logical_device( vk_physical_device, &result);
+
+	return result; }
 
 //	Destroy logical device
 void engine::exit_logical_device( svk::VK_LogicalDevice *vk_logical_device ) {

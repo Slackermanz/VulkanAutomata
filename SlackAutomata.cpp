@@ -4,8 +4,7 @@
 int main() {
 
 //	Create Application Context
-	svk::VK_Context vk_ctx;
-		engine::init_context( &vk_ctx, "SlackAutomata" );
+	svk::VK_Context vk_ctx = engine::init_context("SlackAutomata" );
 
 //	Find and select Physical Device
 	std::vector<svk::VK_PhysicalDevice> vk_pdv(vk_ctx.pd_count);
@@ -53,8 +52,7 @@ int main() {
 		vk_device_queue_create_info[i].pQueuePriorities		= qp; }
 
 //	Create the Logical Device
-	svk::VK_LogicalDevice vk_ldv;
-		engine::init_logical_device( &vk_pdv[vk_ctx.pd_index], DEV_QUEUE_COUNT, vk_device_queue_create_info, &vk_ldv );
+	svk::VK_LogicalDevice vk_ldv = engine::init_logical_device( &vk_pdv[vk_ctx.pd_index], DEV_QUEUE_COUNT, vk_device_queue_create_info);
 
 	ov( "CONTEXT CREATED!" );
 
