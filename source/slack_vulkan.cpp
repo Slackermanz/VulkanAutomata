@@ -230,18 +230,21 @@ void svk::destroy_descriptor_set_layout( VK_LogicalDevice *vk_logical_device, VK
 		vkDestroyDescriptorSetLayout( vk_logical_device->ld, vk_shader->vk_dsl, nullptr ); }
 
 void svk::create_descriptor_pool( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
-	for( int i = 0; i < vk_shader->vk_dslb.size(); i++ ) {
-		VkDescriptorPoolSize vk_dps;
-			vk_dps.type 			= vk_shader->vk_dslb.at(i).descriptorType;
-			vk_dps.descriptorCount 	= vk_shader->vk_dslb.at(i).descriptorCount;
-		vk_shader->vk_dps.push_back( vk_dps ); }
+
+	std::vector<VkDescriptorPoolSize> poolSizes(vk_shader->vk_dslb.size());
+	for (size_t i = 0; i < poolSizes.size(); i++) {
+		const VkDescriptorSetLayoutBinding& binding = vk_shader->vk_dslb[i];
+		poolSizes[i].type = binding.descriptorType;
+		poolSizes[i].descriptorCount = binding.descriptorCount;
+	}
+
 	VkDescriptorPoolCreateInfo vk_dsp_info;
 		vk_dsp_info.sType 			= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		vk_dsp_info.pNext 			= nullptr;
 		vk_dsp_info.flags 			= 0;
 		vk_dsp_info.maxSets 		= 1; //TODO Might need to be 2 for ping-pong shaders
-		vk_dsp_info.poolSizeCount	= vk_shader->vk_dps.size();
-		vk_dsp_info.pPoolSizes		= vk_shader->vk_dps.data();
+		vk_dsp_info.poolSizeCount	= poolSizes.size();
+		vk_dsp_info.pPoolSizes		= poolSizes.data();
 	ov("vkCreateDescriptorPool", vk_shader->vk_dsp,
 		vkCreateDescriptorPool( vk_logical_device->ld, &vk_dsp_info, nullptr, &vk_shader->vk_dsp ) ); }
 

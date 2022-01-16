@@ -57,7 +57,6 @@
 			bool 										shaderBytesValid;
 			VkShaderModule								vk_shader_module;
 			std::vector<VkDescriptorSetLayoutBinding> 	vk_dslb;
-			std::vector<VkDescriptorPoolSize>			vk_dps;
 			VkDescriptorSetLayout						vk_dsl;
 			VkDescriptorPool							vk_dsp;
 			VkDescriptorSet								vk_descriptor_set; };
