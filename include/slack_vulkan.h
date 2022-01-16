@@ -55,7 +55,6 @@
 			VkShaderStageFlagBits						vk_shader_stage;
 			std::vector<char>							shaderData;
 			bool 										shaderBytesValid;
-			VkShaderModuleCreateInfo 					module_info;
 			VkShaderModule								vk_shader_module;
 			std::vector<VkDescriptorSetLayoutBinding> 	vk_dslb;
 			std::vector<VkDescriptorPoolSize>			vk_dps;

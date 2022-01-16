@@ -188,13 +188,16 @@ void getShaderCodeInfo( svk::VK_Shader *vk_shader ) {
 
 void svk::create_shader_module( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
 	getShaderCodeInfo( vk_shader );
-	vk_shader->module_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	vk_shader->module_info.pNext		= nullptr;
-	vk_shader->module_info.flags		= 0;
-	vk_shader->module_info.codeSize		= vk_shader->shaderData.size();
-	vk_shader->module_info.pCode		= reinterpret_cast<const uint32_t*>(vk_shader->shaderData.data());
+
+	VkShaderModuleCreateInfo module_info{};
+
+	module_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	module_info.pNext		= nullptr;
+	module_info.flags		= 0;
+	module_info.codeSize		= vk_shader->shaderData.size();
+	module_info.pCode		= reinterpret_cast<const uint32_t*>(vk_shader->shaderData.data());
 	ov("vkCreateShaderModule", vk_shader->vk_shader_module,
-		vkCreateShaderModule( vk_logical_device->ld, &vk_shader->module_info, nullptr, &vk_shader->vk_shader_module ) ); }
+		vkCreateShaderModule( vk_logical_device->ld, &module_info, nullptr, &vk_shader->vk_shader_module ) ); }
 
 void svk::destroy_shader_module( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
 	rv("vkDestroyShaderModule");

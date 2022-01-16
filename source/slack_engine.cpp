@@ -144,7 +144,7 @@ void engine::show_shader_module(
 	ov( "Shader Module" );
 	ov( "SPIR-V Filepath", 	vk_shader->shaderFilename 				);
 	ov( "Shader Stage", 	str_p2hex(vk_shader->vk_shader_stage)	);
-	ov( "Shader Bytes", 	vk_shader->module_info.codeSize			);
+	ov( "Shader Bytes", 	vk_shader->shaderData.size()			);
 	ov( "shaderBytesValid", vk_shader->shaderBytesValid 			);
 	ov( "Shader Module", 	vk_shader->vk_shader_module 			); } 
 
