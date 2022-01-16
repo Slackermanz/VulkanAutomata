@@ -54,7 +54,6 @@
 			std::string 								shaderFilename;
 			VkShaderStageFlagBits						vk_shader_stage;
 			std::vector<char>							shaderData;
-			size_t 										shaderBytes;
 			bool 										shaderBytesValid;
 			VkShaderModuleCreateInfo 					module_info;
 			VkShaderModule								vk_shader_module;

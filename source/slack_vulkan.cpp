@@ -178,22 +178,20 @@ void svk::destroy_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandP
 void getShaderCodeInfo( svk::VK_Shader *vk_shader ) {
 	std::ifstream 		file		(vk_shader->shaderFilename, std::ios::ate | std::ios::binary);
 	size_t 				fileSize = 	(size_t) file.tellg();
-	std::vector<char> 	buffer		(fileSize);
+	vk_shader->shaderData.resize(fileSize);
 	file.seekg(0);
-	file.read(buffer.data(), fileSize);
+	file.read(vk_shader->shaderData.data(), fileSize);
 	file.close();
 
 	vk_shader->shaderFilename		= vk_shader->shaderFilename;
-	vk_shader->shaderData			= buffer;
-	vk_shader->shaderBytes			= buffer.size();
-	vk_shader->shaderBytesValid		= (vk_shader->shaderBytes%4==0?1:0); }
+	vk_shader->shaderBytesValid		= vk_shader->shaderData.size() % 4 == 0; }
 
 void svk::create_shader_module( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
 	getShaderCodeInfo( vk_shader );
 	vk_shader->module_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	vk_shader->module_info.pNext		= nullptr;
 	vk_shader->module_info.flags		= 0;
-	vk_shader->module_info.codeSize		= vk_shader->shaderBytes;
+	vk_shader->module_info.codeSize		= vk_shader->shaderData.size();
 	vk_shader->module_info.pCode		= reinterpret_cast<const uint32_t*>(vk_shader->shaderData.data());
 	ov("vkCreateShaderModule", vk_shader->vk_shader_module,
 		vkCreateShaderModule( vk_logical_device->ld, &vk_shader->module_info, nullptr, &vk_shader->vk_shader_module ) ); }
