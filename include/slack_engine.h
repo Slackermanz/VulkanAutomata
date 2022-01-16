@@ -5,8 +5,7 @@
 
 	namespace engine {
 
-		void init_context(
-			svk::VK_Context 			*vk_context,
+		svk::VK_Context init_context(
 			const char 					*app_name = "EngineName" );
 
 		void exit_context(
@@ -35,48 +34,45 @@
 			uint32_t					queue_flag_bits,
 			uint32_t					queue_flag_nots = 0 );
 
-		void init_logical_device(
+		VkDevice init_logical_device(
 			svk::VK_PhysicalDevice 		*vk_physical_device,
 			uint32_t					dev_queue_count,
-			VkDeviceQueueCreateInfo 	*vk_device_queue_info,
-			svk::VK_LogicalDevice 		*vk_logical_device );
+			VkDeviceQueueCreateInfo 	*vk_device_queue_info );
 
 		void exit_logical_device(
-			svk::VK_LogicalDevice 		*vk_logical_device );
+			VkDevice 		vk_logical_device );
 
-		void init_command_pool(
-			svk::VK_LogicalDevice 		*vk_logical_device,
-			svk::VK_DeviceQueueInfo		*vk_device_queue_info,
+		void init_command_pools(
+			VkDevice 					vk_logical_device,
+			const std::vector<svk::VK_DeviceQueueInfo>& vk_device_queue_info,
 			svk::VK_CommandPool 		*vk_command_pool );
 
 		void exit_command_pool(
-			svk::VK_LogicalDevice 		*vk_logical_device,
-			svk::VK_CommandPool 		*vk_command_pool );
+			VkDevice 					vk_logical_device,
+			svk::VK_CommandPool 		*vk_command_pool,
+			size_t						command_pool_count );
 
-		void init_shader_module(
-			svk::VK_LogicalDevice 		*vk_logical_device,
-			svk::VK_Shader 				*vk_shader,
-			const char 					*shader_file,
-			VkShaderStageFlagBits		vk_shader_stage );
+		struct DSLB_CreateInfo
+		{
+			VkDescriptorType			type;
+			uint32_t					count;
+		};
 
-		void show_shader_module(
+		svk::VK_Shader create_shader(
+			VkDevice 					vk_logical_device,
+			const char*					shader_file,
+			VkShaderStageFlagBits		vk_shader_stage,
+			const std::vector<DSLB_CreateInfo>& infos );
+
+		void show_shader(
 			svk::VK_Shader 				*vk_shader );
 
-		void exit_shader_module(
-			svk::VK_LogicalDevice 		*vk_logical_device,
+		void exit_shader(
+			VkDevice 					vk_logical_device,
 			svk::VK_Shader 				*vk_shader );
-
-		void add_dslb(
-			svk::VK_Shader 				*vk_shader,
-			VkDescriptorType			vk_desc_type,
-			uint32_t					desc_count );
 
 		void init_descriptor_set(
-			svk::VK_LogicalDevice 		*vk_logical_device,
-			svk::VK_Shader 				*vk_shader );
-
-		void exit_descriptor_set(
-			svk::VK_LogicalDevice 		*vk_logical_device,
+			VkDevice					vk_logical_device,
 			svk::VK_Shader 				*vk_shader );
 
 	}

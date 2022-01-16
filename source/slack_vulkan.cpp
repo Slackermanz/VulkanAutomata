@@ -59,25 +59,6 @@ svk::VK_Config svk::new_vk_config(
 		vk_config.inst_info.ppEnabledExtensionNames		= ins_ext;
 	return vk_config; }
 
-svk::VK_LogicalDevice svk::new_vk_logical_device(
-	uint32_t						queueCreateInfoCount,
-	const VkDeviceQueueCreateInfo*	pQueueCreateInfos,
-	uint32_t						enabledExtensionCount,
-	const char* const*				ppEnabledExtensionNames,
-	const VkPhysicalDeviceFeatures* pEnabledFeatures ) {
-	VK_LogicalDevice vk_logical_device;
-		vk_logical_device.ld_info.sType 					= VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		vk_logical_device.ld_info.pNext 					= nullptr;
-		vk_logical_device.ld_info.flags 					= 0;
-		vk_logical_device.ld_info.queueCreateInfoCount 		= queueCreateInfoCount;
-		vk_logical_device.ld_info.pQueueCreateInfos 		= pQueueCreateInfos;
-		vk_logical_device.ld_info.enabledLayerCount 		= 0;
-		vk_logical_device.ld_info.ppEnabledLayerNames 		= nullptr;
-		vk_logical_device.ld_info.enabledExtensionCount 	= enabledExtensionCount;
-		vk_logical_device.ld_info.ppEnabledExtensionNames 	= ppEnabledExtensionNames;
-		vk_logical_device.ld_info.pEnabledFeatures 			= pEnabledFeatures;
-	return vk_logical_device; }
-
 svk::VK_CommandPool svk::new_vk_command_pool(
 	uint32_t					qf_index,
 	VkCommandPoolCreateFlags	flags ) {
@@ -140,7 +121,14 @@ void svk::enum_physical_devices( VK_PhysicalDevice *vk_physical_device, VK_Conte
 
 void svk::find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
 				vk_context->pd_index 	= UINT32_MAX;
-	uint32_t 	pd_type_list[5] 		= { 2, 1, 3, 4, 0 };
+	
+	uint32_t 	pd_type_list[5] = { 
+		VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, 
+		VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, 
+		VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU, 
+		VK_PHYSICAL_DEVICE_TYPE_CPU, 
+		VK_PHYSICAL_DEVICE_TYPE_OTHER };
+
 	for(int i = 0; i < 5; i++) {
 		for(int j = 0; j < vk_context->pd_count; j++) {
 			if( vk_context->pd_index 						== UINT32_MAX
@@ -159,48 +147,44 @@ void svk::enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevic
 		vk_queue_family[i].qf_index = i;
 		vk_queue_family[i].qf_props	= vk_qf_list[i]; } }
 
-void svk::create_logical_device( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device ) {
-	ov("vkCreateDevice", vk_logical_device->ld,
-		vkCreateDevice( vk_physical_device->pd, &vk_logical_device->ld_info, nullptr, &vk_logical_device->ld ) ); }
-
-void svk::destroy_logical_device( VK_LogicalDevice *vk_logical_device ) {
+void svk::destroy_logical_device( VkDevice vk_logical_device ) {
 	rv("vkDestroyDevice");
-		vkDestroyDevice( vk_logical_device->ld, nullptr ); }
+		vkDestroyDevice( vk_logical_device, nullptr ); }
 
-void svk::create_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
+void svk::create_command_pool( VkDevice vk_logical_device, VK_CommandPool *vk_command_pool ) {
 	ov("vkCreateCommandPool", vk_command_pool->cp,
-		vkCreateCommandPool( vk_logical_device->ld, &vk_command_pool->cp_info, nullptr, &vk_command_pool->cp ) ); }
+		vkCreateCommandPool( vk_logical_device, &vk_command_pool->cp_info, nullptr, &vk_command_pool->cp ) ); }
 
-void svk::destroy_command_pool( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool ) {
+void svk::destroy_command_pool( VkDevice vk_logical_device, VK_CommandPool *vk_command_pool ) {
 	rv("vkDestroyCommandPool");
-		vkDestroyCommandPool( vk_logical_device->ld, vk_command_pool->cp, nullptr ); }
+		vkDestroyCommandPool( vk_logical_device, vk_command_pool->cp, nullptr ); }
 
 void getShaderCodeInfo( svk::VK_Shader *vk_shader ) {
 	std::ifstream 		file		(vk_shader->shaderFilename, std::ios::ate | std::ios::binary);
 	size_t 				fileSize = 	(size_t) file.tellg();
-	std::vector<char> 	buffer		(fileSize);
+	vk_shader->shaderData.resize(fileSize);
 	file.seekg(0);
-	file.read(buffer.data(), fileSize);
+	file.read(vk_shader->shaderData.data(), fileSize);
 	file.close();
 
-	vk_shader->shaderFilename		= vk_shader->shaderFilename;
-	vk_shader->shaderData			= buffer;
-	vk_shader->shaderBytes			= buffer.size();
-	vk_shader->shaderBytesValid		= (vk_shader->shaderBytes%4==0?1:0); }
+	vk_shader->shaderBytesValid		= vk_shader->shaderData.size() % 4 == 0; }
 
-void svk::create_shader_module( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+void svk::create_shader_module( VkDevice vk_logical_device, VK_Shader *vk_shader ) {
 	getShaderCodeInfo( vk_shader );
-	vk_shader->module_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	vk_shader->module_info.pNext		= nullptr;
-	vk_shader->module_info.flags		= 0;
-	vk_shader->module_info.codeSize		= vk_shader->shaderBytes;
-	vk_shader->module_info.pCode		= reinterpret_cast<const uint32_t*>(vk_shader->shaderData.data());
-	ov("vkCreateShaderModule", vk_shader->vk_shader_module,
-		vkCreateShaderModule( vk_logical_device->ld, &vk_shader->module_info, nullptr, &vk_shader->vk_shader_module ) ); }
 
-void svk::destroy_shader_module( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+	VkShaderModuleCreateInfo module_info{};
+
+	module_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	module_info.pNext		= nullptr;
+	module_info.flags		= 0;
+	module_info.codeSize	= vk_shader->shaderData.size();
+	module_info.pCode		= reinterpret_cast<const uint32_t*>(vk_shader->shaderData.data());
+	ov("vkCreateShaderModule", vk_shader->vk_shader_module,
+		vkCreateShaderModule( vk_logical_device, &module_info, nullptr, &vk_shader->vk_shader_module ) ); }
+
+void svk::destroy_shader_module( VkDevice vk_logical_device, VK_Shader *vk_shader ) {
 	rv("vkDestroyShaderModule");
-		vkDestroyShaderModule( vk_logical_device->ld, vk_shader->vk_shader_module, nullptr ); }
+		vkDestroyShaderModule( vk_logical_device, vk_shader->vk_shader_module, nullptr ); }
 
 VkDescriptorSetLayoutBinding svk::new_vk_dslb(
 	VK_Shader			*vk_shader,
@@ -214,7 +198,7 @@ VkDescriptorSetLayoutBinding svk::new_vk_dslb(
 		vk_dslb.pImmutableSamplers 	= nullptr;
 	return vk_dslb; }
 
-void svk::create_descriptor_set_layout( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+void svk::create_descriptor_set_layout( VkDevice vk_logical_device, VK_Shader *vk_shader ) {
 	VkDescriptorSetLayoutCreateInfo vk_dsl_info;
 		vk_dsl_info.sType 			= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		vk_dsl_info.pNext 			= nullptr;
@@ -222,33 +206,36 @@ void svk::create_descriptor_set_layout( VK_LogicalDevice *vk_logical_device, VK_
 		vk_dsl_info.bindingCount 	= vk_shader->vk_dslb.size();
 		vk_dsl_info.pBindings 		= vk_shader->vk_dslb.data();
 	ov("vkCreateDescriptorSetLayout", vk_shader->vk_dsl,
-		vkCreateDescriptorSetLayout( vk_logical_device->ld, &vk_dsl_info, nullptr, &vk_shader->vk_dsl ) ); }
+		vkCreateDescriptorSetLayout( vk_logical_device, &vk_dsl_info, nullptr, &vk_shader->vk_dsl ) ); }
 
-void svk::destroy_descriptor_set_layout( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+void svk::destroy_descriptor_set_layout( VkDevice vk_logical_device, VK_Shader *vk_shader ) {
 	rv("vkDestroyDescriptorSetLayout");
-		vkDestroyDescriptorSetLayout( vk_logical_device->ld, vk_shader->vk_dsl, nullptr ); }
+		vkDestroyDescriptorSetLayout( vk_logical_device, vk_shader->vk_dsl, nullptr ); }
 
-void svk::create_descriptor_pool( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
-	for( int i = 0; i < vk_shader->vk_dslb.size(); i++ ) {
-		VkDescriptorPoolSize vk_dps;
-			vk_dps.type 			= vk_shader->vk_dslb.at(i).descriptorType;
-			vk_dps.descriptorCount 	= vk_shader->vk_dslb.at(i).descriptorCount;
-		vk_shader->vk_dps.push_back( vk_dps ); }
+void svk::create_descriptor_pool( VkDevice vk_logical_device, VK_Shader *vk_shader ) {
+
+	std::vector<VkDescriptorPoolSize> poolSizes(vk_shader->vk_dslb.size());
+	for (size_t i = 0; i < poolSizes.size(); i++) {
+		const VkDescriptorSetLayoutBinding& binding = vk_shader->vk_dslb[i];
+		poolSizes[i].type = binding.descriptorType;
+		poolSizes[i].descriptorCount = binding.descriptorCount;
+	}
+
 	VkDescriptorPoolCreateInfo vk_dsp_info;
 		vk_dsp_info.sType 			= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		vk_dsp_info.pNext 			= nullptr;
 		vk_dsp_info.flags 			= 0;
 		vk_dsp_info.maxSets 		= 1; //TODO Might need to be 2 for ping-pong shaders
-		vk_dsp_info.poolSizeCount	= vk_shader->vk_dps.size();
-		vk_dsp_info.pPoolSizes		= vk_shader->vk_dps.data();
+		vk_dsp_info.poolSizeCount	= poolSizes.size();
+		vk_dsp_info.pPoolSizes		= poolSizes.data();
 	ov("vkCreateDescriptorPool", vk_shader->vk_dsp,
-		vkCreateDescriptorPool( vk_logical_device->ld, &vk_dsp_info, nullptr, &vk_shader->vk_dsp ) ); }
+		vkCreateDescriptorPool( vk_logical_device, &vk_dsp_info, nullptr, &vk_shader->vk_dsp ) ); }
 
-void svk::destroy_descriptor_pool( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+void svk::destroy_descriptor_pool( VkDevice vk_logical_device, VK_Shader *vk_shader ) {
 	rv("vkDestroyDescriptorPool");
-		vkDestroyDescriptorPool( vk_logical_device->ld, vk_shader->vk_dsp, nullptr ); }
+		vkDestroyDescriptorPool( vk_logical_device, vk_shader->vk_dsp, nullptr ); }
 
-void svk::allocate_descriptor_set( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader ) {
+void svk::allocate_descriptor_set(VkDevice vk_logical_device, VK_Shader *vk_shader ) {
 	VkDescriptorSetAllocateInfo vk_ds_info;
 		vk_ds_info.sType 				= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		vk_ds_info.pNext 				= nullptr;
@@ -256,7 +243,7 @@ void svk::allocate_descriptor_set( VK_LogicalDevice *vk_logical_device, VK_Shade
 		vk_ds_info.descriptorSetCount 	= 1;
 		vk_ds_info.pSetLayouts 			= &vk_shader->vk_dsl;
 	ov("vkAllocateDescriptorSets", vk_shader->vk_descriptor_set,
-		vkAllocateDescriptorSets( vk_logical_device->ld, &vk_ds_info, &vk_shader->vk_descriptor_set ) ); }
+		vkAllocateDescriptorSets( vk_logical_device, &vk_ds_info, &vk_shader->vk_descriptor_set ) ); }
 
 
 
