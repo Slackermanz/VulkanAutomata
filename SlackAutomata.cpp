@@ -32,7 +32,7 @@ int main() {
 	constexpr uint32_t DEV_QUEUE_COUNT = 1;
 
 //	Device Queue configuration(s)
-	svk::VK_DeviceQueueInfo vk_device_queue_info[DEV_QUEUE_COUNT];
+	std::vector<svk::VK_DeviceQueueInfo> vk_device_queue_info(DEV_QUEUE_COUNT);
 		vk_device_queue_info[0].queueFamilyIndex 	= QFI_combine;
 		vk_device_queue_info[0].queueCount 			= vk_qfp[vk_device_queue_info[0].queueFamilyIndex].qf_props.queueCount;
 //		vk_device_queue_info[1].queueFamilyIndex 	= QFI_compute;
@@ -77,7 +77,7 @@ int main() {
 	ov( "EXIT" );
 		engine::exit_descriptor_set( &vk_ldv, &test_shader );
 		engine::exit_shader_module( &vk_ldv, &test_shader );
-		engine::exit_command_pool( &vk_ldv, vk_cpl );
+		engine::exit_command_pool( &vk_ldv, vk_cpl, DEV_QUEUE_COUNT );
 		engine::exit_logical_device( &vk_ldv );
 		engine::exit_context( &vk_ctx );
 

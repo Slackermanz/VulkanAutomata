@@ -44,12 +44,13 @@
 
 		void init_command_pools(
 			svk::VK_LogicalDevice 		*vk_logical_device,
-			svk::VK_DeviceQueueInfo		*vk_device_queue_info,
+			const std::vector<svk::VK_DeviceQueueInfo>& vk_device_queue_info,
 			svk::VK_CommandPool 		*vk_command_pool );
 
 		void exit_command_pool(
 			svk::VK_LogicalDevice 		*vk_logical_device,
-			svk::VK_CommandPool 		*vk_command_pool );
+			svk::VK_CommandPool 		*vk_command_pool,
+			size_t						command_pool_count );
 
 		void init_shader_module(
 			svk::VK_LogicalDevice 		*vk_logical_device,

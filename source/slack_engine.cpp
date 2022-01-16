@@ -96,11 +96,20 @@ svk::VK_LogicalDevice engine::init_logical_device(
 
 	svk::VK_LogicalDevice result {};
 
-	ov( "Init Vulkan Logical Device" );
-		result = svk::new_vk_logical_device( dev_queue_count, vk_device_queue_info, 0, nullptr, nullptr );
+	VkDeviceCreateInfo ld_info;
+		ld_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		ld_info.pNext = nullptr;
+		ld_info.flags = 0;
+		ld_info.queueCreateInfoCount = dev_queue_count;
+		ld_info.pQueueCreateInfos = vk_device_queue_info;
+		ld_info.enabledLayerCount = 0;
+		ld_info.ppEnabledLayerNames = nullptr;
+		ld_info.enabledExtensionCount = 0;
+		ld_info.ppEnabledExtensionNames = nullptr;
+		ld_info.pEnabledFeatures = nullptr;
 
 	ov( "Create Vulkan Logical Device" );
-		svk::create_logical_device( vk_physical_device, &result);
+		svk::create_logical_device( vk_physical_device, &ld_info, &result);
 
 	return result; }
 
@@ -112,19 +121,20 @@ void engine::exit_logical_device( svk::VK_LogicalDevice *vk_logical_device ) {
 //	Create Command Pool
 void engine::init_command_pools(
 	svk::VK_LogicalDevice 	*vk_logical_device,
-	svk::VK_DeviceQueueInfo	*vk_device_queue_info,
+	const std::vector<svk::VK_DeviceQueueInfo>& vk_device_queue_info,
 	svk::VK_CommandPool		*vk_command_pool ) {
 	ov( "Create Command Pools" );
-	for(int i = 0; i < vk_logical_device->ld_info.queueCreateInfoCount; i++) {
+	for(int i = 0; i < vk_device_queue_info.size(); i++) {
 		vk_command_pool[i] = svk::new_vk_command_pool( vk_device_queue_info[i].queueFamilyIndex );
 		svk::create_command_pool( vk_logical_device, &vk_command_pool[i] ); } }
 
 //	Destroy Command Pool
 void engine::exit_command_pool(
 	svk::VK_LogicalDevice 	*vk_logical_device,
-	svk::VK_CommandPool 	*vk_command_pool ) {
+	svk::VK_CommandPool 	*vk_command_pool,
+	size_t					 command_pool_count ) {
 	ov( "Destroy Vulkan Command Pool(s)" );
-	for(int i = 0; i < vk_logical_device->ld_info.queueCreateInfoCount; i++) {
+	for(int i = 0; i < command_pool_count; i++) {
 		svk::destroy_command_pool( vk_logical_device, &vk_command_pool[i] ); } }
 
 //	Create shader module

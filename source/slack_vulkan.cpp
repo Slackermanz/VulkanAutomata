@@ -59,25 +59,6 @@ svk::VK_Config svk::new_vk_config(
 		vk_config.inst_info.ppEnabledExtensionNames		= ins_ext;
 	return vk_config; }
 
-svk::VK_LogicalDevice svk::new_vk_logical_device(
-	uint32_t						queueCreateInfoCount,
-	const VkDeviceQueueCreateInfo*	pQueueCreateInfos,
-	uint32_t						enabledExtensionCount,
-	const char* const*				ppEnabledExtensionNames,
-	const VkPhysicalDeviceFeatures* pEnabledFeatures ) {
-	VK_LogicalDevice vk_logical_device;
-		vk_logical_device.ld_info.sType 					= VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-		vk_logical_device.ld_info.pNext 					= nullptr;
-		vk_logical_device.ld_info.flags 					= 0;
-		vk_logical_device.ld_info.queueCreateInfoCount 		= queueCreateInfoCount;
-		vk_logical_device.ld_info.pQueueCreateInfos 		= pQueueCreateInfos;
-		vk_logical_device.ld_info.enabledLayerCount 		= 0;
-		vk_logical_device.ld_info.ppEnabledLayerNames 		= nullptr;
-		vk_logical_device.ld_info.enabledExtensionCount 	= enabledExtensionCount;
-		vk_logical_device.ld_info.ppEnabledExtensionNames 	= ppEnabledExtensionNames;
-		vk_logical_device.ld_info.pEnabledFeatures 			= pEnabledFeatures;
-	return vk_logical_device; }
-
 svk::VK_CommandPool svk::new_vk_command_pool(
 	uint32_t					qf_index,
 	VkCommandPoolCreateFlags	flags ) {
@@ -159,9 +140,9 @@ void svk::enum_queue_families( VK_QueueFamily *vk_queue_family, VK_PhysicalDevic
 		vk_queue_family[i].qf_index = i;
 		vk_queue_family[i].qf_props	= vk_qf_list[i]; } }
 
-void svk::create_logical_device( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device ) {
+void svk::create_logical_device( VK_PhysicalDevice *vk_physical_device, VkDeviceCreateInfo* ld_info, VK_LogicalDevice *vk_logical_device ) {
 	ov("vkCreateDevice", vk_logical_device->ld,
-		vkCreateDevice( vk_physical_device->pd, &vk_logical_device->ld_info, nullptr, &vk_logical_device->ld ) ); }
+		vkCreateDevice( vk_physical_device->pd, ld_info, nullptr, &vk_logical_device->ld ) ); }
 
 void svk::destroy_logical_device( VK_LogicalDevice *vk_logical_device ) {
 	rv("vkDestroyDevice");

@@ -43,7 +43,6 @@
 			uint32_t							queueCount; };
 
 		struct VK_LogicalDevice {
-			VkDeviceCreateInfo					ld_info;
 			VkDevice							ld; };
 
 		struct VK_CommandPool {
@@ -74,13 +73,6 @@
 
 		VK_DebugUtils new_vk_debug_utils();
 
-		VK_LogicalDevice new_vk_logical_device(
-			uint32_t						queueCreateInfoCount,
-			const VkDeviceQueueCreateInfo*	pQueueCreateInfos,
-			uint32_t						enabledExtensionCount,
-			const char* const*				ppEnabledExtensionNames,
-			const VkPhysicalDeviceFeatures* pEnabledFeatures );
-
 		VK_CommandPool new_vk_command_pool(
 			uint32_t						qf_index,
 			VkCommandPoolCreateFlags		flags = 0 );
@@ -106,7 +98,7 @@
 
 		void enum_queue_families			( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
 
-		void create_logical_device			( VK_PhysicalDevice *vk_physical_device, VK_LogicalDevice *vk_logical_device );
+		void create_logical_device			( VK_PhysicalDevice *vk_physical_device, VkDeviceCreateInfo* ld_info, VK_LogicalDevice *vk_logical_device );
 		void destroy_logical_device			( VK_LogicalDevice *vk_logical_device );
 
 		void create_command_pool			( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
