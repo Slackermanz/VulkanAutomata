@@ -89,12 +89,12 @@ void engine::find_queue_family_index(
 	if( *qf_index == UINT32_MAX ) { ov("Selected Index", "NOT FOUND"); } }
 
 //	Create logical device
-svk::VK_LogicalDevice engine::init_logical_device(
+VkDevice engine::init_logical_device(
 	svk::VK_PhysicalDevice 		*vk_physical_device,
 	uint32_t					dev_queue_count,
 	VkDeviceQueueCreateInfo		*vk_device_queue_info) {
 
-	svk::VK_LogicalDevice result {};
+	VkDevice result {};
 
 	VkDeviceCreateInfo ld_info;
 		ld_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -108,19 +108,19 @@ svk::VK_LogicalDevice engine::init_logical_device(
 		ld_info.ppEnabledExtensionNames = nullptr;
 		ld_info.pEnabledFeatures = nullptr;
 
-	ov( "Create Vulkan Logical Device" );
-		svk::create_logical_device( vk_physical_device, &ld_info, &result);
+	ov( "Create Vulkan Logical Device" ); 
+		vkCreateDevice(vk_physical_device->pd, &ld_info, nullptr, &result);
 
 	return result; }
 
 //	Destroy logical device
-void engine::exit_logical_device( svk::VK_LogicalDevice *vk_logical_device ) {
+void engine::exit_logical_device( VkDevice vk_logical_device ) {
 	ov( "Destroy Vulkan Logical Device" );
 		svk::destroy_logical_device	( vk_logical_device	); }
 
 //	Create Command Pool
 void engine::init_command_pools(
-	svk::VK_LogicalDevice 	*vk_logical_device,
+	VkDevice				vk_logical_device,
 	const std::vector<svk::VK_DeviceQueueInfo>& vk_device_queue_info,
 	svk::VK_CommandPool		*vk_command_pool ) {
 	ov( "Create Command Pools" );
@@ -130,7 +130,7 @@ void engine::init_command_pools(
 
 //	Destroy Command Pool
 void engine::exit_command_pool(
-	svk::VK_LogicalDevice 	*vk_logical_device,
+	VkDevice 				vk_logical_device,
 	svk::VK_CommandPool 	*vk_command_pool,
 	size_t					 command_pool_count ) {
 	ov( "Destroy Vulkan Command Pool(s)" );
@@ -139,7 +139,7 @@ void engine::exit_command_pool(
 
 //	Create shader module
 void engine::init_shader_module(
-	svk::VK_LogicalDevice 		*vk_logical_device,
+	VkDevice 					vk_logical_device,
 	svk::VK_Shader 				*vk_shader,
 	const char 					*shader_file,
 	VkShaderStageFlagBits		vk_shader_stage ) {
@@ -160,7 +160,7 @@ void engine::show_shader_module(
 
 //	Destroy Shader Module 
 void engine::exit_shader_module(
-	svk::VK_LogicalDevice 	*vk_logical_device,
+	VkDevice vk_logical_device,
 	svk::VK_Shader 			*vk_shader ) {
 	ov( "Destroy Shader Module" );
 		svk::destroy_shader_module( vk_logical_device, vk_shader ); }
@@ -177,7 +177,7 @@ void engine::add_dslb(
 
 //	Create and Allocate the descriptor set(s)
 void engine::init_descriptor_set(
-	svk::VK_LogicalDevice 	*vk_logical_device,
+	VkDevice vk_logical_device,
 	svk::VK_Shader 			*vk_shader ) {
 	ov( "Create Vulkan Descriptor Set Layout" );
 	svk::create_descriptor_set_layout( vk_logical_device, vk_shader );
@@ -188,7 +188,7 @@ void engine::init_descriptor_set(
 
 //	Destroy Descriptor Pool & Descriptor Set Layout
 void engine::exit_descriptor_set(
-	svk::VK_LogicalDevice 	*vk_logical_device,
+	VkDevice vk_logical_device,
 	svk::VK_Shader 			*vk_shader ) {
 	ov( "Destroy Vulkan Descriptor Pool" );
 	svk::destroy_descriptor_pool( vk_logical_device, vk_shader );

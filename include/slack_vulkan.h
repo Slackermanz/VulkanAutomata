@@ -98,22 +98,21 @@
 
 		void enum_queue_families			( VK_QueueFamily *vk_queue_family, VK_PhysicalDevice *vk_physical_device );
 
-		void create_logical_device			( VK_PhysicalDevice *vk_physical_device, VkDeviceCreateInfo* ld_info, VK_LogicalDevice *vk_logical_device );
-		void destroy_logical_device			( VK_LogicalDevice *vk_logical_device );
+		void destroy_logical_device			( VkDevice vk_logical_device );
 
-		void create_command_pool			( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
-		void destroy_command_pool			( VK_LogicalDevice *vk_logical_device, VK_CommandPool *vk_command_pool );
+		void create_command_pool			( VkDevice vk_logical_device, VK_CommandPool *vk_command_pool );
+		void destroy_command_pool			( VkDevice vk_logical_device, VK_CommandPool *vk_command_pool );
 
-		void create_shader_module			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
-		void destroy_shader_module			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+		void create_shader_module			( VkDevice vk_logical_device, VK_Shader *vk_shader );
+		void destroy_shader_module			( VkDevice vk_logical_device, VK_Shader *vk_shader );
 
-		void create_descriptor_set_layout	( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
-		void destroy_descriptor_set_layout	( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+		void create_descriptor_set_layout	( VkDevice vk_logical_device, VK_Shader *vk_shader );
+		void destroy_descriptor_set_layout	( VkDevice vk_logical_device, VK_Shader *vk_shader );
 
-		void create_descriptor_pool			( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
-		void destroy_descriptor_pool		( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+		void create_descriptor_pool			( VkDevice vk_logical_device, VK_Shader *vk_shader );
+		void destroy_descriptor_pool		( VkDevice vk_logical_device, VK_Shader *vk_shader );
 
-		void allocate_descriptor_set		( VK_LogicalDevice *vk_logical_device, VK_Shader *vk_shader );
+		void allocate_descriptor_set		( VkDevice vk_logical_device, VK_Shader *vk_shader );
 
 	}
 
