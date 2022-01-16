@@ -168,14 +168,18 @@ void engine::exit_shader_module(
 		svk::destroy_shader_module( vk_logical_device, vk_shader ); }
 
 //	Add Descriptor Set Layout Binding
-void engine::add_dslb(
+void engine::add_dslbs(
 	svk::VK_Shader 		*vk_shader,
-	VkDescriptorType	vk_desc_type,
-	uint32_t			desc_count ) {
-	ov( "VkDescriptorSetLayoutBinding" );
-	ov( "Type", str_p2hex(vk_desc_type), vk_shader->vk_dslb.size() );
-	ov( "Count", desc_count, vk_shader->vk_dslb.size() );
-	vk_shader->vk_dslb.push_back( svk::new_vk_dslb( vk_shader, vk_desc_type, desc_count ) ); }
+	const std::vector<DSLB_CreateInfo>& infos ) {
+
+	for (DSLB_CreateInfo info : infos) 
+	{
+		ov("VkDescriptorSetLayoutBinding");
+		ov("Type", str_p2hex(info.type), vk_shader->vk_dslb.size());
+		ov("Count", info.count, vk_shader->vk_dslb.size());
+		vk_shader->vk_dslb.push_back(svk::new_vk_dslb(vk_shader, info.type, info.count));
+	} }
+	
 
 //	Create and Allocate the descriptor set(s)
 void engine::init_descriptor_set(

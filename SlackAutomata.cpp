@@ -65,9 +65,11 @@ int main() {
 		engine::show_shader_module( &test_shader );
 
 //	Define the resource types the shader will use
-	engine::add_dslb( &test_shader, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 	1 );
-	engine::add_dslb( &test_shader, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 	1 );
-	engine::add_dslb( &test_shader, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 	1 );
+		engine::add_dslbs(&test_shader, { 
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 	1 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 	1 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 	1 }
+		});
 
 //	Create the descriptor set
 	engine::init_descriptor_set( vk_ldv, &test_shader );

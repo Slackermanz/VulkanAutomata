@@ -64,10 +64,15 @@
 			VkDevice 					vk_logical_device,
 			svk::VK_Shader 				*vk_shader );
 
-		void add_dslb(
+		struct DSLB_CreateInfo 
+		{
+			VkDescriptorType			type;
+			uint32_t					count;
+		};	
+
+		void add_dslbs(
 			svk::VK_Shader 				*vk_shader,
-			VkDescriptorType			vk_desc_type,
-			uint32_t					desc_count );
+			const std::vector<DSLB_CreateInfo>& infos);
 
 		void init_descriptor_set(
 			VkDevice					vk_logical_device,
