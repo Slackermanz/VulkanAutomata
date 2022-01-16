@@ -121,7 +121,14 @@ void svk::enum_physical_devices( VK_PhysicalDevice *vk_physical_device, VK_Conte
 
 void svk::find_physical_device( VK_PhysicalDevice *vk_physical_device, VK_Context *vk_context ) {
 				vk_context->pd_index 	= UINT32_MAX;
-	uint32_t 	pd_type_list[5] 		= { 2, 1, 3, 4, 0 };
+	
+	uint32_t 	pd_type_list[5] = { 
+		VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, 
+		VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, 
+		VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU, 
+		VK_PHYSICAL_DEVICE_TYPE_CPU, 
+		VK_PHYSICAL_DEVICE_TYPE_OTHER };
+
 	for(int i = 0; i < 5; i++) {
 		for(int j = 0; j < vk_context->pd_count; j++) {
 			if( vk_context->pd_index 						== UINT32_MAX
@@ -160,7 +167,6 @@ void getShaderCodeInfo( svk::VK_Shader *vk_shader ) {
 	file.read(vk_shader->shaderData.data(), fileSize);
 	file.close();
 
-	vk_shader->shaderFilename		= vk_shader->shaderFilename;
 	vk_shader->shaderBytesValid		= vk_shader->shaderData.size() % 4 == 0; }
 
 void svk::create_shader_module( VkDevice vk_logical_device, VK_Shader *vk_shader ) {
@@ -171,7 +177,7 @@ void svk::create_shader_module( VkDevice vk_logical_device, VK_Shader *vk_shader
 	module_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	module_info.pNext		= nullptr;
 	module_info.flags		= 0;
-	module_info.codeSize		= vk_shader->shaderData.size();
+	module_info.codeSize	= vk_shader->shaderData.size();
 	module_info.pCode		= reinterpret_cast<const uint32_t*>(vk_shader->shaderData.data());
 	ov("vkCreateShaderModule", vk_shader->vk_shader_module,
 		vkCreateShaderModule( vk_logical_device, &module_info, nullptr, &vk_shader->vk_shader_module ) ); }
