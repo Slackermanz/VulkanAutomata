@@ -52,9 +52,8 @@
 			svk::VK_CommandPool 		*vk_command_pool,
 			size_t						command_pool_count );
 
-		void init_shader_module(
+		svk::VK_Shader init_shader_module(
 			VkDevice 					vk_logical_device,
-			svk::VK_Shader 				*vk_shader,
 			const char 					*shader_file,
 			VkShaderStageFlagBits		vk_shader_stage );
 

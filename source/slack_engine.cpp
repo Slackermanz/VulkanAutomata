@@ -138,15 +138,17 @@ void engine::exit_command_pool(
 		svk::destroy_command_pool( vk_logical_device, &vk_command_pool[i] ); } }
 
 //	Create shader module
-void engine::init_shader_module(
+svk::VK_Shader engine::init_shader_module(
 	VkDevice 					vk_logical_device,
-	svk::VK_Shader 				*vk_shader,
 	const char 					*shader_file,
 	VkShaderStageFlagBits		vk_shader_stage ) {
+	
 	ov( "Create Vulkan Shader Module" );
-	vk_shader->shaderFilename 	= shader_file;
-	vk_shader->vk_shader_stage 	= vk_shader_stage;
-	svk::create_shader_module( vk_logical_device, vk_shader ); }
+	svk::VK_Shader result{};
+	result.shaderFilename 	= shader_file;
+	result.vk_shader_stage 	= vk_shader_stage;
+	svk::create_shader_module( vk_logical_device, &result );
+	return result; }
 
 //	Read out shader module config
 void engine::show_shader_module(

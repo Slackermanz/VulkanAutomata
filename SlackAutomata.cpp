@@ -61,8 +61,7 @@ int main() {
 		engine::init_command_pools( vk_ldv, vk_device_queue_info, vk_cpl );
 
 //	Add a Shader Module
-	svk::VK_Shader test_shader;
-		engine::init_shader_module( vk_ldv, &test_shader, "shaders/noop.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT );
+	svk::VK_Shader test_shader = engine::init_shader_module( vk_ldv, "shaders/noop.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT );
 		engine::show_shader_module( &test_shader );
 
 //	Define the resource types the shader will use
