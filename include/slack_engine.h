@@ -75,10 +75,6 @@
 			VkDevice					vk_logical_device,
 			svk::VK_Shader 				*vk_shader );
 
-		void exit_descriptor_set(
-			VkDevice 					vk_logical_device,
-			svk::VK_Shader 				*vk_shader );
-
 	}
 
 #endif

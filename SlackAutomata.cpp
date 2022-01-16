@@ -76,7 +76,6 @@ int main() {
 
 //	Cleanup and exit
 	ov( "EXIT" );
-		engine::exit_descriptor_set( vk_ldv, &test_shader );
 		engine::exit_shader( vk_ldv, &test_shader );
 		engine::exit_command_pool( vk_ldv, vk_cpl, DEV_QUEUE_COUNT );
 		engine::exit_logical_device( vk_ldv );
