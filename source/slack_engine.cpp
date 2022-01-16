@@ -110,7 +110,7 @@ void engine::exit_logical_device( svk::VK_LogicalDevice *vk_logical_device ) {
 		svk::destroy_logical_device	( vk_logical_device	); }
 
 //	Create Command Pool
-void engine::init_command_pool(
+void engine::init_command_pools(
 	svk::VK_LogicalDevice 	*vk_logical_device,
 	svk::VK_DeviceQueueInfo	*vk_device_queue_info,
 	svk::VK_CommandPool		*vk_command_pool ) {

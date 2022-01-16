@@ -42,7 +42,7 @@
 		void exit_logical_device(
 			svk::VK_LogicalDevice 		*vk_logical_device );
 
-		void init_command_pool(
+		void init_command_pools(
 			svk::VK_LogicalDevice 		*vk_logical_device,
 			svk::VK_DeviceQueueInfo		*vk_device_queue_info,
 			svk::VK_CommandPool 		*vk_command_pool );

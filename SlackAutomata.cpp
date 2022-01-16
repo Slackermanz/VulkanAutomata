@@ -58,7 +58,7 @@ int main() {
 
 //	Create Command Pool(s) for the Device Queues
 	svk::VK_CommandPool vk_cpl[DEV_QUEUE_COUNT];
-		engine::init_command_pool( &vk_ldv, vk_device_queue_info, vk_cpl );
+		engine::init_command_pools( &vk_ldv, vk_device_queue_info, vk_cpl );
 
 //	Add a Shader Module
 	svk::VK_Shader test_shader;
