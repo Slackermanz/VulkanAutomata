@@ -138,47 +138,47 @@ void engine::exit_command_pool(
 		svk::destroy_command_pool( vk_logical_device, &vk_command_pool[i] ); } }
 
 //	Create shader module
-svk::VK_Shader engine::init_shader_module(
+svk::VK_Shader engine::create_shader(
 	VkDevice 					vk_logical_device,
 	const char 					*shader_file,
-	VkShaderStageFlagBits		vk_shader_stage ) {
+	VkShaderStageFlagBits		vk_shader_stage,
+	const std::vector<DSLB_CreateInfo>& infos ) {
 	
 	ov( "Create Vulkan Shader Module" );
 	svk::VK_Shader result{};
 	result.shaderFilename 	= shader_file;
 	result.vk_shader_stage 	= vk_shader_stage;
 	svk::create_shader_module( vk_logical_device, &result );
+
+	for (DSLB_CreateInfo info : infos)
+	{
+		result.vk_dslb.push_back(svk::new_vk_dslb(&result, info.type, info.count));
+	}
+
 	return result; }
 
 //	Read out shader module config
-void engine::show_shader_module(
+void engine::show_shader(
 	svk::VK_Shader *vk_shader ) {
 	ov( "Shader Module" );
 	ov( "SPIR-V Filepath", 	vk_shader->shaderFilename 				);
 	ov( "Shader Stage", 	str_p2hex(vk_shader->vk_shader_stage)	);
 	ov( "Shader Bytes", 	vk_shader->shaderData.size()			);
 	ov( "shaderBytesValid", vk_shader->shaderBytesValid 			);
-	ov( "Shader Module", 	vk_shader->vk_shader_module 			); } 
+	ov( "Shader Module", 	vk_shader->vk_shader_module 			); 
+
+	for (size_t i = 0; i < vk_shader->vk_dslb.size(); i++) {
+		ov("VkDescriptorSetLayoutBinding");
+		ov("Type", str_p2hex(vk_shader->vk_dslb[i].descriptorType), vk_shader->vk_dslb.size());
+		ov("Count", vk_shader->vk_dslb[i].descriptorCount, vk_shader->vk_dslb.size()); }
+} 
 
 //	Destroy Shader Module 
-void engine::exit_shader_module(
-	VkDevice vk_logical_device,
+void engine::exit_shader(
+	VkDevice				vk_logical_device,
 	svk::VK_Shader 			*vk_shader ) {
-	ov( "Destroy Shader Module" );
+	ov( "Destroy Shader" );
 		svk::destroy_shader_module( vk_logical_device, vk_shader ); }
-
-//	Add Descriptor Set Layout Binding
-void engine::add_dslbs(
-	svk::VK_Shader 		*vk_shader,
-	const std::vector<DSLB_CreateInfo>& infos ) {
-
-	for (DSLB_CreateInfo info : infos) 
-	{
-		ov("VkDescriptorSetLayoutBinding");
-		ov("Type", str_p2hex(info.type), vk_shader->vk_dslb.size());
-		ov("Count", info.count, vk_shader->vk_dslb.size());
-		vk_shader->vk_dslb.push_back(svk::new_vk_dslb(vk_shader, info.type, info.count));
-	} }
 	
 
 //	Create and Allocate the descriptor set(s)

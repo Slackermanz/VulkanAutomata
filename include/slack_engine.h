@@ -52,27 +52,24 @@
 			svk::VK_CommandPool 		*vk_command_pool,
 			size_t						command_pool_count );
 
-		svk::VK_Shader init_shader_module(
-			VkDevice 					vk_logical_device,
-			const char 					*shader_file,
-			VkShaderStageFlagBits		vk_shader_stage );
-
-		void show_shader_module(
-			svk::VK_Shader 				*vk_shader );
-
-		void exit_shader_module(
-			VkDevice 					vk_logical_device,
-			svk::VK_Shader 				*vk_shader );
-
-		struct DSLB_CreateInfo 
+		struct DSLB_CreateInfo
 		{
 			VkDescriptorType			type;
 			uint32_t					count;
-		};	
+		};
 
-		void add_dslbs(
-			svk::VK_Shader 				*vk_shader,
-			const std::vector<DSLB_CreateInfo>& infos);
+		svk::VK_Shader create_shader(
+			VkDevice 					vk_logical_device,
+			const char*					shader_file,
+			VkShaderStageFlagBits		vk_shader_stage,
+			const std::vector<DSLB_CreateInfo>& infos );
+
+		void show_shader(
+			svk::VK_Shader 				*vk_shader );
+
+		void exit_shader(
+			VkDevice 					vk_logical_device,
+			svk::VK_Shader 				*vk_shader );
 
 		void init_descriptor_set(
 			VkDevice					vk_logical_device,

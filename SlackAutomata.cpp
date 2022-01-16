@@ -61,15 +61,15 @@ int main() {
 		engine::init_command_pools( vk_ldv, vk_device_queue_info, vk_cpl );
 
 //	Add a Shader Module
-	svk::VK_Shader test_shader = engine::init_shader_module( vk_ldv, "shaders/noop.comp.spv", VK_SHADER_STAGE_COMPUTE_BIT );
-		engine::show_shader_module( &test_shader );
-
-//	Define the resource types the shader will use
-		engine::add_dslbs(&test_shader, { 
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 	1 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 	1 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 	1 }
-		});
+	svk::VK_Shader test_shader = 
+		engine::create_shader( 
+			vk_ldv, 
+			"shaders/noop.comp.spv", 
+			VK_SHADER_STAGE_COMPUTE_BIT, 
+			{ { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,	1 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,		1 },
+			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,		1 } });
+		engine::show_shader( &test_shader );
 
 //	Create the descriptor set
 	engine::init_descriptor_set( vk_ldv, &test_shader );
@@ -77,7 +77,7 @@ int main() {
 //	Cleanup and exit
 	ov( "EXIT" );
 		engine::exit_descriptor_set( vk_ldv, &test_shader );
-		engine::exit_shader_module( vk_ldv, &test_shader );
+		engine::exit_shader( vk_ldv, &test_shader );
 		engine::exit_command_pool( vk_ldv, vk_cpl, DEV_QUEUE_COUNT );
 		engine::exit_logical_device( vk_ldv );
 		engine::exit_context( &vk_ctx );
