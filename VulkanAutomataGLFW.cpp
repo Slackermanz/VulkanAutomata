@@ -11,6 +11,7 @@
 #include <chrono>
 #include <thread>
 #include <cstring>
+#include <cmath>
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -18,6 +19,7 @@ const	int 		MAXLOG 			=  2;
 		int 		loglevel		=  MAXLOG;
 		int 		valid 			=  1;
 		uint32_t	verbose_loops 	= 12;	// How many loops to output full diagnostics
+        uint32_t    panel_n_x_n     =  2;
 
 //	Keyboard input handler
 struct GLFW_key {
@@ -205,6 +207,15 @@ struct VK_Buffer_1x2D {
 	VkDeviceMemory			vk_dev_mem;
 };
 
+struct VK_Buffer_Data {
+	VkBufferCreateInfo		buff_info;
+	VkBuffer				vk_buffer;
+	uint32_t				MTB_index;
+	VkMemoryRequirements	vk_mem_reqs;
+	VkMemoryAllocateInfo	vk_mem_allo_info;
+	VkDeviceMemory			vk_dev_mem;
+};
+
 struct VK_Layer_2x2D {
 	VkExtent3D				ext3D[2];
 	VkImageCreateInfo		img_info[2];
@@ -297,6 +308,17 @@ struct VK_DescSetLayout {
 	VkDescriptorSet						vk_descriptor_set[2];
 };
 
+struct VK_DescSetLayout3 {
+	VkDescriptorSetLayoutBinding		set_bind[3];
+	VkDescriptorSetLayoutCreateInfo		set_info;
+	VkDescriptorPoolSize				pool_size[3];
+	VkDescriptorPoolCreateInfo			pool_info;
+	VkDescriptorSetLayout				vk_desc_set_layout;
+	VkDescriptorPool					vk_desc_pool;
+	VkDescriptorSetAllocateInfo			allo_info;
+	VkDescriptorSet						vk_descriptor_set[3];
+};
+
 struct VK_RenderPass {
 	VkAttachmentDescription		attach_desc;
 	VkAttachmentReference		attach_ref;
@@ -317,15 +339,8 @@ struct VK_Pipe {
 	VkPipeline						vk_pipeline;
 };
 
-struct UniBuf {
-	uint32_t v0;  uint32_t v1;  uint32_t v2;  uint32_t v3;	uint32_t v4;  uint32_t v5;  uint32_t v6;  uint32_t v7;
-	uint32_t v8;  uint32_t v9;  uint32_t v10; uint32_t v11;	uint32_t v12; uint32_t v13; uint32_t v14; uint32_t v15;
-	uint32_t v16; uint32_t v17; uint32_t v18; uint32_t v19;	uint32_t v20; uint32_t v21; uint32_t v22; uint32_t v23;
-	uint32_t v24; uint32_t v25; uint32_t v26; uint32_t v27;	uint32_t v28; uint32_t v29; uint32_t v30; uint32_t v31;
-	uint32_t v32; uint32_t v33; uint32_t v34; uint32_t v35;	uint32_t v36; uint32_t v37; uint32_t v38; uint32_t v39;
-	uint32_t v40; uint32_t v41; uint32_t v42; uint32_t v43;	uint32_t v44; uint32_t v45; uint32_t v46; uint32_t v47;
-	uint32_t v48; uint32_t v49; uint32_t v50; uint32_t v51;	uint32_t v52; uint32_t v53; uint32_t v54; uint32_t v55;
-	uint32_t v56; uint32_t v57; uint32_t v58; uint32_t v59;	uint32_t v60; uint32_t v61; uint32_t v62; uint32_t v63; };
+struct UB32_64 { uint32_t u32[64]; };
+struct SB_4096 { UB32_64 ub[16]; };
 
 void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h, GLFW_mouse m, bool cursor = false) {
 	fname = "out/" + fname + ".PAM";
@@ -372,6 +387,13 @@ void save_sound(void* image_data, std::string fname, uint32_t w, uint32_t h, GLF
 			std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
 				file.write( (const char*)line, w*4 );
 			file.close(); } }
+
+struct fspec256 {
+	float rl[256];
+	float im[256];
+};
+
+void new_fspec256(fspec256 *fs) { for(int i = 0; i < 256; i++) { fs->rl[i] = 0.0f; fs->im[i] = 0.0f; } }
 
 struct NS_Timer {
 	std::chrono::_V2::system_clock::time_point st;
@@ -425,12 +447,9 @@ PatternConfigData_408 get_PCD_408(std::string loadfile, int idx, EngineInfo *ei)
 	std::cout << "\n\tPCD408 Data Count: " << idx << " / " << (f_len / sizeof(pcd)) << "\n"; // Report how many patterns are in data file
 	return pcd; }
 
-struct PatternConfigData_256 {
-	uint32_t ubi[64]; };
-
-PatternConfigData_256 new_PCD_256() {
-	PatternConfigData_256 pcd;
-		for(int i = 0; i < 64; i++) { pcd.ubi[i] = 0; }
+UB32_64 new_PCD_256() {
+	UB32_64 pcd;
+		for(int i = 0; i < 64; i++) { pcd.u32[i] = 0; }
 	return pcd; }
 
 struct UI_info {
@@ -475,6 +494,10 @@ struct IMGUI_Config {
 	int			load_pattern_last_value;
 	bool		load_pattern_random;
 	bool		save_to_archive;
+	bool 		load_A256_confirm;
+	int 		load_A256_index;
+	int 		load_A256_index_last;
+	int 		load_A256_count;
 	bool		mutate_menu;
 	bool		mutate_full_random;
 	bool		mutate_set_target;
@@ -515,7 +538,7 @@ struct IMGUI_Config {
 	bool		record_imgui;
 	bool 		recording_config; };
 
-const char* notification_list[19] = {
+const char* notification_list[20] = {
 	"Welcome!",
 	"Saved to Archive (PCD256)",
 	"Target Updated\nScale & Zoom Discarded",
@@ -534,7 +557,8 @@ const char* notification_list[19] = {
 	"Scale",
 	"Frame-time Throttle enabled",
 	"Frame-time Throttle disabled",
-	"Zoom"
+	"Zoom",
+	"Export Frequency"
 };
 
 void send_notif(int idx, IMGUI_Config *gc, bool clear = true) {
@@ -600,11 +624,12 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 //	Fully Randomize
 	if( idx == 8 ) {
 		send_notif(11, gc);
-		gc->scale_value				= (float(rand()%512*256)/768.0f) + 8.0f;
+		gc->scale_value				= (float(rand()%512*512)/768.0f) + 8.0f;
 		gc->zoom_value				= 0.0f;
 		gc->scale_update			= true;
 		gc->zoom_update				= true;
 		gc->mutate_full_random 		= true;
+		gc->mutate_backstep_idx 	= gc->mutate_backstep_idx - 1;
 		/*gc->mutate_backstep_idx 	= -1;
 		gc->mutate_backstep 		= true;*/ }
 
@@ -707,10 +732,14 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 		gc->mutate_backstep_last_value 	= gc->mutate_backstep_idx; }
 
 //	Increase export frequency
-	if( idx == 26 ) { ei->export_frequency++; }
+	if( idx == 26 ) { 
+		ei->export_frequency++;
+		send_notif_float(19, float(ei->export_frequency), gc);  }
 
 //	Decrease export frequency
-	if( idx == 27 ) { ei->export_frequency--; }
+	if( idx == 27 ) { 
+		ei->export_frequency--;
+		send_notif_float(19, float(ei->export_frequency), gc); }
 
 //	Set default parameter mapping
 	if( idx == 28 ) {
@@ -758,6 +787,25 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 		send_notif_float(18, gc->zoom_value, gc);
 		gc->zoom_update		 = true; }
 
+//	Next Archive256 Pattern
+	if( idx == 37 ) {
+		gc->load_A256_confirm 	= true;
+		gc->load_A256_index		= ( gc->load_A256_index + 1 ) % gc->load_A256_count; }
+
+//	Prev Archive256 Pattern
+	if( idx == 38 ) {
+		gc->load_A256_confirm 	= true;
+		gc->load_A256_index 	= ( gc->load_A256_index + gc->load_A256_count - 1 ) % gc->load_A256_count; }
+
+//	Rand Archive256 Pattern
+	if( idx == 39 ) {
+		gc->load_A256_confirm 	= true;
+		gc->load_A256_index 	= rand()%gc->load_A256_count; }
+
+//	Load Archive256 Pattern
+	if( idx == 40 ) {
+		gc->load_A256_confirm 	= true; }
+
 }
 
 bool check_input_update(auto *val, auto *last) {
@@ -779,9 +827,9 @@ void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 		if( ImGui::BeginMenu("Archive") ) {
 		//	if( ImGui::MenuItem( "Reload" ) ) 											{ do_action(  3, ui, ei, gc ); }
 		//	ImGui::Separator();
-			if( ImGui::MenuItem( "Random Pattern", "TAB" ) )							{ do_action(  4, ui, ei, gc ); }
-			if( ImGui::MenuItem( "Next", "MB-Forward" ) ) 								{ do_action(  5, ui, ei, gc ); }
-			if( ImGui::MenuItem( "Previous", "MB-Back" ) ) 								{ do_action(  6, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Random Pattern", "TAB" ) )							{ do_action( 39, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Next", "MB-Forward" ) ) 								{ do_action( 37, ui, ei, gc ); }
+			if( ImGui::MenuItem( "Previous", "MB-Back" ) ) 								{ do_action( 38, ui, ei, gc ); }
 			ImGui::Separator();
 			if( ImGui::MenuItem( "Load Pattern", "..." ) ) 								{ gc->load_pattern 		= true; }
 			ImGui::Separator();
@@ -990,16 +1038,16 @@ void imgui_menu(GLFWwindow *w, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 			ImGui::End(); } 
 		else {
 			ImGui::SetNextItemWidth(112);
-			ImGui::InputInt("", &ei->load_pattern);
+			ImGui::InputInt("", &gc->load_A256_index);
 		    ImGui::SameLine();
-			if(ImGui::Button( "Load", ImVec2(64.0,0.0) )) 										{ do_action(  3, ui, ei, gc ); }
+			if(ImGui::Button( "Load", ImVec2(64.0,0.0) )) 										{ do_action( 40, ui, ei, gc ); }
 		    ImGui::SameLine();
-			if(ImGui::Button( "Random", ImVec2(64.0,0.0) ))										{ do_action(  4, ui, ei, gc ); }
+			if(ImGui::Button( "Random", ImVec2(64.0,0.0) ))										{ do_action( 39, ui, ei, gc ); }
 			ImGui::Checkbox("Instant", 	&gc->load_pattern_check_instant);
 		    ImGui::SameLine();
 			ImGui::Checkbox("Reseed", 	&gc->load_pattern_check_reseed);
 			if(	gc->load_pattern_check_instant
-			&&	check_input_update(&ei->load_pattern, &gc->load_pattern_last_value) ) 			{ do_action(  3, ui, ei, gc ); }
+			&&	check_input_update(&gc->load_A256_index, &gc->load_A256_index_last) ) 			{ do_action( 40, ui, ei, gc ); }
 			ImGui::End(); } }
 }
 
@@ -1052,48 +1100,41 @@ void glfw_mousescroll_event(GLFWwindow* window, double xoffset, double yoffset) 
 	ov( "mouse yoffset", yoffset );
 	loglevel = -1;*/ }
 
-void update_ub( PatternConfigData_256 *pcd, UniBuf *ub ) {
-	ub->v0  = pcd->ubi[ 0]; ub->v1  = pcd->ubi[ 1]; ub->v2  = pcd->ubi[ 2]; ub->v3  = pcd->ubi[ 3];
-	ub->v4  = pcd->ubi[ 4]; ub->v5  = pcd->ubi[ 5]; ub->v6  = pcd->ubi[ 6]; ub->v7  = pcd->ubi[ 7];
-	ub->v8  = pcd->ubi[ 8]; ub->v9  = pcd->ubi[ 9]; ub->v10 = pcd->ubi[10]; ub->v11 = pcd->ubi[11];
-	ub->v12 = pcd->ubi[12]; ub->v13 = pcd->ubi[13]; ub->v14 = pcd->ubi[14]; ub->v15 = pcd->ubi[15];
-	ub->v16 = pcd->ubi[16]; ub->v17 = pcd->ubi[17]; ub->v18 = pcd->ubi[18]; ub->v19 = pcd->ubi[19];
-	ub->v20 = pcd->ubi[20]; ub->v21 = pcd->ubi[21]; ub->v22 = pcd->ubi[22]; ub->v23 = pcd->ubi[23];
-	ub->v24 = pcd->ubi[24]; ub->v25 = pcd->ubi[25]; ub->v26 = pcd->ubi[26]; ub->v27 = pcd->ubi[27];
-	ub->v28 = pcd->ubi[28]; ub->v29 = pcd->ubi[29]; ub->v30 = pcd->ubi[30]; ub->v31 = pcd->ubi[31];
-	ub->v32 = pcd->ubi[32]; ub->v33 = pcd->ubi[33]; ub->v34 = pcd->ubi[34]; ub->v35 = pcd->ubi[35];
-	ub->v36 = pcd->ubi[36]; ub->v37 = pcd->ubi[37]; ub->v38 = pcd->ubi[38]; ub->v39 = pcd->ubi[39];
-	ub->v40 = pcd->ubi[40]; ub->v41 = pcd->ubi[41]; ub->v42 = pcd->ubi[42]; ub->v43 = pcd->ubi[43];
-	ub->v44 = pcd->ubi[44]; ub->v45 = pcd->ubi[45]; ub->v46 = pcd->ubi[46]; ub->v47 = pcd->ubi[47];
-	ub->v48 = pcd->ubi[48]; ub->v49 = pcd->ubi[49]; ub->v50 = pcd->ubi[50]; ub->v51 = pcd->ubi[51];
-	ub->v52 = pcd->ubi[52]; ub->v53 = pcd->ubi[53]; ub->v54 = pcd->ubi[54]; ub->v55 = pcd->ubi[55];
-	ub->v56 = pcd->ubi[56]; ub->v57 = pcd->ubi[57]; ub->v58 = pcd->ubi[58]; ub->v59 = pcd->ubi[59];
-	ub->v60 = pcd->ubi[60]; ub->v61 = pcd->ubi[61]; ub->v62 = pcd->ubi[62]; ub->v63 = pcd->ubi[63]; }
+void update_ub( UB32_64 *pcd, UB32_64 *ub ) {
+	for(int i = 0; i < 64; i++) { ub->u32[i] =  pcd->u32[i]; } }
 
-void loadPattern_PCD408_to_256( EngineInfo *ei, PatternConfigData_256 *pcd ) {
+void loadPattern_PCD408_to_256( EngineInfo *ei, UB32_64 *pcd ) {
 	PatternConfigData_408 pcd_load 	= get_PCD_408("res/data/save_global.vkpat", ei->load_pattern, ei);
 		for(int i = 0; i < 48; i++) { 
-			pcd->ubi[i] =  pcd_load.ubv_save[i]; }
-	memcpy(&pcd->ubi[62], &pcd_load.scl_save, sizeof(uint32_t));
-	memcpy(&pcd->ubi[61], &pcd_load.pzm_save, sizeof(uint32_t)); }
+			pcd->u32[i] =  pcd_load.ubv_save[i]; }
+	memcpy(&pcd->u32[62], &pcd_load.scl_save, sizeof(uint32_t));
+	memcpy(&pcd->u32[61], &pcd_load.pzm_save, sizeof(uint32_t)); }
 
-std::string show_PCD256(PatternConfigData_256 *pcd) {
-	std::string out_string = "\n  PatternConfigData_256:\n";
+std::string show_PCD256(UB32_64 *pcd) {
+	std::string out_string = "\n  UB32_64:\n";
 	for(int i = 0; i < 16; i++) {
-		out_string = out_string + "    " + std::to_string(pcd->ubi[(i*4)+0]);
-		out_string = out_string + ", " 	 + std::to_string(pcd->ubi[(i*4)+1]);
-		out_string = out_string + ", " 	 + std::to_string(pcd->ubi[(i*4)+2]);
-		out_string = out_string + ", " 	 + std::to_string(pcd->ubi[(i*4)+3]) + ", \n"; }
+		out_string = out_string + "    " + std::to_string(pcd->u32[(i*4)+0]);
+		out_string = out_string + ", " 	 + std::to_string(pcd->u32[(i*4)+1]);
+		out_string = out_string + ", " 	 + std::to_string(pcd->u32[(i*4)+2]);
+		out_string = out_string + ", " 	 + std::to_string(pcd->u32[(i*4)+3]) + ", \n"; }
 	return out_string + "\n"; }
 
-void save_PCD256(std::string savefile, PatternConfigData_256 *pcd) {
+void save_PCD256(std::string savefile, UB32_64 *pcd) {
 	std::cout << "\nSAVE:" << show_PCD256(pcd);
 	FILE* f = fopen(savefile.c_str(), "a");
-	fwrite(pcd, sizeof(PatternConfigData_256), 1, f);
+	fwrite(pcd, sizeof(UB32_64), 1, f);
 	fclose(f); }
 
-PatternConfigData_256 load_PCD256(std::string loadfile, int idx) {
-	PatternConfigData_256 pcd = new_PCD_256();
+int get_PCD256_count(std::string loadfile) {
+	int count = 0;
+	std::ifstream fload_pcd256(loadfile.c_str(), std::ios::in | std::ios::binary);
+		fload_pcd256.seekg(0, fload_pcd256.end);
+		count = int(fload_pcd256.tellg() / sizeof(UB32_64));
+	fload_pcd256.close();
+	return count; }
+
+UB32_64 load_PCD256(std::string loadfile, int idx) {
+	UB32_64 pcd = new_PCD_256();
 	std::ifstream fload_pcd256(loadfile.c_str(), std::ios::in | std::ios::binary);
 		fload_pcd256.seekg(0, fload_pcd256.end);
 		int f_len = fload_pcd256.tellg();
@@ -1104,10 +1145,25 @@ PatternConfigData_256 load_PCD256(std::string loadfile, int idx) {
 	std::cout << "\nLOAD:" << show_PCD256(&pcd);
 	return pcd; }
 
-/*void load_PCD256(PatternConfigData_256 *pcd) {
+struct WAVS16_1024 {
+	int16_t i16[1024*8];
+};
+
+WAVS16_1024 load_WAVS16(std::string loadfile, int idx) {
+	WAVS16_1024 WAVS16;
+	std::ifstream fload_WAVS16(loadfile.c_str(), std::ios::in | std::ios::binary);
+		fload_WAVS16.seekg(0, fload_WAVS16.end);
+		int f_len = fload_WAVS16.tellg();
+		fload_WAVS16.seekg (( (idx + (f_len / sizeof(int16_t))) % (f_len / sizeof(int16_t))) * sizeof(int16_t));
+		fload_WAVS16.read((char*)&WAVS16, sizeof(WAVS16_1024));
+	//	std::cout << "\tLoad WAVS16 Data Count: " << idx << " / " << (f_len / sizeof(WAVS16)) << "\n"; // Report how many patterns are in data file
+	fload_WAVS16.close();
+	return WAVS16; }
+
+/*void load_PCD256(UB32_64 *pcd) {
 	std::cout << show_PCD256(pcd);
 	FILE* f = fopen("sav/PCD256_global_all.vkpat", "r");
-	fread(&pcd, sizeof(struct PatternConfigData_256), 1, f);
+	fread(&pcd, sizeof(struct UB32_64), 1, f);
 	fclose(f); }*/
 
 void framesleep(int ms) {
@@ -1119,9 +1175,103 @@ uint32_t u32_clr(uint32_t u32, uint32_t off) { return u32 & (1 << off); }
 
 uint32_t mut_rnd() 	{ return rand()%UINT32_MAX; }
 
-uint32_t bit_flp(uint32_t u32, uint32_t rnd) { 
-	for(int i = 0; i < 32; i++) { if(rand()%rnd == 0) { u32 = u32_flp(u32, i); } } 
+uint32_t blk_clr(uint32_t u32) {
+	for(int i = 0; i < 32; i++) { u32 = u32_clr(u32, i); }
 	return u32; }
+
+uint32_t blk_set(uint32_t u32) {
+	for(int i = 0; i < 32; i++) { u32 = u32_set(u32, i); }
+	return u32; }
+
+uint32_t wrd_clr(uint32_t u32, uint32_t off, uint32_t len) {
+	len = len - (((off+len)/32) * ((off+len)%32));
+	for(int i = off; i < off+len; i++) { u32 = u32_set(u32, i); }
+	return u32; }
+
+uint32_t wrd_set(uint32_t u32, uint32_t off, uint32_t len) {
+	len = len - (((off+len)/32) * ((off+len)%32));
+	for(int i = off; i < off+len; i++) { u32 = u32_set(u32, i); }
+	return u32; }
+
+uint32_t wrd_flp(uint32_t u32, uint32_t off, uint32_t len) {
+	len = len - (((off+len)/32) * ((off+len)%32));
+	for(int i = off; i < off+len; i++) { u32 = u32_flp(u32, i); }
+	return u32; }
+
+uint32_t bit_flp(uint32_t u32, uint32_t rnd) { 
+	for(int i = 0; i < 32; i++) { if(rand()%rnd == 0) { u32 = u32_flp(u32, i); } }
+	if(rand()%(rnd*2) == 0) { u32 = wrd_set( u32, rand()%32, rand()%8 ); }
+	if(rand()%(rnd*2) == 0) { u32 = wrd_clr( u32, rand()%32, rand()%8 ); }
+	if(rand()%(rnd*2) == 0) { u32 = wrd_flp( u32, rand()%32, rand()%8 ); }
+	return u32; }
+
+struct fsmag256 { float fsm[256]; };
+
+fsmag256 new_fsmag256() {
+	fsmag256 fsm;
+	for(int i = 0; i < 256; i++) { fsm.fsm[i] = 0.0f; }
+	return fsm; }
+
+void dft1d(int idx, int smp, fspec256* fs, fsmag256* fsm) {
+	new_fspec256(fs);
+	WAVS16_1024 d1024 = load_WAVS16("input.wav", idx+150);
+	for(int s = 0; s < smp; s++) {
+		int16_t d = d1024.i16[s*8];
+		for(int f = 0; f < (smp/2); f++) {
+			double trigpi = (2.0 * M_PI * double(f) * double(s)) / double(smp);
+			fs->rl[f/((smp/2)/256)] +=  float( (double(d)*cos(trigpi) + double(d)*sin(trigpi)) * (1.0f/smp) );
+			fs->im[f/((smp/2)/256)] +=  float( (double(d)*cos(trigpi) - double(d)*sin(trigpi)) * (1.0f/smp) ); } }
+
+	for(int i = 0; i < 256; i++) { fsm->fsm[i] = (fsm->fsm[i] * 0.65) + sqrt(fs->rl[i]*fs->rl[i] + fs->im[i]*fs->im[i]) * 0.35; }
+
+	//for(int i = 0; i < 256; i++) { std::cout << fs->rl[i] << "," << fs->im[i] << "\n"; }
+	/*std::cout << sizeof(int16_t) << "," << sizeof(WAVS16_1024) << "," << sizeof(d1024) << "," << sizeof(d1024.i16[0]) << "\n";*/ }
+
+void save_fspec(fsmag256 *fsm, std::string fname, uint32_t w, uint32_t h) {
+	fname = "out/" + fname + ".PAM";
+	ov("Save Image", fname);
+
+	std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
+		file 	<<	"P7" 							<< "\n"
+			 	<< 	"WIDTH "	<< w 				<< "\n"
+			 	<< 	"HEIGHT "	<< h				<< "\n"
+			 	<< 	"DEPTH "	<< "4"				<< "\n"
+			 	<< 	"MAXVAL "	<< "255"			<< "\n"
+			 	<< 	"TUPLTYPE "	<< "RGB_ALPHA"		<< "\n"
+			 	<< 	"ENDHDR"	<< "\n";
+
+		int 	maxsize 	= w*h*4;
+		char* 	buffer 		= new char[maxsize];
+
+		//float 	maxmag = 1.0f;
+		//for(int j = 0; j < 256; j++) { maxmag = (fsm->fsm[j] > maxmag) ? fsm->fsm[j] : maxmag; }
+		//std::cout << maxmag << "\n";
+		for(int j = 0; j < 256; j++) {
+			int xoff = int(		   j   *4+maxsize )%maxsize;
+			int mag = int((fsm->fsm[j] / 4096.0f) * 255.0f);
+		//	int mag = int((fsm->fsm[j] /  maxmag) * 255.0f);
+		//	int mag = int(fsm->fsm[j]);
+			int magclamp = (mag > 255) ? 255 : ((mag < 0) ? 0 : mag);
+			for(int k = 0; k < magclamp; k++) {
+				int yoff = int( k*-1*w*4+maxsize-(w*4) )%maxsize;
+				for(int i = 0; i < 4; i++) {
+					buffer[(xoff+yoff+i-w*4*0+maxsize)%maxsize] = UINT8_MAX; } }
+
+			/*int yclampr = (int(abs(fs->rl[j])) > 255) ? 255 : int(abs(fs->rl[j]));
+			int yclampi = (int(abs(fs->im[j])) > 255) ? 255 : int(abs(fs->im[j]));
+			
+			for(int k = 0; k < yclampr; k++) {
+				int yoff = int( k*-1*w*4+maxsize-(w*4) )%maxsize;
+				for(int i = 0; i < 1; i++) {
+					buffer[(xoff+yoff+i+0-w*4*0+maxsize)%maxsize] = UINT8_MAX; } }
+			for(int k = 0; k < yclampi; k++) {
+				int yoff = int( k*-1*w*4+maxsize-(w*4) )%maxsize;
+				for(int i = 0; i < 1; i++) {
+					buffer[(xoff+yoff+i+1-w*4*0+maxsize)%maxsize] = UINT8_MAX; } }*/ }
+
+		file.write( (const char*)buffer, w*h*4 );
+
+	file.close(); }
 
 int main() {
 
@@ -1144,8 +1294,8 @@ int main() {
 //			W:	16384 	8192 	4096	2048	1024	512		256
 //			H:	8192 	4096  	2048	1024	512		256		128
 
-	const 	uint32_t 	APP_W 	=  1024;	//	Window & Simulation Width
-	const 	uint32_t 	APP_H 	=  512;	//	Window & Simulation Height
+	const 	uint32_t 	APP_W 	= 64*2*2*4;	//	Window & Simulation Width
+	const 	uint32_t 	APP_H 	= 64*2*1*4;	//	Window & Simulation Height
 
 	EngineInfo ei;
 		ei.paused 				= false;				//	Pause Simulation
@@ -1662,6 +1812,56 @@ int main() {
 		vr("vkMapMemory", &vkres, pvoid_blit2buff,
 			vkMapMemory(vob.VKL, blit2buff.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff) );
 
+
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SSBO");		/**/
+	///////////////////////////////////////////////////
+
+/*	VK_Buffer_Data buffData;
+
+		buffData.buff_info.sType 					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	nf(&buffData.buff_info);
+		buffData.buff_info.size 					= sizeof(UB32_64) * 16;
+		buffData.buff_info.usage 					= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		buffData.buff_info.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
+		buffData.buff_info.queueFamilyIndexCount 	= 1;
+		buffData.buff_info.pQueueFamilyIndices 		= &vob.VKQ_i;
+
+		vr("vkCreateBuffer", &vkres, buffData.vk_buffer,
+			vkCreateBuffer(vob.VKL, &buffData.buff_info, NULL, &buffData.vk_buffer) );
+
+		VkMemoryRequirements vk_memory_requirements_buffData;
+
+		rv("vkGetBufferMemoryRequirements");
+			vkGetBufferMemoryRequirements(vob.VKL, buffData.vk_buffer, &buffData.vk_mem_reqs);
+
+			ov("buffData size", 			buffData.vk_mem_reqs.size);
+			ov("buffData alignment", 		buffData.vk_mem_reqs.alignment);
+			ov("buffData memoryTypeBits", 	buffData.vk_mem_reqs.memoryTypeBits);
+
+		buffData.MTB_index = findProperties(
+			&pdev[vob.VKP_i].vk_pdev_mem_props,
+			buffData.vk_mem_reqs.memoryTypeBits,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
+
+			ov("memoryTypeIndex", buffData.MTB_index);
+
+		buffData.vk_mem_allo_info.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		buffData.vk_mem_allo_info.pNext				= NULL;
+		buffData.vk_mem_allo_info.allocationSize		= buffData.vk_mem_reqs.size;
+		buffData.vk_mem_allo_info.memoryTypeIndex		= buffData.MTB_index;
+
+		vr("vkAllocateMemory", &vkres, buffData.vk_dev_mem,
+			vkAllocateMemory(vob.VKL, &buffData.vk_mem_allo_info, NULL, &buffData.vk_dev_mem) );
+
+		vr("vkBindBufferMemory", &vkres, buffData.vk_buffer,
+			vkBindBufferMemory(vob.VKL,  buffData.vk_buffer, buffData.vk_dev_mem, 0) );
+
+	//	Map the memory location on the GPU to export image data
+		void* pvoid_buffData;
+		vr("vkMapMemory", &vkres, pvoid_buffData,
+			vkMapMemory(vob.VKL, buffData.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_buffData) );*/
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SHADER DATA");			/**/
@@ -2201,7 +2401,7 @@ int main() {
 	 /**/	hd("STAGE:", "WORK DESCRIPTOR SETS");	/**/
 	///////////////////////////////////////////////////
 
-	VK_DescSetLayout dsl_work;
+	VK_DescSetLayout3 dsl_work;
 
 		dsl_work.set_bind[0].binding				= 1;
 		dsl_work.set_bind[0].descriptorType			= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -2213,22 +2413,30 @@ int main() {
 		dsl_work.set_bind[1].descriptorCount		= 1;
 		dsl_work.set_bind[1].stageFlags				= VK_SHADER_STAGE_FRAGMENT_BIT;
 		dsl_work.set_bind[1].pImmutableSamplers		= NULL;
+		dsl_work.set_bind[2].binding				= 2;
+		dsl_work.set_bind[2].descriptorType			= VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		dsl_work.set_bind[2].descriptorCount		= 1;
+		dsl_work.set_bind[2].stageFlags				= VK_SHADER_STAGE_FRAGMENT_BIT;
+		dsl_work.set_bind[2].pImmutableSamplers		= NULL;
 
 		dsl_work.set_info.sType 					= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 	nf(&dsl_work.set_info);
-		dsl_work.set_info.bindingCount				= 2;
+		dsl_work.set_info.bindingCount				= 3;
 		dsl_work.set_info.pBindings					= dsl_work.set_bind;
 
 		dsl_work.pool_size[0].type 					= dsl_work.set_bind[0].descriptorType;
 		dsl_work.pool_size[0].descriptorCount 		= 2;
 		dsl_work.pool_size[1].type 					= dsl_work.set_bind[1].descriptorType;
 		dsl_work.pool_size[1].descriptorCount 		= 2;
+		dsl_work.pool_size[2].type 					= dsl_work.set_bind[2].descriptorType;
+		dsl_work.pool_size[2].descriptorCount 		= 2;
 
 		dsl_work.pool_info.sType 					= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 	nf(&dsl_work.pool_info);
 		dsl_work.pool_info.maxSets 					= dsl_work.pool_size[0].descriptorCount
-													+ dsl_work.pool_size[1].descriptorCount;
-		dsl_work.pool_info.poolSizeCount 			= 2;
+													+ dsl_work.pool_size[1].descriptorCount
+													+ dsl_work.pool_size[2].descriptorCount;
+		dsl_work.pool_info.poolSizeCount 			= 3;
 		dsl_work.pool_info.pPoolSizes 				= dsl_work.pool_size;
 
 	ov("pool_info.maxSets", dsl_work.pool_info.maxSets);
@@ -2279,8 +2487,8 @@ int main() {
 	///////////////////////////////////////////////////
 
 	VkDeviceSize vkdevsize_work;
-		vkdevsize_work = sizeof(UniBuf);
-	ov("UniBuf size", vkdevsize_work);
+		vkdevsize_work = sizeof(UB32_64);
+	ov("UB32_64 size", vkdevsize_work);
 	VkBufferCreateInfo vkbuff_info_work;
 		vkbuff_info_work.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	nf(&vkbuff_info_work);
@@ -2347,6 +2555,78 @@ int main() {
 	void *pvoid_memmap_work;
 	vr("vkMapMemory", &vkres, pvoid_memmap_work,
 		vkMapMemory(vob.VKL, vkdevmem_ub_work, vkDescBuff_info_work.offset, vkDescBuff_info_work.range, 0, &pvoid_memmap_work) );
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "SSBO");	/**/
+	///////////////////////////////////////////////////
+
+	VkDeviceSize vkdevsize_ssbo;
+		vkdevsize_ssbo = sizeof(UB32_64) * 16;
+	ov("UB32_64 * 16 size", vkdevsize_ssbo);
+	VkBufferCreateInfo vkbuff_info_ssbo;
+		vkbuff_info_ssbo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+	nf(&vkbuff_info_ssbo);
+		vkbuff_info_ssbo.size 						= vkdevsize_ssbo;
+		vkbuff_info_ssbo.usage 						= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		vkbuff_info_ssbo.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
+		vkbuff_info_ssbo.queueFamilyIndexCount 		= 1;
+		vkbuff_info_ssbo.pQueueFamilyIndices 		= &vob.VKQ_i;
+	VkBuffer vkbuff_ssbo;
+	vr("vkCreateBuffer", &vkres, vkbuff_ssbo,
+		vkCreateBuffer(vob.VKL, &vkbuff_info_ssbo, NULL, &vkbuff_ssbo) );
+	VkDescriptorBufferInfo vkDescBuff_info_ssbo;
+		vkDescBuff_info_ssbo.buffer 		= vkbuff_ssbo;
+		vkDescBuff_info_ssbo.offset 		= 0;
+		vkDescBuff_info_ssbo.range 			= VK_WHOLE_SIZE;
+	VkWriteDescriptorSet vkwritedescset_sb_work[2];
+	for(int i = 0; i < 2; i++) {
+		vkwritedescset_sb_work[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		vkwritedescset_sb_work[i].pNext 				= NULL;
+		vkwritedescset_sb_work[i].dstSet 				= dsl_work.vk_descriptor_set[i];
+		vkwritedescset_sb_work[i].dstBinding 			= 2;
+		vkwritedescset_sb_work[i].dstArrayElement 		= 0;
+		vkwritedescset_sb_work[i].descriptorCount 		= 1;
+		vkwritedescset_sb_work[i].descriptorType 		= dsl_work.set_bind[2].descriptorType;
+		vkwritedescset_sb_work[i].pImageInfo 			= NULL;
+		vkwritedescset_sb_work[i].pBufferInfo 			= &vkDescBuff_info_ssbo;
+		vkwritedescset_sb_work[i].pTexelBufferView 		= NULL; }
+
+	  ///////////////////////////////////////////////////
+	 /**/	hd("STAGE:", "ssbo DESCRIPTOR MEMORY");	/**/
+	///////////////////////////////////////////////////
+
+	VkMemoryRequirements vkmemreqs_sb_work;
+	rv("vkGetBufferMemoryRequirements");
+		vkGetBufferMemoryRequirements(vob.VKL, vkbuff_ssbo, &vkmemreqs_sb_work);
+	ov("memreq size", 			vkmemreqs_sb_work.size);
+	ov("memreq alignment", 		vkmemreqs_sb_work.alignment);
+	ov("memreq memoryTypeBits", vkmemreqs_sb_work.memoryTypeBits);
+	int mem_index_sb_work = UINT32_MAX;
+		mem_index_sb_work = findProperties(
+			&pdev[vob.VKP_i].vk_pdev_mem_props,
+			vkmemreqs_sb_work.memoryTypeBits,
+			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
+	ov("memoryTypeIndex", mem_index_sb_work);
+	VkMemoryAllocateInfo vkmemallo_info_ssbo;
+		vkmemallo_info_ssbo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+		vkmemallo_info_ssbo.pNext			= NULL;
+		vkmemallo_info_ssbo.allocationSize	= vkmemreqs_sb_work.size;
+		vkmemallo_info_ssbo.memoryTypeIndex	= mem_index_sb_work;
+	VkDeviceMemory vkdevmem_sb_work;
+	vr("vkAllocateMemory", &vkres, vkdevmem_sb_work,
+		vkAllocateMemory(vob.VKL, &vkmemallo_info_ssbo, NULL, &vkdevmem_sb_work) );
+//	Assign device (GPU) memory to hold the Uniform Buffer
+	vr("vkBindBufferMemory", &vkres, vkbuff_ssbo,
+		vkBindBufferMemory(vob.VKL, vkbuff_ssbo, vkdevmem_sb_work, 0) );
+//	Update the Sampler and Uniform Buffer Descriptors
+	for(int i = 0; i < 2; i++) {
+		rv("vkUpdateDescriptorSets");
+			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_sb_work[i], 0, NULL); }
+
+//	Map the memory location on the GPU for memcpy() to submit the Uniform Buffer
+	void *pvoid_memmap_ssbo;
+	vr("vkMapMemory", &vkres, pvoid_memmap_ssbo,
+		vkMapMemory(vob.VKL, vkdevmem_sb_work, vkDescBuff_info_ssbo.offset, vkDescBuff_info_ssbo.range, 0, &pvoid_memmap_ssbo) );
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK RENDER PASS");		/**/
@@ -3077,18 +3357,19 @@ int main() {
 	NS_Timer 	guitime;
 	NS_Timer 	cmdtime;
 	int  		current_sec		= time(0);
-	int  		fps_freq 		= 4;
+	int  		fps_freq 		= 1;
 	int  		fps_report 		= time(0) - fps_freq;
 
 
-	PatternConfigData_256 pcd 	= new_PCD_256();
+	UB32_64 pcd 	= new_PCD_256();
 
-	loadPattern_PCD408_to_256( &ei, &pcd );
 
+//	loadPattern_PCD408_to_256( &ei, &pcd );
 //	pcd = load_PCD256("sav/PCD256_archive.vkpat", rand()%106 ); // Too lazy to dynamically get filesize for now
 
 //	Uniform Buffer Object ( 64 * 32 bits maximum )
-	UniBuf ub;
+	UB32_64 ub;
+	SB_4096 sb;
 
 	update_ub( &pcd, &ub );
 
@@ -3135,27 +3416,43 @@ int main() {
 		gc.scale_has_panned				= false;
 		gc.recording_config 			= false;
 		gc.record_imgui					=  true;
+		gc.load_A256_confirm 			=  true;
 
 		gc.load_pattern_last_value 		= ei.load_pattern;
 		gc.mutate_flip_str 				= 80;
 		gc.mutate_backstep_idx 			= -1;
 		gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
-		gc.throttle_target				= 12;
+		gc.throttle_target				= 32;
 		gc.pmap_index					= 0;
 		gc.pmap_index_last				= gc.pmap_index;
 		gc.glfw_mouse_xpos_last			= ui.mx;
+		gc.load_A256_index				= -1;
+		gc.load_A256_index_last			= gc.load_A256_index;
+		gc.load_A256_count				= get_PCD256_count("sav/PCD256_archive.vkpat");
 
 		gc.notification_float_value		= 0.0f;
 
-		memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
+		memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
 		gc.scale_last_value				= gc.scale_value;
 
-		memcpy(&gc.zoom_value, &pcd.ubi[61], sizeof(uint32_t));
+		memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
 		gc.zoom_last_value				= gc.zoom_value;
 
 	NS_Timer nottime;
 		gc.notification_timer = nottime;
 		send_notif(0, &gc);
+
+	fspec256 fs;
+	fsmag256 fsm = new_fsmag256();
+
+	bool do_ub_update = true;
+
+/*	pcd 			= load_PCD256("sav/PCD256_archive.vkpat", gc.load_A256_index);
+	memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
+	memcpy(&gc.zoom_value,  &pcd.u32[61], sizeof(uint32_t));
+	do_ub_update 	= true;
+	gc.scale_update = true;
+	gc.zoom_update 	= true;*/
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
@@ -3163,7 +3460,6 @@ int main() {
 
 //	Main Loop code
 	do {
-		bool do_ub_update = false;
 	//	Record loop start time
     	ftime = start_timer(ftime);
 
@@ -3233,7 +3529,9 @@ int main() {
 						glfw_mouse.action  				= 0;
 						gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
 						do_action(  9, &ui, &ei, &gc );
-						if( gc.glfw_mod_LSHIFT ) { gc.save_to_archive = true; } }
+						if( gc.glfw_mod_LSHIFT ) { 
+							gc.save_to_archive = true;
+							gc.load_A256_index = -1; } }
 
 				//	Mouse Wheel Up
 					if( glfw_mouse.yoffset == -1 ) {
@@ -3245,15 +3543,15 @@ int main() {
 						glfw_mouse.yoffset  =  0;
 						do_action( 35, &ui, &ei, &gc ); }
 
-				//	Mouse Forward
+				//	Mouse Back
 					if(glfw_mouse.button == 3 && glfw_mouse.action == 1) {
 						glfw_mouse.action = 0;
-						do_action(  5, &ui, &ei, &gc ); }
+						do_action( 38, &ui, &ei, &gc ); }
 
-				//	Mouse Back
+				//	Mouse Forward
 					if(glfw_mouse.button == 4 && glfw_mouse.action == 1) {
 						glfw_mouse.action = 0;
-						do_action(  6, &ui, &ei, &gc ); } }
+						do_action( 37, &ui, &ei, &gc ); } }
 
 				else { ui.mbl = 0; ui.mbr = 0; }
 
@@ -3286,15 +3584,15 @@ int main() {
 
 				//	Press 		TAB			Show Random Archive Pattern
 					if( glfw_key.key 	== GLFW_KEY_TAB
-		 			&& 	glfw_key.action == 1 ) { do_action(  4, &ui, &ei, &gc ); }
+		 			&& 	glfw_key.action == 1 ) { do_action( 39, &ui, &ei, &gc ); }
 
 				//	Press 		RIGHT 		Show Prev Archive Pattern
 					if( glfw_key.key 	== GLFW_KEY_RIGHT
-		 			&& 	glfw_key.action >= 1 ) { do_action(  5, &ui, &ei, &gc ); }
+		 			&& 	glfw_key.action >= 1 ) { do_action( 37, &ui, &ei, &gc ); }
 
 				//	Press 		LEFT		Show Next Archive Pattern
 					if( glfw_key.key 	== GLFW_KEY_LEFT
-		 			&& 	glfw_key.action >= 1 ) { do_action(  6, &ui, &ei, &gc ); }
+		 			&& 	glfw_key.action >= 1 ) { do_action( 38, &ui, &ei, &gc ); }
 
 				//	Press 		CTRL-S		Save Archive Pattern
 					if( glfw_key.key 	== GLFW_KEY_S
@@ -3372,6 +3670,20 @@ int main() {
 					if( uint_notif_age > 2400000000 ) 	{ tog(&gc.show_notification_float); } }
 
 
+				if( gc.load_A256_confirm ) {
+					gc.load_A256_confirm = false;
+					ui.cmd = 1;
+					ei.tick_loop = 1;
+					pcd = load_PCD256("sav/PCD256_archive.vkpat", gc.load_A256_index);
+					do_ub_update = true;
+					memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
+					memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
+					gc.scale_update = true;
+					gc.zoom_update = true;
+					for(int j = 0; j < 16; j++) {
+						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = pcd.u32[i]; }
+					} }
+
 			//	Load random Archive pattern
 				if( gc.load_pattern_confirm ) {
 					gc.load_pattern_confirm = false;
@@ -3381,13 +3693,18 @@ int main() {
 						ei.load_pattern = (rand()%(ei.PCD_count - 18080)) + 18080;	}
 					loadPattern_PCD408_to_256( &ei, &pcd );
 					do_ub_update = true;
-					memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
-					memcpy(&gc.zoom_value, &pcd.ubi[61], sizeof(uint32_t));
+					memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
+					memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
 					if(gc.load_pattern_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
 
-
+//
 				if( gc.mutate_set_target ) {
+					loglevel = MAXLOG;
+					uint32_t panel_index = (uint32_t((float(ui.my)/float(APP_H))*float(panel_n_x_n))*panel_n_x_n) +(uint32_t((float(ui.mx)/float(APP_W))*float(panel_n_x_n)));
+					ov("INDEX",panel_index);
+					loglevel = -1;
 					gc.mutate_set_target = false;
+					for(int i = 0; i < 48; i++) { pcd.u32[i] = sb.ub[panel_index].u32[i]; }
 					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
 				if( gc.mutate_backstep ) {
@@ -3396,16 +3713,22 @@ int main() {
 					ei.tick_loop = 1;
 					pcd = load_PCD256("sav/PCD256_global_all.vkpat", gc.mutate_backstep_idx);
 					do_ub_update = true;
-					memcpy(&gc.scale_value, &pcd.ubi[62], sizeof(uint32_t));
-					memcpy(&gc.zoom_value, &pcd.ubi[61], sizeof(uint32_t));
+					memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
+					memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
 					gc.scale_update = true;
-					gc.zoom_update = true; }
+					gc.zoom_update = true;
+					for(int j = 0; j < 16; j++) {
+						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = pcd.u32[i]; }
+					} }
 
 				if( gc.mutate_full_random ) {
 					gc.mutate_full_random = false;
 					ui.cmd = 1;
 					ei.tick_loop = 1;
-					for(int i = 0; i < 48; i++) { pcd.ubi[i] = mut_rnd(); }
+					for(int i = 0; i < 48; i++) { pcd.u32[i] = mut_rnd(); }
+					for(int j = 1; j < 16; j++) {
+						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = mut_rnd(); }
+					}
 					do_ub_update = true;
 					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
@@ -3413,7 +3736,16 @@ int main() {
 					gc.mutate_flip = false;
 					ui.cmd = 1;
 					ei.tick_loop = 1;
-					for(int i = 0; i < 48; i++) { pcd.ubi[i] = bit_flp( pcd.ubi[i], gc.mutate_flip_str ); }
+
+					for(int j = 1; j < 16; j++) {
+						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = bit_flp( pcd.u32[i], (rand()%(gc.mutate_flip_str*2))+(gc.mutate_flip_str/2)+1 ); }
+					}
+
+					for(int i = 0; i < 48; i++) { pcd.u32[i] = bit_flp( pcd.u32[i], (rand()%(gc.mutate_flip_str*2))+(gc.mutate_flip_str/2)+1 ); }
+
+					for(int i = 0; i < 48; i++) {
+						sb.ub[0].u32[i] = pcd.u32[i]; }
+
 					do_ub_update = true;
 					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
@@ -3422,22 +3754,56 @@ int main() {
 					gc.mutate_backstep_idx--;
 					gc.mutate_backstep_last_value = gc.mutate_backstep_idx; }
 
+				//int16_t sound 	 = 0;
+				//float 	soundavg = 0.0f;
+				if(!ei.paused || ei.tick_loop) {
+
+					//dft1d(frame_index*735, 512, &fs, &fsm);
+					//save_fspec(&fsm, "IMG"+std::to_string(ei.imgdat_idx), 256, 256);
+					//ei.imgdat_idx++;
+
+					//for(int i = 0; i < 20; i+=6) {
+					//	sound = load_WAVS16( "input.wav", frame_index + i );
+					//	soundavg += (float(sound) / float(INT16_MAX)) / 20.0f; }
+
+					//if(!verbose_loops) { loglevel = MAXLOG; }
+					//ov( "WAVS16", std::to_string( float(sound) / float(INT16_MAX) ) );
+					//ov( "WAVS16", std::to_string( soundavg ) );
+					//if(!verbose_loops) { loglevel = -1; }
+					//gc.scale_update = true;
+					/*&gc.zoom_value = &gc.zoom_value + &gc.zoom_value * sound * 0.2f;*/ }
+
 			//	Update special floats
 				//	[62]	'Scale' value
 				if( gc.scale_update ) {
 					gc.scale_update = false;
-					memcpy(&pcd.ubi[62], &gc.scale_value, sizeof(uint32_t));
+					//float fsc = gc.scale_value + gc.scale_value * (float(sound) / float(INT16_MAX)) * 0.8f;
+					/*float fsm_sample
+						=	(fsm.fsm[12] 	* 0.02
+						+	fsm.fsm[18] 	* 0.02
+						+	fsm.fsm[24] 	* 0.02
+						+	fsm.fsm[30] 	* 0.03
+						+	fsm.fsm[36] 	* 0.05
+						+	fsm.fsm[48] 	* 0.05
+						+	fsm.fsm[64] 	* 0.07
+						+	fsm.fsm[96] 	* 0.07
+						+	fsm.fsm[128] 	* 0.08
+						+	fsm.fsm[192] 	* 0.09);*/
+					float fsc = gc.scale_value;
+					memcpy(&pcd.u32[62], &fsc, sizeof(uint32_t));
 					do_ub_update = true; }
 				//	[61]	'Zoom' value
 				if( gc.zoom_update ) {
 					gc.zoom_update = false;
-					memcpy(&pcd.ubi[61], &gc.zoom_value, sizeof(uint32_t));
+					float fzm = gc.zoom_value;// + gc.zoom_value * (float(sound) / float(INT16_MAX)) * 1.0f;
+					memcpy(&pcd.u32[61], &fzm, sizeof(uint32_t));
 					do_ub_update = true;	}
 
 			//	Save current target to PCD256 Archive
 				if( gc.save_to_archive ) {
 					gc.save_to_archive = false;
 					save_PCD256("sav/PCD256_archive.vkpat", &pcd);
+					gc.load_A256_count = get_PCD256_count("sav/PCD256_archive.vkpat");
 					send_notif(1, &gc); }
 
 				if(ei.show_gui || ei.paused) {
@@ -3477,32 +3843,38 @@ int main() {
 								vkEndCommandBuffer(combuf_imgui_loop[i].vk_command_buffer) ); }
 					end_timer(cmdtime, "Command Buffer Build Time"); } }
 
-			if( do_ub_update ) { update_ub( &pcd, &ub ); }
+			if( do_ub_update ) { update_ub( &pcd, &ub ); update_ub( &ub, &sb.ub[0] ); }
 		//	Update Uniform Buffer values
 		//		[62]	'Scale' value
 		//	if( gc.scale_update ) {
 		//		gc.scale_update = false;
-		//		memcpy(&pcd.ubi[62], &gc.scale_value, sizeof(uint32_t));
+		//		memcpy(&pcd.u32[62], &gc.scale_value, sizeof(uint32_t));
 		//		update_ub( &pcd, &ub );	}
 		//		[61]	'Zoom' value
 		//	if( gc.zoom_update ) {
 		//		gc.zoom_update = false;
-		//		memcpy(&pcd.ubi[61], &gc.zoom_value, sizeof(uint32_t));
+		//		memcpy(&pcd.u32[61], &gc.zoom_value, sizeof(uint32_t));
 		//		update_ub( &pcd, &ub );	}
 		//		[60]	Mouse info & Command IDs
-			ub.v60 		= pack_ui_info(ui);
+			ub.u32[60] 		= pack_ui_info(ui);
 		//		[59]	Views/Modes
 			vw.pmap		= gc.pmap_index;
 			vw.sdat		= (gc.mode_showdata) ? 1u : 0u;
-			ub.v59 		= pack_vw_info(vw);
-			pcd.ubi[59] = ub.v59;
+			ub.u32[59] 	= pack_vw_info(vw);
+			pcd.u32[59] = ub.u32[59];
 		//		[63]	Frame Index, Time-Seed
 			ft.frame 	= frame_index;
-			ub.v63		= pack_ft_info(ft);
+			ub.u32[63]	= pack_ft_info(ft);
 
 		//	Send UB values to GPU
 			rv("memcpy");
 				memcpy(pvoid_memmap_work, &ub, sizeof(ub));
+
+
+		//	Send SSBO values to GPU
+//			sb.ub[0] = ub;
+			rv("memcpy");
+				memcpy(pvoid_memmap_ssbo, &sb, sizeof(sb));
 
     		optime = start_timer(optime);
 
@@ -3595,6 +3967,7 @@ int main() {
 				end_timer(optime, "Save ImageData");
 				if(!verbose_loops) { loglevel = -1; }
 				ei.imgdat_idx++;
+				dft1d(ei.imgdat_idx*735, 512, &fs, &fsm);
 				if( ei.export_batch_size  > 0
 				&&	ei.export_batch_left  > 0 ) { ei.export_batch_left--; }
 				if( !ei.run_headless
@@ -3618,6 +3991,8 @@ int main() {
 
 		if(ei.tick_loop > 0) { ei.tick_loop--; }
 		if(verbose_loops > 0) { verbose_loops--; } else { loglevel = -1; }
+
+		do_ub_update = false;
 
 	} while ( valid && ((!ei.run_headless && !glfwWindowShouldClose(glfw_W)) || ei.run_headless) );
 
