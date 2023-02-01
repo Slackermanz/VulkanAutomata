@@ -79,4 +79,3 @@ Communities:
 
  - Reddit: https://old.reddit.com/r/cellular_automata
 
-
