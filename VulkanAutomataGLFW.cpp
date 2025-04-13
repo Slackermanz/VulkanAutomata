@@ -25,6 +25,7 @@
 #include "vkmodules/Rendering/Rendering.h"
 #include "vkmodules/Platform/Platform.h"
 #include "vkmodules/Core/Core.h"
+#include "vkmodules/Export/Export.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -1650,49 +1651,26 @@ int main() {
 
 			if(!ei.paused || ei.tick_loop) { frame_index++; }
 
-			if((!ei.paused || ei.tick_loop)
-			&& 	valid
-			&&  ei.export_enabled
-			&&	ei.export_frequency > 0
-			&&	frame_index % ei.export_frequency == 0
-			&& 	frame_index > 0) {
-			//	Submit 'imagedata' commands to the GPU graphics queue
-				bool get_gui = false;
-				if(ei.run_headless || !gc.record_imgui || !ei.show_gui) {
-					rv("combuf_work_imagedata");
-						qsync.sub_info.pCommandBuffers = &combuf_work_imagedata[(frame_index+0)%2].vk_command_buffer; }
-				else {
-					get_gui = true;
-					rv("combuf_work_imagedata");
-						qsync.sub_info.pCommandBuffers = &combuf_blit_imgui_loop[swap_image_index].vk_command_buffer; }
-				vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
-					vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) );
-				vr("vkDeviceWaitIdle", &vkres, "IDLE",
-					vkDeviceWaitIdle(vob.VKL) );
-
-			//	TODO use own sync object?
-				rv("combuf_work_imagedata");
-					qsync.sub_info.pCommandBuffers = &combuf_blit2buff_sing[0].vk_command_buffer;
-				vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
-					vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) );
-				vr("vkDeviceWaitIdle", &vkres, "IDLE",
-					vkDeviceWaitIdle(vob.VKL) );
-				
-
-				optime = start_timer(optime);
-				if(!verbose_loops) { loglevel = MAXLOG; }
-				save_image(pvoid_blit2buff, "IMG"+std::to_string(ei.imgdat_idx), APP_W, APP_H, glfw_mouse, get_gui);
-				end_timer(optime, "Save ImageData");
-				if(!verbose_loops) { loglevel = -1; }
-				ei.imgdat_idx++;
-				dft1d(ei.imgdat_idx*735, 512, &fs, &fsm);
-				if( ei.export_batch_size  > 0
-				&&	ei.export_batch_left  > 0 ) { ei.export_batch_left--; }
-				if( !ei.run_headless
-				&&	ei.export_batch_size  > 0
-				&&	ei.export_batch_left == 0 ) {
-					ei.paused = true;
-					ei.export_batch_left =  ei.export_batch_size; } }
+			handleImageExport(
+				&ei,                        // EngineInfo pointer
+				&gc,                        // IMGUI_Config pointer
+				&vob,                       // VK_Obj pointer
+				&qsync,                     // VK_QueueSync pointer for general submissions
+				combuf_work_imagedata,      // Pointer to work->blit command buffers
+				combuf_blit_imgui_loop,     // Pointer to swap->blit command buffers
+				combuf_blit2buff_sing,      // Pointer to blit->buffer command buffer
+				frame_index,                // Current frame index
+				swap_image_index,           // Current swapchain image index
+				pvoid_blit2buff,            // Mapped buffer pointer
+				APP_W,                      // App width
+				APP_H,                      // App height
+				glfw_mouse,                 // GLFW mouse state (for cursor)
+				&fs,                        // Pointer to fspec256 struct
+				&fsm,                       // Pointer to fsmag256 struct
+				valid,                      // *** ADDED: Pass valid state ***
+				loglevel,                   // *** ADDED: Pass loglevel state ***
+				&vkres                      // Result vector pointer
+			);
 
 		}
 
