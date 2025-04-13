@@ -739,14 +739,13 @@ int main() {
 	}
 
 	VkRenderPassBeginInfo vkrpbegininfo_imgui[swap_image_count];
-	for(int i = 0; i < swap_image_count; i++) {
-		vkrpbegininfo_imgui[i].sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		vkrpbegininfo_imgui[i].pNext 				= NULL;
-		vkrpbegininfo_imgui[i].renderPass 			= rp_imgui.vk_render_pass;
-		vkrpbegininfo_imgui[i].framebuffer 			= fb_imgui[i].vk_framebuffer;
-		vkrpbegininfo_imgui[i].renderArea 			= rpass_info.rect2D;
-		vkrpbegininfo_imgui[i].clearValueCount 		= 1;
-		vkrpbegininfo_imgui[i].pClearValues 		= &rpass_info.clear_val; }
+	setupImGuiRenderPassBeginInfo(
+		swap_image_count,      // Number of swapchain images
+		rp_imgui.vk_render_pass, // ImGui render pass handle
+		fb_imgui,              // Array of ImGui framebuffers
+		&rpass_info,           // Pointer to render pass config (for rect/clear)
+		vkrpbegininfo_imgui    // Output array
+	);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "BARRIERS");				/**/

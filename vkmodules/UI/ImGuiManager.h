@@ -7,7 +7,7 @@
 #include "../../lib/imgui.h"
 #include "../../lib/imgui_impl_vulkan.h"
 #include "../../lib/imgui_impl_glfw.h"
-#include "../Types/VulkanTypes.h" // For VK_Obj etc.
+#include "../Types/VulkanTypes.h" // For VK_Obj, VK_RPConfig etc.
 #include "../Types/Types.h"     // For EngineInfo
 
 // Initializes Dear ImGui context, backends, descriptor pool, and font textures
@@ -20,6 +20,15 @@ VkResult initImGui(
     uint32_t imageCount,    // From surface capabilities or minImageCount
     EngineInfo* ei,         // To check headless mode
     std::vector<VkResult>* vkres
+);
+
+// Function to setup VkRenderPassBeginInfo structures for ImGui rendering
+void setupImGuiRenderPassBeginInfo(
+    uint32_t swapImageCount,
+    VkRenderPass imguiRenderPass,
+    VK_FrameBuff* imguiFramebuffers, // Array of ImGui framebuffers
+    VK_RPConfig* rpConfig,           // Contains rect2D and clearValue
+    VkRenderPassBeginInfo* beginInfos // Output array to be filled
 );
 
 // Cleans up Dear ImGui resources

@@ -9,6 +9,8 @@ namespace {
     VK_Command g_imguiFontUploadCmdBuf;
 }
 
+// --- Existing initImGui and cleanupImGui functions remain here ---
+
 VkResult initImGui(
     GLFWwindow* window,
     VK_Obj* vob,
@@ -174,4 +176,24 @@ void cleanupImGui(VkDevice logicalDevice) {
     ImGui_ImplGlfw_Shutdown();
     rv("ImGui::DestroyContext");
     ImGui::DestroyContext();
+}
+
+// --- NEW FUNCTION ADDED BELOW ---
+
+void setupImGuiRenderPassBeginInfo(
+    uint32_t swapImageCount,
+    VkRenderPass imguiRenderPass,
+    VK_FrameBuff* imguiFramebuffers, // Array of ImGui framebuffers
+    VK_RPConfig* rpConfig,           // Contains rect2D and clearValue
+    VkRenderPassBeginInfo* beginInfos // Output array to be filled
+) {
+    for (uint32_t i = 0; i < swapImageCount; ++i) {
+        beginInfos[i].sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        beginInfos[i].pNext = NULL;
+        beginInfos[i].renderPass = imguiRenderPass;
+        beginInfos[i].framebuffer = imguiFramebuffers[i].vk_framebuffer;
+        beginInfos[i].renderArea = rpConfig->rect2D;
+        beginInfos[i].clearValueCount = 1;
+        beginInfos[i].pClearValues = &rpConfig->clear_val;
+    }
 }
