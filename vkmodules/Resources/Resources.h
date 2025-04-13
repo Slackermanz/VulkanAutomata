@@ -6,7 +6,7 @@
 #include "ImageManager.h"
 #include "ViewManager.h"
 #include "FramebufferManager.h"
-#include "DescriptorManager.h" // Added DescriptorManager
-// #include "SamplerManager.h" // Add later
+#include "DescriptorManager.h"
+#include "SamplerManager.h" // Added SamplerManager
 
 #endif // VKMODULES_RESOURCES_H

@@ -510,26 +510,10 @@ int main() {
 		rpass_info.vk_viewport.minDepth					= 0.0f;
 		rpass_info.vk_viewport.maxDepth					= 1.0f;
 
-		rpass_info.samp_info.sType 						= VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	nf(&rpass_info.samp_info);
-		rpass_info.samp_info.magFilter					= VK_FILTER_NEAREST;
-		rpass_info.samp_info.minFilter					= VK_FILTER_NEAREST;
-		rpass_info.samp_info.mipmapMode					= VK_SAMPLER_MIPMAP_MODE_NEAREST;
-		rpass_info.samp_info.addressModeU				= VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		rpass_info.samp_info.addressModeV				= VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		rpass_info.samp_info.addressModeW				= VK_SAMPLER_ADDRESS_MODE_REPEAT;
-		rpass_info.samp_info.mipLodBias					= 1.0f;
-		rpass_info.samp_info.anisotropyEnable			= VK_FALSE;
-		rpass_info.samp_info.maxAnisotropy				= 1.0f;
-		rpass_info.samp_info.compareEnable				= VK_FALSE;
-		rpass_info.samp_info.compareOp					= VK_COMPARE_OP_NEVER;
-		rpass_info.samp_info.minLod						= 1.0f;
-		rpass_info.samp_info.maxLod						= 1.0f;
-		rpass_info.samp_info.borderColor				= VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
-		rpass_info.samp_info.unnormalizedCoordinates	= VK_FALSE;
-
-	vr("vkCreateSampler", &vkres, rpass_info.vk_sampler,
-		vkCreateSampler(vob.VKL, &rpass_info.samp_info, NULL, &rpass_info.vk_sampler) );
+	createDefaultSampler(
+		vob.VKL,                // Logical device
+		&rpass_info.vk_sampler, // Output sampler handle (stored in VK_RPConfig struct)
+		&vkres);                // Result vector
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "PIPELINE INFO"); 			/**/
