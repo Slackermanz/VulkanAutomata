@@ -1243,163 +1243,30 @@ int main() {
 				if(!ei.show_gui) { kc.has_mouse = false; kc.has_keyboard = false; }
 
 				if( !kc.has_mouse ) {
-
 					glfwSetCursorPosCallback 	( glfw_W, glfw_mousemove_event 	 );
 					glfwSetMouseButtonCallback	( glfw_W, glfw_mouseclick_event	 );
 					glfwSetScrollCallback		( glfw_W, glfw_mousescroll_event );
-					ui.mx = glfw_mouse.xpos;
-					ui.my = glfw_mouse.ypos;
 
-				//	MBR: Scale Panning
-					if( gc.glfw_mouse_xpos_last != glfw_mouse.xpos
-					&& 	glfw_mouse.button 		== 1
-					&&	glfw_mouse.action 		!= 0
-					&& 	gc.glfw_mod_LSHIFT ) {
-								gc.scale_has_panned		= true;
-						int 	mx_offset 				= glfw_mouse.xpos - gc.glfw_mouse_xpos_last;
-						float 	xscale	 				= float((APP_W / 2.0) - float(mx_offset)) / float(APP_W);
-								gc.scale_value 			= gc.scale_value + gc.scale_value * ((xscale - 0.5) * 2.0) * (1.0 / (1.0 + gc.zoom_value));
-								gc.scale_update			= true;
-						send_notif_float(15, gc.scale_value, &gc); }
-
-					gc.glfw_mouse_xpos_last	= glfw_mouse.xpos;
-
-				//	Left Click
-					if( glfw_mouse.button == 0 ) { ui.mbl = glfw_mouse.action; }
-
-				//	Right Click
-					if( glfw_mouse.button == 1 ) { ui.mbr = glfw_mouse.action; }
-					if( glfw_mouse.button == 1
-					&&  gc.glfw_mod_LSHIFT ) 	 { ui.mbr = 0; }
-
-				//	Middle Mouse / ScrollWheel Click
-					if( glfw_mouse.button == 2
-					&&	glfw_mouse.action == 1 ) {
-						glfw_mouse.action  				= 0;
-						gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
-						do_action(  9, &ui, &ei, &gc );
-						if( gc.glfw_mod_LSHIFT ) { 
-							gc.save_to_archive = true;
-							gc.load_A256_index = -1; } }
-
-				//	Mouse Wheel Up
-					if( glfw_mouse.yoffset == -1 ) {
-						glfw_mouse.yoffset  =  0;
-						do_action( 36, &ui, &ei, &gc ); }
-
-				//	Mouse Wheel Down
-					if( glfw_mouse.yoffset ==  1 ) {
-						glfw_mouse.yoffset  =  0;
-						do_action( 35, &ui, &ei, &gc ); }
-
-				//	Mouse Back
-					if(glfw_mouse.button == 3 && glfw_mouse.action == 1) {
-						glfw_mouse.action = 0;
-						do_action( 38, &ui, &ei, &gc ); }
-
-				//	Mouse Forward
-					if(glfw_mouse.button == 4 && glfw_mouse.action == 1) {
-						glfw_mouse.action = 0;
-						do_action( 37, &ui, &ei, &gc ); } }
-
-				else { ui.mbl = 0; ui.mbr = 0; }
+					processMouseInput(
+						&glfw_mouse,    // Pointer to mouse state
+						&ui,            // Pointer to UI info
+						&ei,            // Pointer to Engine info
+						&gc,            // Pointer to ImGui config
+						APP_W           // Application width
+					);
+					
+				} else { ui.mbl = 0; ui.mbr = 0; }
 
 				if( !kc.has_keyboard ) {
-
-				//	Release 	L-Shift 	Reseed
-					if( glfw_key.key 	== GLFW_KEY_LEFT_SHIFT 
-					&&	glfw_key.action	== 0
-					&& !gc.scale_has_panned ) { do_action( 11, &ui, &ei, &gc ); }
-
-				//	Press 		L-Shift 	Sticky Modifier
-					if( glfw_key.key 	== GLFW_KEY_LEFT_SHIFT
-					&&	glfw_key.action	== 1 ) { gc.glfw_mod_LSHIFT = true; }
-
-				//	Release 	L-Shift 	UnSticky Modifier
-					if( glfw_key.key 	== GLFW_KEY_LEFT_SHIFT 
-					&&	glfw_key.action	== 0 ) { gc.glfw_mod_LSHIFT = false; gc.scale_has_panned = false; }
-
-				//	Press 		X 			Clear
-					if( glfw_key.key 	== GLFW_KEY_X
-		 			&& 	glfw_key.action >= 1 ) { do_action( 12, &ui, &ei, &gc ); }
-
-				//	Press 		Z 			SymSeed
-					if( glfw_key.key 	== GLFW_KEY_Z
-		 			&& 	glfw_key.action >= 1 ) { do_action( 13, &ui, &ei, &gc ); }
-
-				//	Press 		C 			BlendSeed
-					if( glfw_key.key 	== GLFW_KEY_C
-		 			&& 	glfw_key.action >= 1 ) { do_action( 33, &ui, &ei, &gc ); }
-
-				//	Press 		TAB			Show Random Archive Pattern
-					if( glfw_key.key 	== GLFW_KEY_TAB
-		 			&& 	glfw_key.action == 1 ) { do_action( 39, &ui, &ei, &gc ); }
-
-				//	Press 		RIGHT 		Show Prev Archive Pattern
-					if( glfw_key.key 	== GLFW_KEY_RIGHT
-		 			&& 	glfw_key.action >= 1 ) { do_action( 37, &ui, &ei, &gc ); }
-
-				//	Press 		LEFT		Show Next Archive Pattern
-					if( glfw_key.key 	== GLFW_KEY_LEFT
-		 			&& 	glfw_key.action >= 1 ) { do_action( 38, &ui, &ei, &gc ); }
-
-				//	Press 		CTRL-S		Save Archive Pattern
-					if( glfw_key.key 	== GLFW_KEY_S
-		 			&& (glfw_key.mods & GLFW_MOD_CONTROL)
-		 			&& 	glfw_key.action == 1 ) { do_action(  7, &ui, &ei, &gc ); }
-
-				//	Press 		T 			Toggle Throttle
-					if( glfw_key.key 	== GLFW_KEY_T
-		 			&& 	glfw_key.action >= 1 ) { do_action( 18, &ui, &ei, &gc ); }
-
-				//	Press 		R 			Full Randomization
-					if( glfw_key.key 	== GLFW_KEY_R
-		 			&& 	glfw_key.action == 1 ) { do_action(  8, &ui, &ei, &gc ); }
-
-				//	Press 		V 			Mutate Target
-					if( glfw_key.key 	== GLFW_KEY_V
-		 			&& 	glfw_key.action == 1 ) { do_action( 10, &ui, &ei, &gc ); }
-
-				//	Press 		Q 			Reload Target
-					if( glfw_key.key 	== GLFW_KEY_Q
-		 			&& 	glfw_key.action == 1 ) { do_action( 24, &ui, &ei, &gc ); }
-
-				//	Press 		KP_ENTER 	Toggle Recording
-					if( glfw_key.key 	== GLFW_KEY_KP_ENTER
-		 			&& 	glfw_key.action == 1 ) { do_action( 20, &ui, &ei, &gc ); }
-
-				//	Press 		KP_ADD 		Increase Export Freq
-					if( glfw_key.key 	== GLFW_KEY_KP_ADD
-		 			&& 	glfw_key.action >= 1 ) { do_action( 26, &ui, &ei, &gc ); }
-
-				//	Press 		KPSUBTRACT	Decrease Export Freq
-					if( glfw_key.key 	== GLFW_KEY_KP_SUBTRACT
-		 			&& 	glfw_key.action >= 1 ) { do_action( 27, &ui, &ei, &gc ); }
-
-				//	Press 		1 			Planar Mapping
-					if( glfw_key.key 	== GLFW_KEY_1
-		 			&& 	glfw_key.action == 1 ) { do_action( 30, &ui, &ei, &gc ); do_action( 29, &ui, &ei, &gc ); }
-
-				//	Press 		2 			Linear Mapping
-					if( glfw_key.key 	== GLFW_KEY_2
-		 			&& 	glfw_key.action == 1 ) { do_action( 31, &ui, &ei, &gc ); do_action( 29, &ui, &ei, &gc ); }
-
-				//	Press 		3 			Circular Mapping
-					if( glfw_key.key 	== GLFW_KEY_3
-		 			&& 	glfw_key.action == 1 ) { do_action( 32, &ui, &ei, &gc ); do_action( 29, &ui, &ei, &gc ); }
-
-				//	Press 		S 			Step[1]
-					if( glfw_key.key 	== GLFW_KEY_S
-		 			&& !(glfw_key.mods & GLFW_MOD_CONTROL)
-		 			&& 	glfw_key.action >= 1 ) { do_action(  2, &ui, &ei, &gc ); }
-
-				//	Press 		SPACE 		Toggle Pause
-					if( glfw_key.key 	== GLFW_KEY_SPACE
-		 			&& 	glfw_key.action == 1 ) { do_action(  1, &ui, &ei, &gc ); }
-
-				//	Press 		ESCAPE 		Toggle IMGUI
-					if( glfw_key.key 	== GLFW_KEY_ESCAPE
-		 			&& 	glfw_key.action == 1 ) { do_action( 0, &ui, &ei, &gc ); } }
+					if( !kc.has_keyboard ) {
+						processKeyboardInput(
+							&glfw_key,      // Pointer to key state
+							&ui,            // Pointer to UI info
+							&ei,            // Pointer to Engine info
+							&gc             // Pointer to ImGui config
+						);
+					}
+				}
 
 			//	Notifications
 				if( gc.show_notification ) {
