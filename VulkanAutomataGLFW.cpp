@@ -941,71 +941,55 @@ int main() {
 	///////////////////////////////////////////////////
 
 	VkDeviceSize vkdevsize_work;
-		vkdevsize_work = sizeof(UB32_64);
+	vkdevsize_work = sizeof(UB32_64);
 	ov("UB32_64 size", vkdevsize_work);
-	VkBufferCreateInfo vkbuff_info_work;
-		vkbuff_info_work.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	nf(&vkbuff_info_work);
-		vkbuff_info_work.size 						= vkdevsize_work;
-		vkbuff_info_work.usage 						= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		vkbuff_info_work.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
-		vkbuff_info_work.queueFamilyIndexCount 		= 1;
-		vkbuff_info_work.pQueueFamilyIndices 		= &vob.VKQ_i;
-	VkBuffer vkbuff_work;
-	vr("vkCreateBuffer", &vkres, vkbuff_work,
-		vkCreateBuffer(vob.VKL, &vkbuff_info_work, NULL, &vkbuff_work) );
+
+	VK_Buffer_Data work_ub_data; // Struct to hold results
+	createBuffer(
+		vob.VKL,                    // Logical device
+		vob.VKP,                    // Physical device
+		vkdevsize_work,             // Size of the buffer
+		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // Usage flags
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // Memory properties
+		VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+		&vob.VKQ_i,                 // Queue family indices
+		1,                          // Queue family index count
+		&work_ub_data,              // Output struct
+		&vkres);                    // Result vector
+
+	// --- Keep the original descriptor info setup ---
+	VkBuffer vkbuff_work = work_ub_data.vk_buffer; // Get the buffer handle
+	VkDeviceMemory vkdevmem_ub_work = work_ub_data.vk_dev_mem; // Get the memory handle
+
 	VkDescriptorBufferInfo vkDescBuff_info_work;
-		vkDescBuff_info_work.buffer 		= vkbuff_work;
-		vkDescBuff_info_work.offset 		= 0;
-		vkDescBuff_info_work.range 			= VK_WHOLE_SIZE;
+		vkDescBuff_info_work.buffer         = vkbuff_work;
+		vkDescBuff_info_work.offset         = 0;
+		vkDescBuff_info_work.range          = VK_WHOLE_SIZE;
+
+	// --- Keep the original write descriptor set setup ---
 	VkWriteDescriptorSet vkwritedescset_ub_work[2];
 	for(int i = 0; i < 2; i++) {
 		vkwritedescset_ub_work[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vkwritedescset_ub_work[i].pNext 				= NULL;
-		vkwritedescset_ub_work[i].dstSet 				= dsl_work.vk_descriptor_set[i];
-		vkwritedescset_ub_work[i].dstBinding 			= 0;
-		vkwritedescset_ub_work[i].dstArrayElement 		= 0;
-		vkwritedescset_ub_work[i].descriptorCount 		= 1;
-		vkwritedescset_ub_work[i].descriptorType 		= dsl_work.set_bind[1].descriptorType;
-		vkwritedescset_ub_work[i].pImageInfo 			= NULL;
-		vkwritedescset_ub_work[i].pBufferInfo 			= &vkDescBuff_info_work;
-		vkwritedescset_ub_work[i].pTexelBufferView 		= NULL; }
+		vkwritedescset_ub_work[i].pNext                 = NULL;
+		vkwritedescset_ub_work[i].dstSet                = dsl_work.vk_descriptor_set[i];
+		vkwritedescset_ub_work[i].dstBinding            = 0;
+		vkwritedescset_ub_work[i].dstArrayElement       = 0;
+		vkwritedescset_ub_work[i].descriptorCount       = 1;
+		vkwritedescset_ub_work[i].descriptorType        = dsl_work.set_bind[1].descriptorType;
+		vkwritedescset_ub_work[i].pImageInfo            = NULL;
+		vkwritedescset_ub_work[i].pBufferInfo           = &vkDescBuff_info_work; // Uses the descriptor info
+		vkwritedescset_ub_work[i].pTexelBufferView      = NULL;
+	}
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK DESCRIPTOR MEMORY");	/**/
-	///////////////////////////////////////////////////
-
-	VkMemoryRequirements vkmemreqs_ub_work;
-	rv("vkGetBufferMemoryRequirements");
-		vkGetBufferMemoryRequirements(vob.VKL, vkbuff_work, &vkmemreqs_ub_work);
-	ov("memreq size", 			vkmemreqs_ub_work.size);
-	ov("memreq alignment", 		vkmemreqs_ub_work.alignment);
-	ov("memreq memoryTypeBits", vkmemreqs_ub_work.memoryTypeBits);
-	int mem_index_ub_work = UINT32_MAX;
-		mem_index_ub_work = findProperties(
-			&pdev[vob.VKP_i].vk_pdev_mem_props,
-			vkmemreqs_ub_work.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
-	ov("memoryTypeIndex", mem_index_ub_work);
-	VkMemoryAllocateInfo vkmemallo_info_work;
-		vkmemallo_info_work.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		vkmemallo_info_work.pNext			= NULL;
-		vkmemallo_info_work.allocationSize	= vkmemreqs_ub_work.size;
-		vkmemallo_info_work.memoryTypeIndex	= mem_index_ub_work;
-	VkDeviceMemory vkdevmem_ub_work;
-	vr("vkAllocateMemory", &vkres, vkdevmem_ub_work,
-		vkAllocateMemory(vob.VKL, &vkmemallo_info_work, NULL, &vkdevmem_ub_work) );
-//	Assign device (GPU) memory to hold the Uniform Buffer
-	vr("vkBindBufferMemory", &vkres, vkbuff_work,
-		vkBindBufferMemory(vob.VKL, vkbuff_work, vkdevmem_ub_work, 0) );
-//	Update the Sampler and Uniform Buffer Descriptors
+	// --- Keep the original descriptor update calls ---
 	for(int i = 0; i < 2; i++) {
 		rv("vkUpdateDescriptorSets");
 			vkUpdateDescriptorSets(vob.VKL, 1, &vk_write_descriptor_set_work_sampler[i], 0, NULL);
 		rv("vkUpdateDescriptorSets");
-			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_ub_work[i], 0, NULL); }
+			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_ub_work[i], 0, NULL);
+	}
 
-//	Map the memory location on the GPU for memcpy() to submit the Uniform Buffer
+	// --- Keep the original vkMapMemory call ---
 	void *pvoid_memmap_work;
 	vr("vkMapMemory", &vkres, pvoid_memmap_work,
 		vkMapMemory(vob.VKL, vkdevmem_ub_work, vkDescBuff_info_work.offset, vkDescBuff_info_work.range, 0, &pvoid_memmap_work) );
@@ -1014,70 +998,55 @@ int main() {
 	 /**/	hd("STAGE:", "SSBO");	/**/
 	///////////////////////////////////////////////////
 
+
 	VkDeviceSize vkdevsize_ssbo;
-		vkdevsize_ssbo = sizeof(UB32_64) * 16;
+	vkdevsize_ssbo = sizeof(UB32_64) * 16;
 	ov("UB32_64 * 16 size", vkdevsize_ssbo);
-	VkBufferCreateInfo vkbuff_info_ssbo;
-		vkbuff_info_ssbo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	nf(&vkbuff_info_ssbo);
-		vkbuff_info_ssbo.size 						= vkdevsize_ssbo;
-		vkbuff_info_ssbo.usage 						= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		vkbuff_info_ssbo.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
-		vkbuff_info_ssbo.queueFamilyIndexCount 		= 1;
-		vkbuff_info_ssbo.pQueueFamilyIndices 		= &vob.VKQ_i;
-	VkBuffer vkbuff_ssbo;
-	vr("vkCreateBuffer", &vkres, vkbuff_ssbo,
-		vkCreateBuffer(vob.VKL, &vkbuff_info_ssbo, NULL, &vkbuff_ssbo) );
+
+	VK_Buffer_Data work_ssbo_data; // Struct to hold results
+	createBuffer(
+		vob.VKL,                    // Logical device
+		vob.VKP,                    // Physical device
+		vkdevsize_ssbo,             // Size of the buffer
+		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, // Usage flags
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // Memory properties
+		VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+		&vob.VKQ_i,                 // Queue family indices
+		1,                          // Queue family index count
+		&work_ssbo_data,            // Output struct
+		&vkres);                    // Result vector
+
+	// --- Keep the original descriptor info setup ---
+	VkBuffer vkbuff_ssbo = work_ssbo_data.vk_buffer; // Get the buffer handle
+	VkDeviceMemory vkdevmem_sb_work = work_ssbo_data.vk_dev_mem; // Get the memory handle
+
 	VkDescriptorBufferInfo vkDescBuff_info_ssbo;
-		vkDescBuff_info_ssbo.buffer 		= vkbuff_ssbo;
-		vkDescBuff_info_ssbo.offset 		= 0;
-		vkDescBuff_info_ssbo.range 			= VK_WHOLE_SIZE;
+		vkDescBuff_info_ssbo.buffer         = vkbuff_ssbo;
+		vkDescBuff_info_ssbo.offset         = 0;
+		vkDescBuff_info_ssbo.range          = VK_WHOLE_SIZE;
+
+	// --- Keep the original write descriptor set setup ---
 	VkWriteDescriptorSet vkwritedescset_sb_work[2];
 	for(int i = 0; i < 2; i++) {
 		vkwritedescset_sb_work[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vkwritedescset_sb_work[i].pNext 				= NULL;
-		vkwritedescset_sb_work[i].dstSet 				= dsl_work.vk_descriptor_set[i];
-		vkwritedescset_sb_work[i].dstBinding 			= 2;
-		vkwritedescset_sb_work[i].dstArrayElement 		= 0;
-		vkwritedescset_sb_work[i].descriptorCount 		= 1;
-		vkwritedescset_sb_work[i].descriptorType 		= dsl_work.set_bind[2].descriptorType;
-		vkwritedescset_sb_work[i].pImageInfo 			= NULL;
-		vkwritedescset_sb_work[i].pBufferInfo 			= &vkDescBuff_info_ssbo;
-		vkwritedescset_sb_work[i].pTexelBufferView 		= NULL; }
+		vkwritedescset_sb_work[i].pNext                 = NULL;
+		vkwritedescset_sb_work[i].dstSet                = dsl_work.vk_descriptor_set[i];
+		vkwritedescset_sb_work[i].dstBinding            = 2; // Binding 2 for SSBO
+		vkwritedescset_sb_work[i].dstArrayElement       = 0;
+		vkwritedescset_sb_work[i].descriptorCount       = 1;
+		vkwritedescset_sb_work[i].descriptorType        = dsl_work.set_bind[2].descriptorType; // Type for SSBO
+		vkwritedescset_sb_work[i].pImageInfo            = NULL;
+		vkwritedescset_sb_work[i].pBufferInfo           = &vkDescBuff_info_ssbo; // Uses the SSBO descriptor info
+		vkwritedescset_sb_work[i].pTexelBufferView      = NULL;
+	}
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "ssbo DESCRIPTOR MEMORY");	/**/
-	///////////////////////////////////////////////////
-
-	VkMemoryRequirements vkmemreqs_sb_work;
-	rv("vkGetBufferMemoryRequirements");
-		vkGetBufferMemoryRequirements(vob.VKL, vkbuff_ssbo, &vkmemreqs_sb_work);
-	ov("memreq size", 			vkmemreqs_sb_work.size);
-	ov("memreq alignment", 		vkmemreqs_sb_work.alignment);
-	ov("memreq memoryTypeBits", vkmemreqs_sb_work.memoryTypeBits);
-	int mem_index_sb_work = UINT32_MAX;
-		mem_index_sb_work = findProperties(
-			&pdev[vob.VKP_i].vk_pdev_mem_props,
-			vkmemreqs_sb_work.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
-	ov("memoryTypeIndex", mem_index_sb_work);
-	VkMemoryAllocateInfo vkmemallo_info_ssbo;
-		vkmemallo_info_ssbo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		vkmemallo_info_ssbo.pNext			= NULL;
-		vkmemallo_info_ssbo.allocationSize	= vkmemreqs_sb_work.size;
-		vkmemallo_info_ssbo.memoryTypeIndex	= mem_index_sb_work;
-	VkDeviceMemory vkdevmem_sb_work;
-	vr("vkAllocateMemory", &vkres, vkdevmem_sb_work,
-		vkAllocateMemory(vob.VKL, &vkmemallo_info_ssbo, NULL, &vkdevmem_sb_work) );
-//	Assign device (GPU) memory to hold the Uniform Buffer
-	vr("vkBindBufferMemory", &vkres, vkbuff_ssbo,
-		vkBindBufferMemory(vob.VKL, vkbuff_ssbo, vkdevmem_sb_work, 0) );
-//	Update the Sampler and Uniform Buffer Descriptors
+	// --- Keep the original descriptor update calls ---
 	for(int i = 0; i < 2; i++) {
-		rv("vkUpdateDescriptorSets");
-			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_sb_work[i], 0, NULL); }
+		rv("vkUpdateDescriptorSets"); // Note: This updates the SSBO binding (index 2)
+			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_sb_work[i], 0, NULL);
+	}
 
-//	Map the memory location on the GPU for memcpy() to submit the Uniform Buffer
+	// --- Keep the original vkMapMemory call ---
 	void *pvoid_memmap_ssbo;
 	vr("vkMapMemory", &vkres, pvoid_memmap_ssbo,
 		vkMapMemory(vob.VKL, vkdevmem_sb_work, vkDescBuff_info_ssbo.offset, vkDescBuff_info_ssbo.range, 0, &pvoid_memmap_ssbo) );
