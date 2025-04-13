@@ -138,122 +138,36 @@ int main() {
 	 /**/	hd("STAGE:", "PHYSICAL DEVICE");		/**/
 	///////////////////////////////////////////////////
 
-	uint32_t PDev_Count 	= UINT32_MAX;
-	uint32_t PDev_Index 	= PDev_Count;
+	VK_PhysDev selectedPdevInfo; // To store properties/features of the selected device
+	selectPhysicalDevice(
+		vob.VKI,            // Vulkan instance handle
+		&vob,               // Output: Stores VKP handle and index
+		&selectedPdevInfo,  // Output: Stores selected device properties/features
+		&vkres);            // Result vector
 
-	vr("vkEnumeratePhysicalDevices", &vkres, PDev_Count,
-		vkEnumeratePhysicalDevices(vob.VKI, &PDev_Count, NULL) );
+	// --- Queue Selection ---
+	hd("STAGE:", "QUEUES"); // Keep stage header
 
-	VkPhysicalDevice vk_physical_device[PDev_Count];
-	vr("vkEnumeratePhysicalDevices", &vkres, vk_physical_device, 
-		vkEnumeratePhysicalDevices(vob.VKI, &PDev_Count, vk_physical_device) );
+	uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
+	uint32_t graphicsQueueCount = 0;
+	findGraphicsQueueFamily(
+		vob.VKP,                // Selected physical device handle
+		&graphicsQueueFamilyIndex, // Output: Queue family index
+		&graphicsQueueCount,       // Output: Queue count in the family
+		&vkres);                // Result vector
 
-	VK_PhysDev pdev[PDev_Count];
+	// Store the found queue index in vob
+	vob.VKQ_i = graphicsQueueFamilyIndex;
 
-	for(int i = 0; i < PDev_Count; i++) {
-		pdev[i].pd_count 		= PDev_Count;
-		pdev[i].vk_pdev 		= vk_physical_device[i];
-		rv("vkGetPhysicalDeviceProperties");
-			vkGetPhysicalDeviceProperties(pdev[i].vk_pdev, &pdev[i].vk_pdev_props);
+	// Setup queue priorities array (using the found queueCount)
+	std::vector<float> gfxQueuePriorities(graphicsQueueCount, 0.0f); // Use std::vector
 
-		iv("Physical Devices", 					pdev[i].vk_pdev, 												i );
-		iv("apiVersion", 						pdev[i].vk_pdev_props.apiVersion, 								i );
-		iv("driverVersion", 					pdev[i].vk_pdev_props.driverVersion, 							i );
-		iv("deviceType", 						pdev[i].vk_pdev_props.deviceType, 								i );
-		iv("deviceName", 						pdev[i].vk_pdev_props.deviceName, 								i );
-		iv("maxImageDimension2D", 				pdev[i].vk_pdev_props.limits.maxImageDimension2D, 				i );
-		iv("maxPushConstantsSize", 				pdev[i].vk_pdev_props.limits.maxPushConstantsSize, 				i );
-		iv("maxBoundDescriptorSets", 			pdev[i].vk_pdev_props.limits.maxBoundDescriptorSets, 			i );
-		iv("maxFragmentInputComponents", 		pdev[i].vk_pdev_props.limits.maxFragmentInputComponents, 		i );
-		iv("maxFragmentOutputAttachments", 		pdev[i].vk_pdev_props.limits.maxFragmentOutputAttachments, 		i );
-		iv("maxComputeSharedMemorySize", 		pdev[i].vk_pdev_props.limits.maxComputeSharedMemorySize, 		i );
-		iv("maxComputeWorkGroupInvocations", 	pdev[i].vk_pdev_props.limits.maxComputeWorkGroupInvocations, 	i );
-		iv("maxViewports", 						pdev[i].vk_pdev_props.limits.maxViewports, 						i );
-		iv("minMemoryMapAlignment", 			pdev[i].vk_pdev_props.limits.minMemoryMapAlignment, 			i );
-		iv("minUniformBufferOffsetAlignment", 	pdev[i].vk_pdev_props.limits.minUniformBufferOffsetAlignment, 	i );
-		iv("minTexelOffset", 					pdev[i].vk_pdev_props.limits. minTexelOffset, 					i );
-		iv("maxTexelOffset", 					pdev[i].vk_pdev_props.limits.maxTexelOffset, 					i );
-		iv("minTexelGatherOffset", 				pdev[i].vk_pdev_props.limits. minTexelGatherOffset, 			i );
-		iv("maxTexelGatherOffset", 				pdev[i].vk_pdev_props.limits.maxTexelGatherOffset, 				i );
-		iv("maxFramebufferWidth", 				pdev[i].vk_pdev_props.limits.maxFramebufferWidth, 				i );
-		iv("maxFramebufferHeight", 				pdev[i].vk_pdev_props.limits.maxFramebufferHeight, 				i );
-		iv("maxFramebufferLayers", 				pdev[i].vk_pdev_props.limits.maxFramebufferLayers, 				i );
-		iv("maxColorAttachments", 				pdev[i].vk_pdev_props.limits.maxColorAttachments, 				i );
-
-		rv("vkGetPhysicalDeviceFeatures");
-			vkGetPhysicalDeviceFeatures(pdev[i].vk_pdev, &pdev[i].vk_pdev_feats); }
-
-//	Find a valid physical device (GPU) to use
-	uint32_t PDev_TypeList[5] = { 2, 1, 3, 4, 0 };
-	for(int j = 0; j < 5; j++) {
-		if(PDev_Index == UINT32_MAX) {
-			for(int i = 0; i < PDev_Count; i++) {
-				if(	PDev_Index 							== UINT32_MAX
-				&&	pdev[i].vk_pdev_props.deviceType 	== PDev_TypeList[j] ) {
-					PDev_Index = i;
-					ov("PDev_Index", i);
-					ov("PDev_Index deviceType", PDev_TypeList[j]); } } }
-		if(PDev_Index == UINT32_MAX) { ov("No devices found of type", PDev_TypeList[j]); } }
-	if(PDev_Index == UINT32_MAX) { valid = 0; }
-
-	vob.VKP_i	= PDev_Index;
-	vob.VKP 	= pdev[vob.VKP_i].vk_pdev;
-
-//	Physical device memory information
-	rv("vkGetPhysicalDeviceMemoryProperties");
-		vkGetPhysicalDeviceMemoryProperties(vob.VKP, &pdev[vob.VKP_i].vk_pdev_mem_props);
-
-	ov("memoryTypeCount", 	pdev[vob.VKP_i].vk_pdev_mem_props.memoryTypeCount						);
-	for(int i = 0; i < 		pdev[vob.VKP_i].vk_pdev_mem_props.memoryTypeCount; 					i++	) {
-		iv("propertyFlags", pdev[vob.VKP_i].vk_pdev_mem_props.memoryTypes[i].propertyFlags,		i	); 
-		iv("heapIndex", 	pdev[vob.VKP_i].vk_pdev_mem_props.memoryTypes[i].heapIndex, 		i	); }
-
-	ov("memoryHeapCount", 	pdev[vob.VKP_i].vk_pdev_mem_props.memoryHeapCount						);
-	for(int i = 0; i < 		pdev[vob.VKP_i].vk_pdev_mem_props.memoryHeapCount; 					i++	) {
-		iv("size", 			pdev[vob.VKP_i].vk_pdev_mem_props.memoryHeaps[i].size,				i	); 
-		iv("flags", 		pdev[vob.VKP_i].vk_pdev_mem_props.memoryHeaps[i].flags,				i	); }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "QUEUES");					/**/
-	///////////////////////////////////////////////////
-
-	uint32_t PDev_QFP_Count = UINT32_MAX;
-	uint32_t PDev_QFP_Index = PDev_QFP_Count;
-
-	VK_PDQueues pdq;
-
-//	List the available device queues
-	rv("vkGetPhysicalDeviceQueueFamilyProperties");
-		vkGetPhysicalDeviceQueueFamilyProperties(vob.VKP, &PDev_QFP_Count, NULL);
-	ov("PDev Queue Family Props", PDev_QFP_Count);
-
-	VkQueueFamilyProperties vk_qf_props[PDev_QFP_Count];
-	rv("vkGetPhysicalDeviceQueueFamilyProperties");
-		vkGetPhysicalDeviceQueueFamilyProperties(vob.VKP, &PDev_QFP_Count, vk_qf_props);
-
-	for(int i = 0; i < PDev_QFP_Count; i++) {
-		iv("queueFlags", vk_qf_props[i].queueFlags, i );
-		iv("queueCount", vk_qf_props[i].queueCount, i ); }
-
-//	Select the graphics queue
-	for(int i = 0; i < PDev_QFP_Count; i++) {
-		if(	PDev_QFP_Index == UINT32_MAX
-		&&	vk_qf_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT ) { 
-			PDev_QFP_Index = i;
-		 	ov("PDev_QFP_Index", i);
-		 	ov("PDev_QFP_Index queueFlags", vk_qf_props[PDev_QFP_Index].queueFlags);
-		 	ov("PDev_QFP_Index queueCount", vk_qf_props[PDev_QFP_Index].queueCount); } }
-
-	vob.VKQ_i = PDev_QFP_Index;
-
-	float GFXQ_Priorities[vk_qf_props[vob.VKQ_i].queueCount];
-	for(int i = 0; i < vk_qf_props[vob.VKQ_i].queueCount; i++) { GFXQ_Priorities[i] = 0.0f; }
-
-		pdq.pdq_info.sType				= VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-	nf(&pdq.pdq_info);
-		pdq.pdq_info.queueFamilyIndex	= vob.VKQ_i;
-		pdq.pdq_info.queueCount			= vk_qf_props[vob.VKQ_i].queueCount;
-		pdq.pdq_info.pQueuePriorities	= GFXQ_Priorities;
+	VK_PDQueues pdq; // Keep declaration for queue create info struct
+	setupDeviceQueueCreateInfo(
+		vob.VKQ_i,                  // The selected graphics queue family index
+		graphicsQueueCount,         // The number of queues in the family
+		gfxQueuePriorities.data(),  // Pointer to the priorities array
+		&pdq);                      // Output struct
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "GLFW VULKAN SURFACE");	/**/
@@ -318,7 +232,7 @@ int main() {
 		ldev.ldev_info.ppEnabledLayerNames 			= NULL;
 		ldev.ldev_info.enabledExtensionCount 		= LDEV_EXS;
 		ldev.ldev_info.ppEnabledExtensionNames 		= device_extensions;
-		ldev.ldev_info.pEnabledFeatures 			= &pdev[vob.VKP_i].vk_pdev_feats;
+        ldev.ldev_info.pEnabledFeatures 			= &selectedPdevInfo.vk_pdev_feats;
 
 	vr("vkCreateDevice", &vkres, vob.VKL,
 		vkCreateDevice(vob.VKP, &ldev.ldev_info, NULL, &vob.VKL) );

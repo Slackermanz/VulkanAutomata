@@ -42,4 +42,29 @@ bool initGLFWExtensions(
     const char*** glfw_extensions,
     std::vector<VkResult>* vkres);
 
+// Enumerate and select a suitable physical device
+VkResult selectPhysicalDevice(
+    VkInstance instance,
+    VK_Obj* vob, // Output: Stores selected device handle and index
+    VK_PhysDev* selectedPdevInfo, // Output: Stores properties/features of selected device
+    std::vector<VkResult>* vkres
+);
+
+// Find a queue family supporting graphics operations
+VkResult findGraphicsQueueFamily(
+    VkPhysicalDevice physicalDevice,
+    uint32_t* queueFamilyIndex, // Output: The found queue family index
+    uint32_t* queueCount,      // Output: The number of queues in the family
+    std::vector<VkResult>* vkres
+);
+
+// Setup the device queue create info structure
+void setupDeviceQueueCreateInfo(
+    uint32_t queueFamilyIndex,
+    uint32_t queueCount,
+    const float* pQueuePriorities, // Pointer to array of priorities
+    VK_PDQueues* pdq // Output struct
+);
+
+
 #endif // VKMODULES_VULKAN_CORE_H

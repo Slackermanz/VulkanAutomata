@@ -2,6 +2,7 @@
 #include "../Utils/Logger.h"
 #include <iostream>
 #include <vector>
+#include <limits> // Needed for UINT32_MAX
 
 // External variables
 extern int loglevel;
@@ -119,4 +120,153 @@ VkResult setupDebugMessenger(VK_Obj* vob, VK_Debug* vkdbg, std::vector<VkResult>
     vr("vkCreateDebugUtilsMessengerEXT", vkres, vkdbg->vk_debug_utils_messenger_ext, result);
     
     return result;
+}
+
+// --- NEW FUNCTIONS ADDED BELOW ---
+
+VkResult selectPhysicalDevice(
+    VkInstance instance,
+    VK_Obj* vob, // Output: Stores selected device handle and index
+    VK_PhysDev* selectedPdevInfo, // Output: Stores properties/features of selected device
+    std::vector<VkResult>* vkres) {
+
+    uint32_t PDev_Count = 0;
+    VkResult result = vkEnumeratePhysicalDevices(instance, &PDev_Count, NULL);
+    vr("vkEnumeratePhysicalDevices (count)", vkres, PDev_Count, result);
+    if (result != VK_SUCCESS || PDev_Count == 0) {
+        ov("Error", "Failed to find GPUs with Vulkan support!");
+        valid = 0;
+        return result == VK_SUCCESS ? VK_ERROR_INITIALIZATION_FAILED : result;
+    }
+
+    std::vector<VkPhysicalDevice> devices(PDev_Count);
+    result = vkEnumeratePhysicalDevices(instance, &PDev_Count, devices.data());
+    vr("vkEnumeratePhysicalDevices (handles)", vkres, "ARRAY", result);
+    if (result != VK_SUCCESS) {
+        valid = 0;
+        return result;
+    }
+
+    std::vector<VK_PhysDev> pdevInfos(PDev_Count);
+    uint32_t PDev_Index = UINT32_MAX;
+
+    // Get properties and features for all devices
+    for (uint32_t i = 0; i < PDev_Count; ++i) {
+        pdevInfos[i].pd_count = PDev_Count;
+        pdevInfos[i].vk_pdev = devices[i];
+        rv("vkGetPhysicalDeviceProperties");
+        vkGetPhysicalDeviceProperties(pdevInfos[i].vk_pdev, &pdevInfos[i].vk_pdev_props);
+        rv("vkGetPhysicalDeviceFeatures");
+        vkGetPhysicalDeviceFeatures(pdevInfos[i].vk_pdev, &pdevInfos[i].vk_pdev_feats);
+
+        // Log properties (optional, can be reduced based on loglevel)
+        if (loglevel >= 1) {
+            iv("Physical Devices", pdevInfos[i].vk_pdev, i);
+            iv("deviceName", pdevInfos[i].vk_pdev_props.deviceName, i);
+            iv("deviceType", pdevInfos[i].vk_pdev_props.deviceType, i);
+            // Add more property logging if needed
+        }
+    }
+
+    // Select device based on type preference
+    uint32_t PDev_TypeList[5] = { VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, 
+                                  VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, 
+                                  VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU, 
+                                  VK_PHYSICAL_DEVICE_TYPE_CPU, 
+                                  VK_PHYSICAL_DEVICE_TYPE_OTHER };
+
+    for (int j = 0; j < 5; ++j) {
+        if (PDev_Index == UINT32_MAX) {
+            for (uint32_t i = 0; i < PDev_Count; ++i) {
+                if (PDev_Index == UINT32_MAX && pdevInfos[i].vk_pdev_props.deviceType == PDev_TypeList[j]) {
+                    PDev_Index = i;
+                    ov("Selected PDev_Index", i);
+                    ov("Selected PDev_Index deviceType", PDev_TypeList[j]);
+                    break; // Found preferred type, stop inner loop
+                }
+            }
+        }
+        if (PDev_Index != UINT32_MAX) break; // Found a device, stop outer loop
+        ov("No devices found of type", PDev_TypeList[j]);
+    }
+
+    if (PDev_Index == UINT32_MAX) {
+        ov("Error", "Failed to find a suitable GPU!");
+        valid = 0;
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    // Store selected device info
+    vob->VKP_i = PDev_Index;
+    vob->VKP = pdevInfos[PDev_Index].vk_pdev;
+    *selectedPdevInfo = pdevInfos[PDev_Index]; // Copy properties/features
+
+    // Log memory properties of selected device
+    rv("vkGetPhysicalDeviceMemoryProperties");
+    vkGetPhysicalDeviceMemoryProperties(vob->VKP, &selectedPdevInfo->vk_pdev_mem_props);
+
+    if (loglevel >= 1) {
+        ov("Selected Device memoryTypeCount", selectedPdevInfo->vk_pdev_mem_props.memoryTypeCount);
+        // Add more memory logging if needed
+    }
+
+    return VK_SUCCESS;
+}
+
+VkResult findGraphicsQueueFamily(
+    VkPhysicalDevice physicalDevice,
+    uint32_t* queueFamilyIndex, // Output
+    uint32_t* queueCount,      // Output
+    std::vector<VkResult>* vkres) {
+
+    uint32_t PDev_QFP_Count = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &PDev_QFP_Count, NULL);
+    ov("PDev Queue Family Props Count", PDev_QFP_Count);
+
+    if (PDev_QFP_Count == 0) {
+        ov("Error", "Physical device has no queue families!");
+        valid = 0;
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    std::vector<VkQueueFamilyProperties> queueProps(PDev_QFP_Count);
+    vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &PDev_QFP_Count, queueProps.data());
+
+    uint32_t PDev_QFP_Index = UINT32_MAX;
+    for (uint32_t i = 0; i < PDev_QFP_Count; ++i) {
+        if (loglevel >= 1) {
+            iv("Queue Family queueFlags", queueProps[i].queueFlags, i);
+            iv("Queue Family queueCount", queueProps[i].queueCount, i);
+        }
+        if (PDev_QFP_Index == UINT32_MAX && (queueProps[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)) {
+            PDev_QFP_Index = i;
+            *queueFamilyIndex = i;
+            *queueCount = queueProps[i].queueCount;
+            ov("Selected PDev_QFP_Index", i);
+            ov("Selected PDev_QFP_Index queueFlags", queueProps[i].queueFlags);
+            ov("Selected PDev_QFP_Index queueCount", queueProps[i].queueCount);
+            // Don't break, keep logging all queues if loglevel is high
+        }
+    }
+
+    if (PDev_QFP_Index == UINT32_MAX) {
+        ov("Error", "Could not find a queue family supporting VK_QUEUE_GRAPHICS_BIT!");
+        valid = 0;
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    return VK_SUCCESS;
+}
+
+void setupDeviceQueueCreateInfo(
+    uint32_t queueFamilyIndex,
+    uint32_t queueCount,
+    const float* pQueuePriorities,
+    VK_PDQueues* pdq) {
+
+    pdq->pdq_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    nf(&pdq->pdq_info);
+    pdq->pdq_info.queueFamilyIndex = queueFamilyIndex;
+    pdq->pdq_info.queueCount = queueCount; // Use the actual count from the family
+    pdq->pdq_info.pQueuePriorities = pQueuePriorities;
 }
