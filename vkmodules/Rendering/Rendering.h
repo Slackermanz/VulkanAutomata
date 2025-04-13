@@ -5,6 +5,7 @@
 #include "RenderPassManager.h"
 #include "SwapChainManager.h"
 #include "PipelineManager.h"
-#include "ShaderManager.h" // Added ShaderManager
+#include "ShaderManager.h"
+#include "Barriers.h" // Added Barriers
 
 #endif // VKMODULES_RENDERING_H
