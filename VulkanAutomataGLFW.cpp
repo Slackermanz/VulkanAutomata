@@ -1039,20 +1039,18 @@ int main() {
 	 /**/	hd("STAGE:", "WORK FRAMEBUFFER");		/**/
 	///////////////////////////////////////////////////
 
-	VK_FrameBuff fb_work[2];
+	VK_FrameBuff fb_work[2]; // Keep declaration
 
-		for(int i = 0; i < 2; i++) {
-			fb_work[i].fb_info.sType 			= VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		nf(&fb_work[i].fb_info);
-			fb_work[i].fb_info.renderPass 		= rp_work.vk_render_pass;
-			fb_work[i].fb_info.attachmentCount 	= 1;
-			fb_work[i].fb_info.pAttachments 	= &work_init[i].vk_image_view;
-			fb_work[i].fb_info.width 			= APP_W;
-			fb_work[i].fb_info.height 			= APP_H;
-			fb_work[i].fb_info.layers 			= 1;
-
-		vr("vkCreateFramebuffer", &vkres, fb_work[i].vk_framebuffer,
-			vkCreateFramebuffer(vob.VKL, &fb_work[i].fb_info, NULL, &fb_work[i].vk_framebuffer) ); }
+	for(int i = 0; i < 2; i++) {
+		createFramebuffer(
+			vob.VKL,                    // Logical device
+			rp_work.vk_render_pass,     // Render pass for work
+			work_init[i].vk_image_view, // Corresponding work image view
+			APP_W,                      // Width
+			APP_H,                      // Height
+			&fb_work[i],                // Output struct for this framebuffer
+			&vkres);                    // Result vector
+	}
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK PIPELINE");			/**/
@@ -1191,20 +1189,18 @@ int main() {
 			&vkres);                        // Result vector
 	}
 
-	VK_FrameBuff fb_imgui[swap_image_count];
+	VK_FrameBuff fb_imgui[swap_image_count]; // Keep declaration
 
-		for(int i = 0; i < swap_image_count; i++) {
-			fb_imgui[i].fb_info.sType 				= VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		nf(&fb_imgui[i].fb_info);
-			fb_imgui[i].fb_info.renderPass 			= rp_imgui.vk_render_pass;
-			fb_imgui[i].fb_info.attachmentCount 	= 1;
-			fb_imgui[i].fb_info.pAttachments 		= &vk_imgview_imgui[i].vk_image_view;
-			fb_imgui[i].fb_info.width 				= APP_W;
-			fb_imgui[i].fb_info.height 				= APP_H;
-			fb_imgui[i].fb_info.layers 				= 1;
-
-		vr("vkCreateFramebuffer", &vkres, fb_imgui[i].vk_framebuffer,
-			vkCreateFramebuffer(vob.VKL, &fb_imgui[i].fb_info, NULL, &fb_imgui[i].vk_framebuffer) ); }
+	for(int i = 0; i < swap_image_count; i++) {
+		createFramebuffer(
+			vob.VKL,                        // Logical device
+			rp_imgui.vk_render_pass,        // Render pass for ImGui
+			vk_imgview_imgui[i].vk_image_view, // Corresponding ImGui image view
+			APP_W,                          // Width
+			APP_H,                          // Height
+			&fb_imgui[i],                   // Output struct for this framebuffer
+			&vkres);                        // Result vector
+	}
 
 	VkRenderPassBeginInfo vkrpbegininfo_imgui[swap_image_count];
 	for(int i = 0; i < swap_image_count; i++) {

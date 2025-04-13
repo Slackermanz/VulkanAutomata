@@ -4,7 +4,8 @@
 // Include all Resource module headers
 #include "BufferManager.h"
 #include "ImageManager.h"
-#include "ViewManager.h" // Added ViewManager
+#include "ViewManager.h"
+#include "FramebufferManager.h" // Added FramebufferManager
 // #include "SamplerManager.h" // Add later
 // #include "DescriptorManager.h" // Add later
 
