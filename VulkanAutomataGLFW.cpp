@@ -21,6 +21,7 @@
 #include "vkmodules/Input/Input.h"
 #include "vkmodules/VulkanFoundation/VulkanFoundation.h"
 #include "vkmodules/CommandBuffer/CommandBuffer.h"
+#include "vkmodules/Resources/Resources.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -476,50 +477,24 @@ int main() {
 	 /**/	hd("STAGE:", "BLIT EXPORT BUFFER");		/**/
 	///////////////////////////////////////////////////
 
-	VK_Buffer_1x2D blit2buff;
-
-		blit2buff.buff_info.sType 					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	nf(&blit2buff.buff_info);
-		blit2buff.buff_info.size 					= blit.vk_mem_reqs.size;
-		blit2buff.buff_info.usage 					= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		blit2buff.buff_info.sharingMode 			= VK_SHARING_MODE_EXCLUSIVE;
-		blit2buff.buff_info.queueFamilyIndexCount 	= 1;
-		blit2buff.buff_info.pQueueFamilyIndices 	= &vob.VKQ_i;
-
-		vr("vkCreateBuffer", &vkres, blit2buff.vk_buffer,
-			vkCreateBuffer(vob.VKL, &blit2buff.buff_info, NULL, &blit2buff.vk_buffer) );
-
-		VkMemoryRequirements vk_memory_requirements_blit2buff;
-
-		rv("vkGetBufferMemoryRequirements");
-			vkGetBufferMemoryRequirements(vob.VKL, blit2buff.vk_buffer, &blit2buff.vk_mem_reqs);
-
-			ov("blit2buff size", 			blit2buff.vk_mem_reqs.size);
-			ov("blit2buff alignment", 		blit2buff.vk_mem_reqs.alignment);
-			ov("blit2buff memoryTypeBits", 	blit2buff.vk_mem_reqs.memoryTypeBits);
-
-		blit2buff.MTB_index = findProperties(
-			&pdev[vob.VKP_i].vk_pdev_mem_props,
-			blit2buff.vk_mem_reqs.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
-
-			ov("memoryTypeIndex", blit2buff.MTB_index);
-
-		blit2buff.vk_mem_allo_info.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		blit2buff.vk_mem_allo_info.pNext				= NULL;
-		blit2buff.vk_mem_allo_info.allocationSize		= blit2buff.vk_mem_reqs.size;
-		blit2buff.vk_mem_allo_info.memoryTypeIndex		= blit2buff.MTB_index;
-
-		vr("vkAllocateMemory", &vkres, blit2buff.vk_dev_mem,
-			vkAllocateMemory(vob.VKL, &blit2buff.vk_mem_allo_info, NULL, &blit2buff.vk_dev_mem) );
-
-		vr("vkBindBufferMemory", &vkres, blit2buff.vk_buffer,
-			vkBindBufferMemory(vob.VKL,  blit2buff.vk_buffer, blit2buff.vk_dev_mem, 0) );
+	VK_Buffer_Data blit2buff_data; // Declare the new struct
+	VkDeviceSize blit_buffer_size = blit.vk_mem_reqs.size; // Get size from the blit image mem reqs
+	createBuffer(
+		vob.VKL,
+		vob.VKP,
+		blit_buffer_size, // Use the size from the blit image
+		VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+		VK_SHARING_MODE_EXCLUSIVE,
+		&vob.VKQ_i, // Pass address of the queue index
+		1,          // Queue family index count
+		&blit2buff_data, // Pass the address of our data struct
+		&vkres);
 
 	//	Map the memory location on the GPU to export image data
 		void* pvoid_blit2buff;
 		vr("vkMapMemory", &vkres, pvoid_blit2buff,
-			vkMapMemory(vob.VKL, blit2buff.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff) );
+			vkMapMemory(vob.VKL, blit2buff_data.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff) );
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SHADER DATA");			/**/
@@ -1617,7 +1592,7 @@ int main() {
 				vkCmdCopyImageToBuffer (
 					combuf_blit2buff_sing[i].vk_command_buffer, 
 					blit.vk_image, 				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					blit2buff.vk_buffer,
+					blit2buff_data.vk_buffer,
 					1, &rpass_info.buffer_img_cpy );
 
 			rv("vkCmdPipelineBarrier");
