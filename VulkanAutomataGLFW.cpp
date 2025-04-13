@@ -328,42 +328,22 @@ int main() {
 	 /**/	hd("STAGE:", "SWAPCHAIN");				/**/
 	///////////////////////////////////////////////////
 
-	VkSwapchainCreateInfoKHR vk_swapchhain_info;
-		vk_swapchhain_info.sType	= VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	nf(&vk_swapchhain_info);
-		vk_swapchhain_info.surface					= glfw_surface;
-		vk_swapchhain_info.minImageCount			= vk_surface_capabilities.minImageCount;
-		vk_swapchhain_info.imageFormat				= VK_FORMAT_B8G8R8A8_UNORM;
-		vk_swapchhain_info.imageColorSpace			= VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
-		vk_swapchhain_info.imageExtent				= vk_surface_capabilities.currentExtent;
-		vk_swapchhain_info.imageArrayLayers			= 1;
-		vk_swapchhain_info.imageUsage				= 31; // Hardcoded to old value found in logs, ignoring new extension. // vk_surface_capabilities.supportedUsageFlags;
-		vk_swapchhain_info.imageSharingMode			= VK_SHARING_MODE_EXCLUSIVE;
-		vk_swapchhain_info.queueFamilyIndexCount	= 1;
-		vk_swapchhain_info.pQueueFamilyIndices		= &pdq.pdq_info.queueFamilyIndex;
-		vk_swapchhain_info.preTransform				= vk_surface_capabilities.currentTransform;
-		vk_swapchhain_info.compositeAlpha			= VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		vk_swapchhain_info.presentMode				= VK_PRESENT_MODE_IMMEDIATE_KHR;
-		vk_swapchhain_info.clipped					= VK_FALSE;
-		vk_swapchhain_info.oldSwapchain				= VK_NULL_HANDLE;
-
-	VkSwapchainKHR vk_swapchain;
+	VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE; // Initialize to NULL
 	uint32_t swap_image_count = 0;
-	VkImage vk_image_swapimgs[swap_image_count];
+	std::vector<VkImage> vk_image_swapimgs_vec; // Use std::vector
 
 	if(!ei.run_headless) {
-	vr("vkCreateSwapchainKHR", &vkres, vk_swapchain,
-		vkCreateSwapchainKHR(vob.VKL, &vk_swapchhain_info, NULL, &vk_swapchain) );
-
-	vr("vkGetSwapchainImagesKHR", &vkres, swap_image_count,
-		vkGetSwapchainImagesKHR(vob.VKL, vk_swapchain, &swap_image_count, NULL) );
-
-	vr("vkGetSwapchainImagesKHR", &vkres, "ARRAY",
-		vkGetSwapchainImagesKHR(vob.VKL, vk_swapchain, &swap_image_count, vk_image_swapimgs) );
-
-	for(int i = 0; i < swap_image_count; i++) {
-		iv("Swapchain Image", vk_image_swapimgs[i], i); } }
-	else { rv("Headless Mode Enabled!"); }
+        createSwapChain(
+            &vob,                       // Core Vulkan objects
+            glfw_surface,               // Window surface
+            &vk_surface_capabilities,   // Surface capabilities
+            vob.VKQ_i,                  // Graphics queue family index (using the one from vob)
+            &vk_swapchain,              // Pass current swapchain (will be VK_NULL_HANDLE initially)
+            &vk_swapchain,              // Output: Swapchain handle
+            &swap_image_count,          // Output: Image count
+            &vk_image_swapimgs_vec,     // Output: Image handles vector
+            &vkres);                    // Result vector
+	} else { rv("Headless Mode Enabled!"); }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK LAYER IMAGES");		/**/
@@ -1131,7 +1111,7 @@ int main() {
 	for(int i = 0; i < swap_image_count; i++) {
 		createImageView(
 			vob.VKL,                        // Logical device
-			vk_image_swapimgs[i],           // Source image handle from swapchain images array
+			vk_image_swapimgs_vec[i],           // Source image handle from swapchain images array
 			VK_FORMAT_B8G8R8A8_UNORM,       // Format (matches ImGui render pass)
 			VK_IMAGE_ASPECT_COLOR_BIT,      // Aspect flags
 			&vk_imgview_imgui[i],           // Output struct for this view
@@ -1213,7 +1193,7 @@ int main() {
 		vk_IMB_pres_CAO_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		vk_IMB_pres_CAO_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_CAO_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
-		vk_IMB_pres_CAO_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_CAO_to_PRS[i].image 					= vk_image_swapimgs_vec[i];
 		vk_IMB_pres_CAO_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_work_SRO_to_TSO[2];
@@ -1276,7 +1256,7 @@ int main() {
 		vk_IMB_pres_UND_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		vk_IMB_pres_UND_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_UND_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
-		vk_IMB_pres_UND_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_UND_to_PRS[i].image 					= vk_image_swapimgs_vec[i];
 		vk_IMB_pres_UND_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_pres_PRS_to_TDO[swap_image_count];
@@ -1289,7 +1269,7 @@ int main() {
 		vk_IMB_pres_PRS_to_TDO[i].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 		vk_IMB_pres_PRS_to_TDO[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_PRS_to_TDO[i].dstQueueFamilyIndex 		= vob.VKQ_i;
-		vk_IMB_pres_PRS_to_TDO[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_PRS_to_TDO[i].image 					= vk_image_swapimgs_vec[i];
 		vk_IMB_pres_PRS_to_TDO[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_pres_TDO_to_PRS[swap_image_count];
@@ -1302,7 +1282,7 @@ int main() {
 		vk_IMB_pres_TDO_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		vk_IMB_pres_TDO_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_pres_TDO_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
-		vk_IMB_pres_TDO_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_pres_TDO_to_PRS[i].image 					= vk_image_swapimgs_vec[i];
 		vk_IMB_pres_TDO_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_swap_PRS_to_TSO[swap_image_count];
@@ -1315,7 +1295,7 @@ int main() {
 		vk_IMB_swap_PRS_to_TSO[i].newLayout 				= VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 		vk_IMB_swap_PRS_to_TSO[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_swap_PRS_to_TSO[i].dstQueueFamilyIndex 		= vob.VKQ_i;
-		vk_IMB_swap_PRS_to_TSO[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_swap_PRS_to_TSO[i].image 					= vk_image_swapimgs_vec[i];
 		vk_IMB_swap_PRS_to_TSO[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	VkImageMemoryBarrier vk_IMB_swap_TSO_to_PRS[swap_image_count];
@@ -1328,7 +1308,7 @@ int main() {
 		vk_IMB_swap_TSO_to_PRS[i].newLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 		vk_IMB_swap_TSO_to_PRS[i].srcQueueFamilyIndex 		= vob.VKQ_i;
 		vk_IMB_swap_TSO_to_PRS[i].dstQueueFamilyIndex 		= vob.VKQ_i;
-		vk_IMB_swap_TSO_to_PRS[i].image 					= vk_image_swapimgs[i];
+		vk_IMB_swap_TSO_to_PRS[i].image 					= vk_image_swapimgs_vec[i];
 		vk_IMB_swap_TSO_to_PRS[i].subresourceRange 			= rpass_info.img_subres_range; }
 
 	  ///////////////////////////////////////////////////
@@ -1410,7 +1390,7 @@ int main() {
 			rv("vkCmdBlitImage");
 				vkCmdBlitImage (
 					combuf_blit_imgui_loop[i].vk_command_buffer, 
-					vk_image_swapimgs[i], 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+					vk_image_swapimgs_vec[i], 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 					blit.vk_image, 				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 					1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
 
@@ -1512,7 +1492,7 @@ int main() {
 				vkCmdBlitImage (
 					combuf_pres_loop[i].vk_command_buffer, 
 					work.vk_image[i/swap_image_count], 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					vk_image_swapimgs[i%swap_image_count], 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+					vk_image_swapimgs_vec[i%swap_image_count], 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 					1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
 
 			rv("vkCmdPipelineBarrier");
