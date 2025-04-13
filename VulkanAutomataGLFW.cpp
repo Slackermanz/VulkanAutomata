@@ -368,110 +368,57 @@ int main() {
 	 /**/	hd("STAGE:", "WORK LAYER IMAGES");		/**/
 	///////////////////////////////////////////////////
 
-	VK_Layer_2x2D work;
+	VK_Layer_2x2D work; // Keep the declaration of the struct array
 
 	for(int i = 0; i < 2; i++) {
-		work.ext3D[i].width 	= APP_W;
-		work.ext3D[i].height 	= APP_H;
-		work.ext3D[i].depth 	= 1;
+		// Use a temporary VK_Layer_1x2D to pass to the function
+		VK_Layer_1x2D tempImageData;
 
-		work.img_info[i].sType 					= VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	nf(&work.img_info[i]);
-		work.img_info[i].imageType 				= VK_IMAGE_TYPE_2D;
-		work.img_info[i].format 				= VK_FORMAT_R16G16B16A16_UNORM;
-		work.img_info[i].extent 				= work.ext3D[i];
-		work.img_info[i].mipLevels 				= 1;
-		work.img_info[i].arrayLayers 			= 1;
-		work.img_info[i].samples 				= VK_SAMPLE_COUNT_1_BIT;
-		work.img_info[i].tiling 				= VK_IMAGE_TILING_OPTIMAL;
-		work.img_info[i].usage 					= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
-												| VK_IMAGE_USAGE_SAMPLED_BIT
-												| VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		work.img_info[i].sharingMode 			= VK_SHARING_MODE_EXCLUSIVE;
-		work.img_info[i].queueFamilyIndexCount 	= 0;
-		work.img_info[i].pQueueFamilyIndices 	= NULL;
-		work.img_info[i].initialLayout 			= VK_IMAGE_LAYOUT_UNDEFINED;
+		createImage(
+			vob.VKL,                    // Logical device
+			vob.VKP,                    // Physical device
+			APP_W,                      // Width
+			APP_H,                      // Height
+			VK_FORMAT_R16G16B16A16_UNORM, // Format
+			VK_IMAGE_TILING_OPTIMAL,    // Tiling
+			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // Usage flags
+			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // Memory properties
+			VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+			NULL,                       // pQueueFamilyIndices (optional for exclusive)
+			0,                          // queueFamilyIndexCount
+			&tempImageData,             // Output struct (single image data)
+			&vkres);                    // Result vector
 
-		vr("vkCreateImage", &vkres, work.vk_image[i],
-			vkCreateImage(vob.VKL, &work.img_info[i], NULL, &work.vk_image[i]) );
-
-		rv("vkGetImageMemoryRequirements");
-			vkGetImageMemoryRequirements(vob.VKL, work.vk_image[i], &work.vk_mem_reqs[i]);
-
-		iv("vk_mem_reqs size", 				work.vk_mem_reqs[i].size, 			i);
-		iv("vk_mem_reqs alignment", 		work.vk_mem_reqs[i].alignment,		i);
-		iv("vk_mem_reqs memoryTypeBits", 	work.vk_mem_reqs[i].memoryTypeBits, i);
-
-		work.MTB_index[i] = findProperties(
-			&pdev[vob.VKP_i].vk_pdev_mem_props,
-			work.vk_mem_reqs[i].memoryTypeBits,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-
-		iv("memoryTypeIndex", work.MTB_index[i], i);
-
-		work.vk_mem_allo_info[i].sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		work.vk_mem_allo_info[i].pNext				= NULL;
-		work.vk_mem_allo_info[i].allocationSize		= work.vk_mem_reqs[i].size;
-		work.vk_mem_allo_info[i].memoryTypeIndex	= work.MTB_index[i];
-
-		vr("vkAllocateMemory", &vkres, work.vk_dev_mem[i],
-			vkAllocateMemory(vob.VKL, &work.vk_mem_allo_info[i], NULL, &work.vk_dev_mem[i]) );
-
-		vr("vkBindImageMemory", &vkres, work.vk_image[i],
-			vkBindImageMemory(vob.VKL,  work.vk_image[i], work.vk_dev_mem[i], 0) ); }
+		// Copy results from temp struct to the correct index in the work array
+		work.ext3D[i] = tempImageData.ext3D;
+		work.img_info[i] = tempImageData.img_info;
+		work.vk_image[i] = tempImageData.vk_image;
+		work.MTB_index[i] = tempImageData.MTB_index;
+		work.vk_mem_reqs[i] = tempImageData.vk_mem_reqs;
+		work.vk_mem_allo_info[i] = tempImageData.vk_mem_allo_info;
+		work.vk_dev_mem[i] = tempImageData.vk_dev_mem;
+	}
 	
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "BLIT EXPORT IMAGE");		/**/
 	///////////////////////////////////////////////////
 
-	VK_Layer_1x2D blit;
+	VK_Layer_1x2D blit; // Keep the declaration
 
-		blit.ext3D.width 	= APP_W;
-		blit.ext3D.height 	= APP_H;
-		blit.ext3D.depth 	= 1;
-
-		blit.img_info.sType 				= VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	nf(&blit.img_info);
-		blit.img_info.imageType 			= VK_IMAGE_TYPE_2D;
-		blit.img_info.format 				= VK_FORMAT_R8G8B8A8_UNORM;
-		blit.img_info.extent 				= blit.ext3D;
-		blit.img_info.mipLevels 			= 1;
-		blit.img_info.arrayLayers 			= 1;
-		blit.img_info.samples 				= VK_SAMPLE_COUNT_1_BIT;
-		blit.img_info.tiling 				= VK_IMAGE_TILING_OPTIMAL;
-		blit.img_info.usage 				= VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-		blit.img_info.sharingMode 			= VK_SHARING_MODE_EXCLUSIVE;
-		blit.img_info.queueFamilyIndexCount = 0;
-		blit.img_info.pQueueFamilyIndices 	= NULL;
-		blit.img_info.initialLayout 		= VK_IMAGE_LAYOUT_UNDEFINED;
-
-		vr("vkCreateImage", &vkres, blit.vk_image,
-			vkCreateImage(vob.VKL, &blit.img_info, NULL, &blit.vk_image) );
-
-		rv("vkGetImageMemoryRequirements");
-			vkGetImageMemoryRequirements(vob.VKL, blit.vk_image, &blit.vk_mem_reqs);
-
-		ov("vk_mem_reqs size", 				blit.vk_mem_reqs.size);
-		ov("vk_mem_reqs alignment", 		blit.vk_mem_reqs.alignment);
-		ov("vk_mem_reqs memoryTypeBits", 	blit.vk_mem_reqs.memoryTypeBits);
-
-		blit.MTB_index = findProperties(
-			&pdev[vob.VKP_i].vk_pdev_mem_props,
-			blit.vk_mem_reqs.memoryTypeBits,
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT );
-
-		ov("memoryTypeIndex", blit.MTB_index);
-
-		blit.vk_mem_allo_info.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		blit.vk_mem_allo_info.pNext				= NULL;
-		blit.vk_mem_allo_info.allocationSize	= blit.vk_mem_reqs.size;
-		blit.vk_mem_allo_info.memoryTypeIndex	= blit.MTB_index;
-
-		vr("vkAllocateMemory", &vkres, blit.vk_dev_mem,
-			vkAllocateMemory(vob.VKL, &blit.vk_mem_allo_info, NULL, &blit.vk_dev_mem) );
-
-		vr("vkBindImageMemory", &vkres, blit.vk_image,
-			vkBindImageMemory(vob.VKL,  blit.vk_image, blit.vk_dev_mem, 0) );
+	createImage(
+		vob.VKL,                    // Logical device
+		vob.VKP,                    // Physical device
+		APP_W,                      // Width
+		APP_H,                      // Height
+		VK_FORMAT_R8G8B8A8_UNORM,   // Format
+		VK_IMAGE_TILING_OPTIMAL,    // Tiling
+		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // Usage flags
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // Memory properties
+		VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+		NULL,                       // pQueueFamilyIndices
+		0,                          // queueFamilyIndexCount
+		&blit,                      // Output struct (directly use 'blit' here)
+		&vkres);                    // Result vector
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "BLIT EXPORT BUFFER");		/**/
