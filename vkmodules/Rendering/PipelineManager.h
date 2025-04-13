@@ -3,7 +3,13 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
-#include "../Types/VulkanTypes.h" // For VK_Pipe, VK_PipeInfo etc.
+#include "../Types/VulkanTypes.h" // For VK_Pipe, VK_PipeInfo, VK_RPConfig etc.
+
+// Function to setup default pipeline state info (Rasterization, Viewport, etc.)
+void setupPipelineInfoDefaults(
+    VK_PipeInfo* pipelineInfo,   // Output: Struct to be filled
+    VK_RPConfig* renderPassConfig // Input: Contains viewport and scissor rect
+);
 
 // Function to create a pipeline layout
 VkResult createPipelineLayout(

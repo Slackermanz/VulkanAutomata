@@ -395,76 +395,22 @@ int main() {
 	 /**/	hd("STAGE:", "PIPELINE INFO"); 			/**/
 	///////////////////////////////////////////////////
 
-	VK_PipeInfo pipe_info;
+	VK_PipeInfo pipe_info; // Keep declaration
 
-		pipe_info.p_rast_info.sType						= VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	nf(&pipe_info.p_rast_info);
-		pipe_info.p_rast_info.depthClampEnable			= VK_FALSE;
-		pipe_info.p_rast_info.rasterizerDiscardEnable	= VK_FALSE;
-		pipe_info.p_rast_info.polygonMode				= VK_POLYGON_MODE_FILL;
-		pipe_info.p_rast_info.cullMode					= VK_CULL_MODE_NONE;
-		pipe_info.p_rast_info.frontFace					= VK_FRONT_FACE_CLOCKWISE;
-		pipe_info.p_rast_info.depthBiasEnable			= VK_FALSE;
-		pipe_info.p_rast_info.depthBiasConstantFactor	= 0.0f;
-		pipe_info.p_rast_info.depthBiasClamp			= 0.0f;
-		pipe_info.p_rast_info.depthBiasSlopeFactor		= 0.0f;
-		pipe_info.p_rast_info.lineWidth					= 1.0f;
+	setupPipelineInfoDefaults(
+		&pipe_info,     // Output struct to be filled
+		&rpass_info     // Input struct containing viewport/scissor
+	);
 
-		pipe_info.p_vprt_info.sType 					= VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	nf(&pipe_info.p_vprt_info);
-		pipe_info.p_vprt_info.viewportCount				= 1;
-		pipe_info.p_vprt_info.pViewports				= &rpass_info.vk_viewport;
-		pipe_info.p_vprt_info.scissorCount				= 1;
-		pipe_info.p_vprt_info.pScissors					= &rpass_info.rect2D;
-
-		pipe_info.p_msam_info.sType						= VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	nf(&pipe_info.p_msam_info);
-		pipe_info.p_msam_info.rasterizationSamples		= VK_SAMPLE_COUNT_1_BIT;
-		pipe_info.p_msam_info.sampleShadingEnable		= VK_FALSE;
-		pipe_info.p_msam_info.minSampleShading			= 0.0f;
-		pipe_info.p_msam_info.pSampleMask				= NULL;
-		pipe_info.p_msam_info.alphaToCoverageEnable		= VK_FALSE;
-		pipe_info.p_msam_info.alphaToOneEnable			= VK_FALSE;
-
-		pipe_info.p_vtin_info.sType						= VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	nf(&pipe_info.p_vtin_info);
-		pipe_info.p_vtin_info.vertexBindingDescriptionCount		= 0;
-		pipe_info.p_vtin_info.pVertexBindingDescriptions		= NULL;
-		pipe_info.p_vtin_info.vertexAttributeDescriptionCount	= 0;
-		pipe_info.p_vtin_info.pVertexAttributeDescriptions		= NULL;
-
-		pipe_info.p_inas_info.sType						= VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	nf(&pipe_info.p_inas_info);
-		pipe_info.p_inas_info.topology					= VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		pipe_info.p_inas_info.primitiveRestartEnable	= VK_FALSE;
-
-		pipe_info.p_cbat_info.blendEnable				= VK_FALSE;
-		pipe_info.p_cbat_info.srcColorBlendFactor		= VK_BLEND_FACTOR_SRC_ALPHA;
-		pipe_info.p_cbat_info.dstColorBlendFactor		= VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-		pipe_info.p_cbat_info.colorBlendOp				= VK_BLEND_OP_ADD;
-		pipe_info.p_cbat_info.srcAlphaBlendFactor		= VK_BLEND_FACTOR_ONE;
-		pipe_info.p_cbat_info.dstAlphaBlendFactor		= VK_BLEND_FACTOR_ZERO;
-		pipe_info.p_cbat_info.alphaBlendOp				= VK_BLEND_OP_ADD;
-		pipe_info.p_cbat_info.colorWriteMask			= 15;
-
-		pipe_info.p_cbst_info.sType						= VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	nf(&pipe_info.p_cbst_info);
-		pipe_info.p_cbst_info.logicOpEnable				= VK_FALSE;
-		pipe_info.p_cbst_info.logicOp					= VK_LOGIC_OP_NO_OP;
-		pipe_info.p_cbst_info.attachmentCount			= 1;
-		pipe_info.p_cbst_info.pAttachments				= &pipe_info.p_cbat_info;
-		pipe_info.p_cbst_info.blendConstants[0]			= 1.0f;
-		pipe_info.p_cbst_info.blendConstants[1]			= 1.0f;
-		pipe_info.p_cbst_info.blendConstants[2]			= 1.0f;
-		pipe_info.p_cbst_info.blendConstants[3]			= 1.0f;
-
-		for(int i = 0; i < VERT_FLS+FRAG_FLS; i++) {
-			pipe_info.p_shad_info[i].sType					= VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	// --- Keep the shader stage setup loop that follows ---
+	for(int i = 0; i < VERT_FLS+FRAG_FLS; i++) {
+		pipe_info.p_shad_info[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		nf(&pipe_info.p_shad_info[i]);
-			pipe_info.p_shad_info[i].stage					= shade_data[i].stage_bits;
-			pipe_info.p_shad_info[i].module					= shade_data[i].vk_shader_module;
-			pipe_info.p_shad_info[i].pName					= "main";
-			pipe_info.p_shad_info[i].pSpecializationInfo	= NULL; }
+		pipe_info.p_shad_info[i].stage = shade_data[i].stage_bits;
+		pipe_info.p_shad_info[i].module = shade_data[i].vk_shader_module;
+		pipe_info.p_shad_info[i].pName = "main";
+		pipe_info.p_shad_info[i].pSpecializationInfo = NULL;
+	}
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "COMMAND BUFFERS");		/**/
