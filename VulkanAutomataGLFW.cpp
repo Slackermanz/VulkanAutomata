@@ -23,6 +23,7 @@
 #include "vkmodules/CommandBuffer/CommandBuffer.h"
 #include "vkmodules/Resources/Resources.h"
 #include "vkmodules/Rendering/Rendering.h"
+#include "vkmodules/Platform/Platform.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -172,51 +173,22 @@ int main() {
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "GLFW VULKAN SURFACE");	/**/
 	///////////////////////////////////////////////////
+	
+	VkSurfaceKHR 				glfw_surface = VK_NULL_HANDLE; // Initialize
+	VkSurfaceCapabilitiesKHR 	vk_surface_capabilities = {}; // Initialize
+	GLFWwindow* 				glfw_W = nullptr; // Initialize
 
-	VkSurfaceKHR 				glfw_surface;
-	VkSurfaceCapabilitiesKHR 	vk_surface_capabilities;
-	GLFWwindow* 				glfw_W;
-
-	if(!ei.run_headless) {
-		glfwWindowHint(GLFW_CLIENT_API,	GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, 	GL_FALSE);
-
-		ov("glfwCreateWindow", glfw_W);
-		glfw_W = glfwCreateWindow(APP_W, APP_H, vkcfg.app_info.pApplicationName, NULL, NULL);
-
-		vr("glfwGetPhysicalDevicePresentationSupport", &vkres, "GLFW", VkResult(
-			glfwGetPhysicalDevicePresentationSupport(vob.VKI, vob.VKP, vob.VKQ_i) ) );
-
-		vr("glfwCreateWindowSurface", &vkres, "GLFW", VkResult(
-			glfwCreateWindowSurface(vob.VKI, glfw_W, NULL, &glfw_surface) ) );
-
-		vr("vkGetPhysicalDeviceSurfaceCapabilitiesKHR", &vkres, "ARRAY",
-			vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vob.VKP, glfw_surface, &vk_surface_capabilities) );
-			ov("minImageCount", 			vk_surface_capabilities.minImageCount			);
-			ov("maxImageCount", 			vk_surface_capabilities.maxImageCount			);
-			ov("currentExtent.width", 		vk_surface_capabilities.currentExtent.width		);
-			ov("currentExtent.height", 		vk_surface_capabilities.currentExtent.height	);
-			ov("maxImageArrayLayers", 		vk_surface_capabilities.maxImageArrayLayers		);
-			ov("supportedCompositeAlpha", 	vk_surface_capabilities.supportedCompositeAlpha	);
-			ov("supportedUsageFlags", 		vk_surface_capabilities.supportedUsageFlags		);
-
-		uint32_t vkpd_surface_format_count;
-		vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, vkpd_surface_format_count,
-			vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, glfw_surface, &vkpd_surface_format_count, NULL) );
-
-		VkSurfaceFormatKHR vk_surface_format[vkpd_surface_format_count];
-		vr("vkGetPhysicalDeviceSurfaceFormatsKHR", &vkres, "ARRAY",
-			vkGetPhysicalDeviceSurfaceFormatsKHR(vob.VKP, glfw_surface, &vkpd_surface_format_count, vk_surface_format) );
-		for(int i = 0; i < vkpd_surface_format_count; i++) {
-			iv("vk_surface_format.format", 		vk_surface_format[i].format, 		i );
-			iv("vk_surface_format.colorSpace", 	vk_surface_format[i].colorSpace, 	i ); }
-
-	//	Is Presentation Supported by this queue index?
-		VkBool32 surface_supported;
-		vr("vkGetPhysicalDeviceSurfaceSupportKHR", &vkres, pdq.pdq_info.queueFamilyIndex,
-			vkGetPhysicalDeviceSurfaceSupportKHR(vob.VKP, pdq.pdq_info.queueFamilyIndex, glfw_surface, &surface_supported) );
-			ov("Surface Supported", ((surface_supported==VK_TRUE)?"TRUE":"FALSE")); } // TODO ? Is this even checking?
-	else { rv("Headless Mode Enabled!"); }
+	createGLFWWindowAndSurface(
+		APP_W,                      // Width
+		APP_H,                      // Height
+		vkcfg.app_info.pApplicationName, // Title from app info
+		&vob,                       // Core Vulkan objects
+		&ei,                        // Engine info
+		&glfw_W,                    // Output: Window handle
+		&glfw_surface,              // Output: Surface handle
+		&vk_surface_capabilities,   // Output: Surface capabilities
+		&vkres                      // Result vector
+	);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "LOGICAL DEVICE");			/**/
@@ -1932,10 +1904,12 @@ int main() {
 		if(glfwWindowShouldClose(glfw_W)) 	{ hd("STAGE:",  "CLOSED"); }
 
 		cleanupImGui(vob.VKL);
-		
-		rv("glfwDestroyWindow");
-			glfwDestroyWindow(glfw_W); }
-	else { rv("Headless Mode Enabled!"); }
+		cleanupGLFW(glfw_W);
+
+	} else { rv("Headless Mode Enabled!"); }
+
+	rv("glfwTerminate");
+	glfwTerminate();
 
 	rv("return");
 	return 0;
