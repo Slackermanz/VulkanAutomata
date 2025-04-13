@@ -740,34 +740,29 @@ int main() {
 	 /**/	hd("STAGE:", "WORK IMAGE VIEWS");		/**/
 	///////////////////////////////////////////////////
 
-	VK_ImageView work_init[2];
+	VK_ImageView work_init[2]; // Keep declaration
 
 	for(int i = 0; i < 2; i++) {
-		work_init[i].img_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	nf(&work_init[i].img_view_info);
-		work_init[i].img_view_info.image 				= work.vk_image[i];
-		work_init[i].img_view_info.viewType 			= VK_IMAGE_VIEW_TYPE_2D;
-		work_init[i].img_view_info.format 				= work.img_info[i].format;
-		work_init[i].img_view_info.components.r			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		work_init[i].img_view_info.components.g			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		work_init[i].img_view_info.components.b			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		work_init[i].img_view_info.components.a			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		work_init[i].img_view_info.subresourceRange 	= rpass_info.img_subres_range;
+		createImageView(
+			vob.VKL,                    // Logical device
+			work.vk_image[i],           // Source image handle from work array
+			work.img_info[i].format,    // Format from work image info
+			VK_IMAGE_ASPECT_COLOR_BIT,  // Aspect flags
+			&work_init[i],              // Output struct for this view
+			&vkres);                    // Result vector
 
-	vr("vkCreateImageView", &vkres, work_init[i].vk_image_view,
-		vkCreateImageView(vob.VKL, &work_init[i].img_view_info, NULL, &work_init[i].vk_image_view) ); }
-
-	for(int i = 0; i < 2; i++) {
-		work_init[i].img_mem_barr.sType 				= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		work_init[i].img_mem_barr.pNext 				= NULL;
-		work_init[i].img_mem_barr.srcAccessMask 		= 0;
-		work_init[i].img_mem_barr.dstAccessMask 		= 0;
-		work_init[i].img_mem_barr.oldLayout 			= VK_IMAGE_LAYOUT_UNDEFINED;
-		work_init[i].img_mem_barr.newLayout 			= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		work_init[i].img_mem_barr.srcQueueFamilyIndex 	= vob.VKQ_i;
-		work_init[i].img_mem_barr.dstQueueFamilyIndex 	= vob.VKQ_i;
-		work_init[i].img_mem_barr.image 				= work.vk_image[i];
-		work_init[i].img_mem_barr.subresourceRange 		= rpass_info.img_subres_range; }
+		// --- Keep the Image Memory Barrier setup that follows ---
+		work_init[i].img_mem_barr.sType                 = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		work_init[i].img_mem_barr.pNext                 = NULL;
+		work_init[i].img_mem_barr.srcAccessMask         = 0;
+		work_init[i].img_mem_barr.dstAccessMask         = 0;
+		work_init[i].img_mem_barr.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
+		work_init[i].img_mem_barr.newLayout             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		work_init[i].img_mem_barr.srcQueueFamilyIndex   = vob.VKQ_i;
+		work_init[i].img_mem_barr.dstQueueFamilyIndex   = vob.VKQ_i;
+		work_init[i].img_mem_barr.image                 = work.vk_image[i];
+		work_init[i].img_mem_barr.subresourceRange      = rpass_info.img_subres_range;
+	}
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD WORK_INIT");		/**/
@@ -1184,22 +1179,17 @@ int main() {
 	 /**/	hd("STAGE:", "IMGUI FRAMEBUFFER");		/**/
 	///////////////////////////////////////////////////
 
-	VK_ImageView vk_imgview_imgui[swap_image_count];
+	VK_ImageView vk_imgview_imgui[swap_image_count]; // Keep declaration
 
 	for(int i = 0; i < swap_image_count; i++) {
-		vk_imgview_imgui[i].img_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-	nf(&vk_imgview_imgui[i].img_view_info);
-		vk_imgview_imgui[i].img_view_info.image 				= vk_image_swapimgs[i];
-		vk_imgview_imgui[i].img_view_info.viewType 				= VK_IMAGE_VIEW_TYPE_2D;
-		vk_imgview_imgui[i].img_view_info.format 				= VK_FORMAT_B8G8R8A8_UNORM;
-		vk_imgview_imgui[i].img_view_info.components.r			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		vk_imgview_imgui[i].img_view_info.components.g			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		vk_imgview_imgui[i].img_view_info.components.b			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		vk_imgview_imgui[i].img_view_info.components.a			= VK_COMPONENT_SWIZZLE_IDENTITY;
-		vk_imgview_imgui[i].img_view_info.subresourceRange 		= rpass_info.img_subres_range;
-
-	vr("vkCreateImageView", &vkres, vk_imgview_imgui[i].vk_image_view,
-		vkCreateImageView(vob.VKL, &vk_imgview_imgui[i].img_view_info, NULL, &vk_imgview_imgui[i].vk_image_view) ); }
+		createImageView(
+			vob.VKL,                        // Logical device
+			vk_image_swapimgs[i],           // Source image handle from swapchain images array
+			VK_FORMAT_B8G8R8A8_UNORM,       // Format (matches ImGui render pass)
+			VK_IMAGE_ASPECT_COLOR_BIT,      // Aspect flags
+			&vk_imgview_imgui[i],           // Output struct for this view
+			&vkres);                        // Result vector
+	}
 
 	VK_FrameBuff fb_imgui[swap_image_count];
 
