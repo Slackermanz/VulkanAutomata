@@ -519,31 +519,33 @@ int main() {
 		qsync.sub_info.signalSemaphoreCount		= 0;
 		qsync.sub_info.pSignalSemaphores		= NULL;
 
-		qsync.fence_info.sType					= VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	nf(&qsync.fence_info);
-
-	vr("vkCreateFence", &vkres, qsync.vk_fence,
-		vkCreateFence(vob.VKL, &qsync.fence_info, NULL, &qsync.vk_fence) );
+	createFence(
+		vob.VKL,        // Logical device
+		0,              // Flags (0 for unsignaled)
+		&qsync.vk_fence,// Output fence handle
+		&vkres);        // Result vector
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SWAPCHAIN SYNC");			/**/
 	///////////////////////////////////////////////////
 
-	VkSemaphoreCreateInfo vk_semaphore_info;
-		vk_semaphore_info.sType 	= VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-	nf(&vk_semaphore_info);
+	VkSemaphore vk_semaphore_swapchain_img_acq; // Keep declaration
+	createSemaphore(
+		vob.VKL,
+		&vk_semaphore_swapchain_img_acq,
+		&vkres);
 
-	VkSemaphore vk_semaphore_swapchain_img_acq;
-	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain_img_acq,
-		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain_img_acq) );
+	VkSemaphore vk_semaphore_swapchain_imgui; // Keep declaration
+	createSemaphore(
+		vob.VKL,
+		&vk_semaphore_swapchain_imgui,
+		&vkres);
 
-	VkSemaphore vk_semaphore_swapchain_imgui;
-	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain_imgui,
-		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain_imgui) );
-
-	VkSemaphore vk_semaphore_swapchain_pres;
-	vr("vkCreateSemaphore", &vkres, vk_semaphore_swapchain_pres,
-		vkCreateSemaphore(vob.VKL, &vk_semaphore_info, NULL, &vk_semaphore_swapchain_pres) );
+	VkSemaphore vk_semaphore_swapchain_pres; // Keep declaration
+	createSemaphore(
+		vob.VKL,
+		&vk_semaphore_swapchain_pres,
+		&vkres);
 
 	uint32_t swap_image_index = 0;
 
