@@ -889,39 +889,22 @@ int main() {
 	 /**/	hd("STAGE:", "WORK PIPELINE");			/**/
 	///////////////////////////////////////////////////
 
-	VK_Pipe	pipe_work;
+	VK_Pipe pipe_work; // Keep declaration
 
-		pipe_work.layout_info.sType 					= VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-	nf(&pipe_work.layout_info);
-		pipe_work.layout_info.setLayoutCount 			= 1;
-		pipe_work.layout_info.pSetLayouts 				= &dsl_work.vk_desc_set_layout;
-		pipe_work.layout_info.pushConstantRangeCount 	= 0;
-		pipe_work.layout_info.pPushConstantRanges 		= NULL;
+	// Create Pipeline Layout
+	createPipelineLayout(
+		vob.VKL,                    // Logical device
+		dsl_work.vk_desc_set_layout,// Descriptor set layout for work pipeline
+		&pipe_work,                 // Output struct (stores layout handle)
+		&vkres);                    // Result vector
 
-	vr("vkCreatePipelineLayout", &vkres, pipe_work.vk_pipeline_layout,
-		vkCreatePipelineLayout(vob.VKL, &pipe_work.layout_info, NULL, &pipe_work.vk_pipeline_layout) );
-
-		pipe_work.gfx_pipe_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-	nf(&pipe_work.gfx_pipe_info);
-		pipe_work.gfx_pipe_info.stageCount 				= 2;
-		pipe_work.gfx_pipe_info.pStages 				= pipe_info.p_shad_info;
-		pipe_work.gfx_pipe_info.pVertexInputState 		= &pipe_info.p_vtin_info;
-		pipe_work.gfx_pipe_info.pInputAssemblyState 	= &pipe_info.p_inas_info;
-		pipe_work.gfx_pipe_info.pTessellationState 		= NULL;
-		pipe_work.gfx_pipe_info.pViewportState 			= &pipe_info.p_vprt_info;
-		pipe_work.gfx_pipe_info.pRasterizationState 	= &pipe_info.p_rast_info;
-		pipe_work.gfx_pipe_info.pMultisampleState 		= &pipe_info.p_msam_info;
-		pipe_work.gfx_pipe_info.pDepthStencilState 		= NULL;
-		pipe_work.gfx_pipe_info.pColorBlendState 		= &pipe_info.p_cbst_info;
-		pipe_work.gfx_pipe_info.pDynamicState 			= NULL;
-		pipe_work.gfx_pipe_info.layout 					= pipe_work.vk_pipeline_layout;
-		pipe_work.gfx_pipe_info.renderPass 				= rp_work.vk_render_pass;
-		pipe_work.gfx_pipe_info.subpass 				= 0;
-		pipe_work.gfx_pipe_info.basePipelineHandle 		= VK_NULL_HANDLE;
-		pipe_work.gfx_pipe_info.basePipelineIndex 		= -1;
-
-	vr("vkCreateGraphicsPipelines", &vkres, pipe_work.vk_pipeline,
-		vkCreateGraphicsPipelines(vob.VKL, VK_NULL_HANDLE, 1, &pipe_work.gfx_pipe_info, NULL, &pipe_work.vk_pipeline) );
+	// Create Graphics Pipeline
+	createWorkGraphicsPipeline(
+		vob.VKL,                    // Logical device
+		&pipe_work,                 // Input: layout handle. Output: pipeline handle.
+		&pipe_info,                 // Struct containing pipeline state config
+		rp_work.vk_render_pass,     // Render pass for work pipeline
+		&vkres);                    // Result vector
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD WORK LOOP");		/**/
