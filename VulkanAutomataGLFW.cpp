@@ -406,26 +406,13 @@ int main() {
 	 /**/	hd("STAGE:", "QUEUE SYNC");				/**/
 	///////////////////////////////////////////////////
 
-	VK_QueueSync qsync;
+	VK_QueueSync qsync; // Keep declaration
 
-	rv("vkGetDeviceQueue");
-		vkGetDeviceQueue(vob.VKL, vob.VKQ_i, 0, &qsync.vk_queue);
+	getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &qsync.vk_queue);
+	setupBasicSubmitInfo(&qsync); // Setup basic submit info (no semaphores)
 
-		qsync.sub_info.sType					= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		qsync.sub_info.pNext					= NULL;
-		qsync.sub_info.waitSemaphoreCount		= 0;
-		qsync.sub_info.pWaitSemaphores			= NULL;
-		qsync.sub_info.pWaitDstStageMask		= NULL;
-		qsync.sub_info.commandBufferCount		= 1;
-		qsync.sub_info.pCommandBuffers			= NULL;
-		qsync.sub_info.signalSemaphoreCount		= 0;
-		qsync.sub_info.pSignalSemaphores		= NULL;
-
-	createFence(
-		vob.VKL,        // Logical device
-		0,              // Flags (0 for unsignaled)
-		&qsync.vk_fence,// Output fence handle
-		&vkres);        // Result vector
+	// Keep fence creation call
+	createFence(vob.VKL, 0, &qsync.vk_fence, &vkres);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SWAPCHAIN SYNC");			/**/
@@ -451,35 +438,23 @@ int main() {
 
 	uint32_t swap_image_index = 0;
 
-	VK_QueueSync swpsync;
-	rv("vkGetDeviceQueue");
-		vkGetDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync.vk_queue);
-	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync;
-		vk_pipeline_stage_flags_swpsync = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		swpsync.sub_info.sType					= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		swpsync.sub_info.pNext					= NULL;
-		swpsync.sub_info.waitSemaphoreCount		= 1;
-		swpsync.sub_info.pWaitSemaphores		= &vk_semaphore_swapchain_img_acq;
-		swpsync.sub_info.pWaitDstStageMask		= &vk_pipeline_stage_flags_swpsync;
-		swpsync.sub_info.commandBufferCount		= 1;
-//		swpsync.sub_info.pCommandBuffers		= &combuf_pres_loop[0].vk_command_buffer; // TODO i? 0, 1, 2 ? 
-		swpsync.sub_info.signalSemaphoreCount	= 1;
-		swpsync.sub_info.pSignalSemaphores		= &vk_semaphore_swapchain_imgui;
+	VK_QueueSync swpsync; // Keep declaration
+	getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync.vk_queue);
+	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Keep stage flag
+	setupPresentSubmitInfo(
+		&vk_semaphore_swapchain_img_acq, // Pass address
+		&vk_pipeline_stage_flags_swpsync, // Pass address
+		&vk_semaphore_swapchain_imgui,   // Pass address
+		&swpsync);                    // Output struct
 
-	VK_QueueSync swpsync_imgui;
-	rv("vkGetDeviceQueue");
-		vkGetDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync_imgui.vk_queue);
-	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync_imgui;
-		vk_pipeline_stage_flags_swpsync_imgui 			= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		swpsync_imgui.sub_info.sType					= VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		swpsync_imgui.sub_info.pNext					= NULL;
-		swpsync_imgui.sub_info.waitSemaphoreCount		= 1;
-		swpsync_imgui.sub_info.pWaitSemaphores			= &vk_semaphore_swapchain_imgui;
-		swpsync_imgui.sub_info.pWaitDstStageMask		= &vk_pipeline_stage_flags_swpsync_imgui;
-		swpsync_imgui.sub_info.commandBufferCount		= 1;
-//		swpsync_imgui.sub_info.pCommandBuffers		= &combuf_imgui_loop[swap_image_index].vk_command_buffer;
-		swpsync_imgui.sub_info.signalSemaphoreCount		= 1;
-		swpsync_imgui.sub_info.pSignalSemaphores		= &vk_semaphore_swapchain_pres;
+	VK_QueueSync swpsync_imgui; // Keep declaration
+	getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync_imgui.vk_queue);
+	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync_imgui = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Keep stage flag
+	setupImGuiSubmitInfo(
+		&vk_semaphore_swapchain_imgui, // Pass address
+		&vk_pipeline_stage_flags_swpsync_imgui, // Pass address
+		&vk_semaphore_swapchain_pres,   // Pass address
+		&swpsync_imgui);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK IMAGE VIEWS");		/**/
