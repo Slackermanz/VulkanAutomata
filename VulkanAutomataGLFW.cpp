@@ -428,30 +428,27 @@ int main() {
 	 /**/	hd("STAGE:", "SHADER DATA");			/**/
 	///////////////////////////////////////////////////
 
-	ShaderData shade_data[VERT_FLS+FRAG_FLS];
+	ShaderData shade_data[VERT_FLS + FRAG_FLS]; // Keep declaration
 
-		for(int i = 0; i < VERT_FLS; i++) {
-			rv("getShaderCodeInfo");
-			shade_data[i].SC_info 		= getShaderCodeInfo(filepath_vert[i]);
-			shade_data[i].stage_bits 	= VK_SHADER_STAGE_VERTEX_BIT; }
+	// Load Vertex Shaders
+	for (int i = 0; i < VERT_FLS; i++) {
+		loadAndCreateShaderModule(
+			vob.VKL,
+			filepath_vert[i],
+			&shade_data[i], // Output struct for this shader
+			&vkres);
+		shade_data[i].stage_bits = VK_SHADER_STAGE_VERTEX_BIT; // Set stage after loading
+	}
 
-		for(int i = VERT_FLS; i < VERT_FLS+FRAG_FLS; i++) {
-			rv("getShaderCodeInfo");
-			shade_data[i].SC_info 		= getShaderCodeInfo(filepath_frag[i-VERT_FLS]);
-			shade_data[i].stage_bits 	= VK_SHADER_STAGE_FRAGMENT_BIT; }
-
-		for(int i = 0; i < VERT_FLS+FRAG_FLS; i++) {
-			shade_data[i].vk_SM_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		nf(&shade_data[i].vk_SM_info);
-			shade_data[i].vk_SM_info.codeSize	= shade_data[i].SC_info.shaderBytes;
-			shade_data[i].vk_SM_info.pCode		= reinterpret_cast<const uint32_t*>(shade_data[i].SC_info.shaderData.data());
-			iv("Vert shaderFilename",		shade_data[i].SC_info.shaderFilename, 						i);
-			iv("Vert shaderBytes", 			shade_data[i].SC_info.shaderBytes, 							i);
-			iv("Vert shaderBytesValid", ( 	shade_data[i].SC_info.shaderBytesValid?"TRUE":"FALSE" ), 	i); }
-
-		for(int i = 0; i < VERT_FLS+FRAG_FLS; i++) {
-			vr("vkCreateShaderModule", &vkres, shade_data[i].vk_shader_module,
-				vkCreateShaderModule(vob.VKL, &shade_data[i].vk_SM_info, NULL, &shade_data[i].vk_shader_module) ); }
+	// Load Fragment Shaders
+	for (int i = VERT_FLS; i < VERT_FLS + FRAG_FLS; i++) {
+		loadAndCreateShaderModule(
+			vob.VKL,
+			filepath_frag[i - VERT_FLS], // Adjust index for frag file array
+			&shade_data[i], // Output struct for this shader
+			&vkres);
+		shade_data[i].stage_bits = VK_SHADER_STAGE_FRAGMENT_BIT; // Set stage after loading
+	}
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RENDERPASS INFO");		/**/
