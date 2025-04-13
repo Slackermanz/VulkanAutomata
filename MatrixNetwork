@@ -1,0 +1,14 @@
+Shape
+Layer
+Update
+
+Input Nodes/Neighbors
+ - From any layer combo/matrix
+ - Color total = 1.0? (local conservation tests)
+ - Specified values, or formula?
+
+struct Neighbor {
+	uvec2 coord;
+	layerbits  
+}
+

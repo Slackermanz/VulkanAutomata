@@ -404,7 +404,7 @@ void main() {
         // Get the average values of the color channels for the unique neighborhood kernel
         vec4 nhv = bitmake( nh_rings_m, sb.p[v_idx].v[i/(32u/MAX_RADIUS)], (i*MAX_RADIUS) & 31u );
 
-        // Weights, from -1.0 to +1.0, one set for each color channel being read
+        // Weights
         vec4 nnvr0 = vec4(
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],0u),
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],1u),
@@ -478,7 +478,7 @@ void main() {
     }
 
     res_c = res_v;
-//    res_c += centeredSigmoid(res_v);
+
 //    res_c = conv(1.0) + (res_v) * 0.1;
 
 //	----    ----    ----    ----    ----    ----    ----    ----

@@ -8,11 +8,12 @@
 //  ﻿ - Discord: https://discord.gg/hqRzg74kKT
 //  
 //  Socials:
-//  ﻿ - Discord DM: Slackermanz
+//  ﻿ - Discord DM: Slackermanz#3405
 //  ﻿ - Reddit DM: https://old.reddit.com/user/slackermanz
 //  ﻿ - Twitter: https://twitter.com/slackermanz
 //  ﻿ - YouTube: https://www.youtube.com/c/slackermanz
 //  ﻿ - Older YT: https://www.youtube.com/channel/UCZD4RoffXIDoEARW5aGkEbg
+//  ﻿ - TikTok: https://www.tiktok.com/@slackermanz
 //  
 //  Communities:
 //  ﻿ - Reddit: https://old.reddit.com/r/cellular_automata
@@ -96,9 +97,6 @@ vec4 sigmoid_logistic( vec4 x, float m, float k ) {
 }
 float sigmoid_logistic( float x, float m, float k ) {
 	return 1.0 / ( 1.0 + exp( k * -1.0 * ( x - m ) ) );
-}
-float centeredSigmoid(float v) {
-    return 2.0 * (1.0 / (1.0 + exp(-v)) - 0.5);
 }
 vec4 centeredSigmoid(vec4 v) {
     return 2.0 * (1.0 / (1.0 + exp(-v)) - 0.5);
@@ -404,7 +402,7 @@ void main() {
         // Get the average values of the color channels for the unique neighborhood kernel
         vec4 nhv = bitmake( nh_rings_m, sb.p[v_idx].v[i/(32u/MAX_RADIUS)], (i*MAX_RADIUS) & 31u );
 
-        // Weights, from -1.0 to +1.0, one set for each color channel being read
+        // Weights
         vec4 nnvr0 = vec4(
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],0u),
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],1u),
@@ -432,11 +430,7 @@ void main() {
         subres_0[0] = dot(nhv.rgb, nnvr0.rgb);
         subres_0[1] = dot(nhv.rgb, nnvg0.rgb);
         subres_0[2] = dot(nhv.rgb, nnvb0.rgb);
-/*
-        subres_0[0] = min(dot(nhv.rgb, nnvr0.rgb), 1.0);
-        subres_0[1] = min(dot(nhv.rgb, nnvg0.rgb), 1.0);
-        subres_0[2] = min(dot(nhv.rgb, nnvb0.rgb), 1.0);
-*/
+
 
         vec4 nnvr1 = vec4(
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],9u),
@@ -467,19 +461,11 @@ void main() {
         subres_1[2] = dot(subres_0.rgb, nnvb1.rgb);
 
         res_v += subres_1;
-/*
-        subres_1[0] = min(dot(subres_0.rgb, nnvr1.rgb), 1.0);
-        subres_1[1] = min(dot(subres_0.rgb, nnvg1.rgb), 1.0);
-        subres_1[2] = min(dot(subres_0.rgb, nnvb1.rgb), 1.0);
-
-        res_v += min(subres_1, 1.0);
-*/
 
     }
 
-    res_c = res_v;
-//    res_c += centeredSigmoid(res_v);
 //    res_c = conv(1.0) + (res_v) * 0.1;
+    res_c = res_v;
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Output
