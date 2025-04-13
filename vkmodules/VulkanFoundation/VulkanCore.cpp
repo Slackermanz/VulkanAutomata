@@ -270,3 +270,33 @@ void setupDeviceQueueCreateInfo(
     pdq->pdq_info.queueCount = queueCount; // Use the actual count from the family
     pdq->pdq_info.pQueuePriorities = pQueuePriorities;
 }
+
+// --- NEW FUNCTION ADDED BELOW ---
+
+VkResult createLogicalDevice(
+    VkPhysicalDevice physicalDevice,
+    VK_PDQueues* pdq,               // Contains queue create info
+    const char** device_extensions, // Device extensions to enable
+    uint32_t device_extension_count,
+    VkPhysicalDeviceFeatures* enabledFeatures, // Features to enable
+    VK_Obj* vob,                    // Output: Stores logical device handle (VKL)
+    std::vector<VkResult>* vkres) {
+
+    VK_LogDev ldev; // Local struct to hold create info
+
+    ldev.ldev_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    nf(&ldev.ldev_info);
+    ldev.ldev_info.queueCreateInfoCount = 1;
+    ldev.ldev_info.pQueueCreateInfos = &pdq->pdq_info;
+    ldev.ldev_info.enabledLayerCount = 0;
+    ldev.ldev_info.ppEnabledLayerNames = NULL;
+    ldev.ldev_info.enabledExtensionCount = device_extension_count;
+    ldev.ldev_info.ppEnabledExtensionNames = device_extensions;
+    ldev.ldev_info.pEnabledFeatures = enabledFeatures;
+
+    VkResult result = vkCreateDevice(physicalDevice, &ldev.ldev_info, NULL, &vob->VKL);
+    vr("vkCreateDevice", vkres, vob->VKL, result);
+    ov("VkDevice", vob->VKL);
+
+    return result;
+}

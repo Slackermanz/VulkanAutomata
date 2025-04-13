@@ -66,5 +66,16 @@ void setupDeviceQueueCreateInfo(
     VK_PDQueues* pdq // Output struct
 );
 
+// Create the logical device
+VkResult createLogicalDevice(
+    VkPhysicalDevice physicalDevice,
+    VK_PDQueues* pdq,               // Contains queue create info
+    const char** device_extensions, // Device extensions to enable
+    uint32_t device_extension_count,
+    VkPhysicalDeviceFeatures* enabledFeatures, // Features to enable
+    VK_Obj* vob,                    // Output: Stores logical device handle (VKL)
+    std::vector<VkResult>* vkres
+);
+
 
 #endif // VKMODULES_VULKAN_CORE_H

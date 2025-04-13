@@ -222,21 +222,14 @@ int main() {
 	 /**/	hd("STAGE:", "LOGICAL DEVICE");			/**/
 	///////////////////////////////////////////////////
 
-	VK_LogDev ldev;
-
-		ldev.ldev_info.sType 						= VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-	nf(&ldev.ldev_info);
-		ldev.ldev_info.queueCreateInfoCount 		= 1;
-		ldev.ldev_info.pQueueCreateInfos 			= &pdq.pdq_info;
-		ldev.ldev_info.enabledLayerCount 			= 0;
-		ldev.ldev_info.ppEnabledLayerNames 			= NULL;
-		ldev.ldev_info.enabledExtensionCount 		= LDEV_EXS;
-		ldev.ldev_info.ppEnabledExtensionNames 		= device_extensions;
-        ldev.ldev_info.pEnabledFeatures 			= &selectedPdevInfo.vk_pdev_feats;
-
-	vr("vkCreateDevice", &vkres, vob.VKL,
-		vkCreateDevice(vob.VKP, &ldev.ldev_info, NULL, &vob.VKL) );
-	ov("VkDevice", vob.VKL);
+	createLogicalDevice(
+		vob.VKP,                    // Physical device handle
+		&pdq,                       // Struct containing queue create info
+		device_extensions,          // Device extensions array
+		LDEV_EXS,                   // Device extension count
+		&selectedPdevInfo.vk_pdev_feats, // Enabled features from selected physical device
+		&vob,                       // Output: stores logical device handle (VKL)
+		&vkres);                    // Result vector
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SWAPCHAIN");				/**/
