@@ -1550,101 +1550,16 @@ int main() {
 	 /**/	hd("STAGE:", "DEAR IMGUI");				/**/
 	///////////////////////////////////////////////////
 
-	if(!ei.run_headless) {
-		ov( "IMGUI Version", IMGUI_CHECKVERSION() );
-
-		rv("ImGui::CreateContext");
-			ImGui::CreateContext();
-
-		rv("ImGui::StyleColorsDark");
-			ImGui::StyleColorsDark();
-
-		rv("ImGui::GetIO");
-			ImGuiIO &io = ImGui::GetIO();
-
-		rv("ImGui_ImplGlfw_InitForVulkan");
-			ImGui_ImplGlfw_InitForVulkan(glfw_W, true);
-
-		VkDescriptorPoolSize vk_descriptor_pool_size_imgui[] = {
-			{ VK_DESCRIPTOR_TYPE_SAMPLER, 					1000 },
-			{ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 	1000 },
-			{ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 			1000 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 			1000 },
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 		1000 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 		1000 },
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 			1000 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 			1000 },
-			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 	1000 },
-			{ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 	1000 },
-			{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 			1000 } };
-
-		VkDescriptorPoolCreateInfo vk_descriptor_pool_info_imgui;
-			vk_descriptor_pool_info_imgui.sType 			= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-		nf(&vk_descriptor_pool_info_imgui);
-			vk_descriptor_pool_info_imgui.flags 			= VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-			vk_descriptor_pool_info_imgui.maxSets 			= 1000;
-			vk_descriptor_pool_info_imgui.poolSizeCount 	= std::size(vk_descriptor_pool_size_imgui);
-			vk_descriptor_pool_info_imgui.pPoolSizes 		= vk_descriptor_pool_size_imgui;
-
-		VkDescriptorPool vk_descriptor_pool_imgui;
-		vr("vkCreateDescriptorPool", &vkres, vk_descriptor_pool_imgui,
-			vkCreateDescriptorPool(vob.VKL, &vk_descriptor_pool_info_imgui, NULL, &vk_descriptor_pool_imgui) );
-
-		ImGui_ImplVulkan_InitInfo imgui_vkinit;
-			imgui_vkinit.Instance 			= vob.VKI;
-			imgui_vkinit.PhysicalDevice 	= vob.VKP;
-			imgui_vkinit.Device 			= vob.VKL;
-			imgui_vkinit.QueueFamily 		= vob.VKQ_i;
-			imgui_vkinit.Queue 				= qsync.vk_queue;
-			imgui_vkinit.PipelineCache 		= VK_NULL_HANDLE;
-			imgui_vkinit.DescriptorPool 	= vk_descriptor_pool_imgui;
-			imgui_vkinit.Subpass 			= 0;
-			imgui_vkinit.MinImageCount 		= vk_surface_capabilities.minImageCount;
-			imgui_vkinit.ImageCount 		= imgui_vkinit.MinImageCount;
-			imgui_vkinit.MSAASamples 		= VK_SAMPLE_COUNT_1_BIT;
-			imgui_vkinit.Allocator 			= NULL;
-			imgui_vkinit.CheckVkResultFn 	= NULL;
-
-		rv("ImGui_ImplVulkan_Init");
-			ImGui_ImplVulkan_Init(&imgui_vkinit, rp_imgui.vk_render_pass);
-
-		VK_Command combuf_imgui;
-			combuf_imgui.pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-			combuf_imgui.pool_info.pNext							= NULL;
-			combuf_imgui.pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-			combuf_imgui.pool_info.queueFamilyIndex					= vob.VKQ_i;
-
-			vr("vkCreateCommandPool", &vkres, combuf_imgui.vk_command_pool,
-				vkCreateCommandPool(vob.VKL, &combuf_imgui.pool_info, NULL, &combuf_imgui.vk_command_pool) );
-
-			combuf_imgui.comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			combuf_imgui.comm_buff_alloc_info.pNext					= NULL;
-			combuf_imgui.comm_buff_alloc_info.commandPool			= combuf_imgui.vk_command_pool;
-			combuf_imgui.comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-			combuf_imgui.comm_buff_alloc_info.commandBufferCount	= 1;
-
-			vr("vkAllocateCommandBuffers", &vkres, combuf_imgui.vk_command_buffer,
-				vkAllocateCommandBuffers(vob.VKL, &combuf_imgui.comm_buff_alloc_info, &combuf_imgui.vk_command_buffer) );
-
-			combuf_imgui.comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		nf(&combuf_imgui.comm_buff_begin_info);
-			combuf_imgui.comm_buff_begin_info.pInheritanceInfo		= NULL;
-
-		vr("vkBeginCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
-			vkBeginCommandBuffer(combuf_imgui.vk_command_buffer, &combuf_imgui.comm_buff_begin_info) );
-
-			rv("ImGui_ImplVulkan_CreateFontsTexture");
-				ImGui_ImplVulkan_CreateFontsTexture(combuf_imgui.vk_command_buffer);
-
-		vr("vkEndCommandBuffer", &vkres, combuf_imgui.vk_command_buffer,
-			vkEndCommandBuffer(combuf_imgui.vk_command_buffer) );
-
-		if(valid) {
-			rv("combuf_imgui");
-				qsync.sub_info.pCommandBuffers = &combuf_imgui.vk_command_buffer;
-			vr("vkQueueSubmit", &vkres, 0,
-				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
-	else { rv("Headless Mode Enabled!"); }
+	initImGui(
+		glfw_W,                     // GLFW window handle
+		&vob,                       // Core Vulkan objects
+		qsync.vk_queue,             // Graphics queue
+		rp_imgui.vk_render_pass,    // ImGui render pass
+		vk_surface_capabilities.minImageCount, // Min swapchain image count
+		swap_image_count,           // Actual swapchain image count
+		&ei,                        // Engine info (for headless check)
+		&vkres                      // Result vector
+	);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP INIT");			/**/
@@ -2270,6 +2185,9 @@ int main() {
 
 	if(!ei.run_headless) {
 		if(glfwWindowShouldClose(glfw_W)) 	{ hd("STAGE:",  "CLOSED"); }
+
+		cleanupImGui(vob.VKL);
+		
 		rv("glfwDestroyWindow");
 			glfwDestroyWindow(glfw_W); }
 	else { rv("Headless Mode Enabled!"); }
