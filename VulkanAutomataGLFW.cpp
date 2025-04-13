@@ -22,6 +22,7 @@
 #include "vkmodules/VulkanFoundation/VulkanFoundation.h"
 #include "vkmodules/CommandBuffer/CommandBuffer.h"
 #include "vkmodules/Resources/Resources.h"
+#include "vkmodules/Rendering/Rendering.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -997,43 +998,17 @@ int main() {
 	 /**/	hd("STAGE:", "WORK RENDER PASS");		/**/
 	///////////////////////////////////////////////////
 
-	VK_RenderPass rp_work;
+	VK_RenderPass rp_work; // Keep declaration
 
-		rp_work.attach_desc.flags 						= 0;
-		rp_work.attach_desc.format 						= work.img_info[0].format;
-		rp_work.attach_desc.samples 					= VK_SAMPLE_COUNT_1_BIT;
-		rp_work.attach_desc.loadOp 						= VK_ATTACHMENT_LOAD_OP_LOAD;
-		rp_work.attach_desc.storeOp 					= VK_ATTACHMENT_STORE_OP_STORE;
-		rp_work.attach_desc.stencilLoadOp 				= VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		rp_work.attach_desc.stencilStoreOp 				= VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		rp_work.attach_desc.initialLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		rp_work.attach_desc.finalLayout 				= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-		rp_work.attach_ref.attachment 					= 0;
-		rp_work.attach_ref.layout 						= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		rp_work.subpass_desc.flags 						= 0;
-		rp_work.subpass_desc.pipelineBindPoint 			= VK_PIPELINE_BIND_POINT_GRAPHICS;
-		rp_work.subpass_desc.inputAttachmentCount 		= 0;
-		rp_work.subpass_desc.pInputAttachments 			= NULL;
-		rp_work.subpass_desc.colorAttachmentCount 		= 1;
-		rp_work.subpass_desc.pColorAttachments 			= &rp_work.attach_ref;
-		rp_work.subpass_desc.pResolveAttachments 		= NULL;
-		rp_work.subpass_desc.pDepthStencilAttachment 	= NULL;
-		rp_work.subpass_desc.preserveAttachmentCount 	= 0;
-		rp_work.subpass_desc.pPreserveAttachments 		= NULL;
-
-		rp_work.rp_info.sType 							= VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	nf(&rp_work.rp_info);
-		rp_work.rp_info.attachmentCount 				= 1;
-		rp_work.rp_info.pAttachments 					= &rp_work.attach_desc;
-		rp_work.rp_info.subpassCount 					= 1;
-		rp_work.rp_info.pSubpasses 						= &rp_work.subpass_desc;
-		rp_work.rp_info.dependencyCount 				= 0;
-		rp_work.rp_info.pDependencies 					= NULL;
-
-	vr("vkCreateRenderPass", &vkres, rp_work.vk_render_pass,
-		vkCreateRenderPass(vob.VKL, &rp_work.rp_info, NULL, &rp_work.vk_render_pass) );
+	createSimpleColorRenderPass(
+		vob.VKL,                             // Logical device
+		work.img_info[0].format,             // Format from work image
+		VK_ATTACHMENT_LOAD_OP_LOAD,          // LoadOp
+		VK_ATTACHMENT_STORE_OP_STORE,        // StoreOp
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // InitialLayout
+		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // FinalLayout
+		&rp_work,                            // Output struct
+		&vkres);                             // Result vector
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK FRAMEBUFFER");		/**/
@@ -1135,43 +1110,17 @@ int main() {
 	 /**/	hd("STAGE:", "IMGUI RENDER PASS");		/**/
 	///////////////////////////////////////////////////
 
-	VK_RenderPass rp_imgui;
+	VK_RenderPass rp_imgui; // Keep declaration
 
-		rp_imgui.attach_desc.flags 						= 0;
-		rp_imgui.attach_desc.format 					= VK_FORMAT_B8G8R8A8_UNORM;
-		rp_imgui.attach_desc.samples 					= VK_SAMPLE_COUNT_1_BIT;
-		rp_imgui.attach_desc.loadOp 					= VK_ATTACHMENT_LOAD_OP_LOAD;
-		rp_imgui.attach_desc.storeOp 					= VK_ATTACHMENT_STORE_OP_STORE;
-		rp_imgui.attach_desc.stencilLoadOp 				= VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		rp_imgui.attach_desc.stencilStoreOp 			= VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		rp_imgui.attach_desc.initialLayout 				= VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		rp_imgui.attach_desc.finalLayout 				= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		rp_imgui.attach_ref.attachment 					= 0;
-		rp_imgui.attach_ref.layout 						= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		rp_imgui.subpass_desc.flags 					= 0;
-		rp_imgui.subpass_desc.pipelineBindPoint 		= VK_PIPELINE_BIND_POINT_GRAPHICS;
-		rp_imgui.subpass_desc.inputAttachmentCount 		= 0;
-		rp_imgui.subpass_desc.pInputAttachments 		= NULL;
-		rp_imgui.subpass_desc.colorAttachmentCount 		= 1;
-		rp_imgui.subpass_desc.pColorAttachments 		= &rp_imgui.attach_ref;
-		rp_imgui.subpass_desc.pResolveAttachments 		= NULL;
-		rp_imgui.subpass_desc.pDepthStencilAttachment 	= NULL;
-		rp_imgui.subpass_desc.preserveAttachmentCount 	= 0;
-		rp_imgui.subpass_desc.pPreserveAttachments 		= NULL;
-
-		rp_imgui.rp_info.sType 							= VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	nf(&rp_imgui.rp_info);
-		rp_imgui.rp_info.attachmentCount 				= 1;
-		rp_imgui.rp_info.pAttachments 					= &rp_imgui.attach_desc;
-		rp_imgui.rp_info.subpassCount 					= 1;
-		rp_imgui.rp_info.pSubpasses 					= &rp_imgui.subpass_desc;
-		rp_imgui.rp_info.dependencyCount 				= 0;
-		rp_imgui.rp_info.pDependencies 					= NULL;
-
-	vr("vkCreateRenderPass", &vkres, rp_imgui.vk_render_pass,
-		vkCreateRenderPass(vob.VKL, &rp_imgui.rp_info, NULL, &rp_imgui.vk_render_pass) );
+	createSimpleColorRenderPass(
+		vob.VKL,                               // Logical device
+		VK_FORMAT_B8G8R8A8_UNORM,              // Format for swapchain/ImGui
+		VK_ATTACHMENT_LOAD_OP_LOAD,            // LoadOp
+		VK_ATTACHMENT_STORE_OP_STORE,          // StoreOp
+		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,       // InitialLayout (from presentation)
+		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // FinalLayout (ready for ImGui draw)
+		&rp_imgui,                             // Output struct
+		&vkres);                               // Result vector
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "IMGUI FRAMEBUFFER");		/**/
