@@ -1,6 +1,8 @@
 #include "RenderPassManager.h"
 #include "../Utils/Logger.h" // For logging helpers (vr, rv, nf)
 
+// --- Existing function createSimpleColorRenderPass remains here ---
+
 VkResult createSimpleColorRenderPass(
     VkDevice logicalDevice,
     VkFormat format,
@@ -53,4 +55,61 @@ VkResult createSimpleColorRenderPass(
     vr("vkCreateRenderPass", vkres, renderPassData->vk_render_pass, result);
 
     return result;
+}
+
+// --- NEW FUNCTION ADDED BELOW ---
+
+void setupRenderPassConfiguration(
+    uint32_t width,
+    uint32_t height,
+    VK_RPConfig* rpConfig // Output struct
+) {
+    // Rect2D (Render Area / Scissor)
+    rpConfig->rect2D.offset.x = 0;
+    rpConfig->rect2D.offset.y = 0;
+    rpConfig->rect2D.extent.width = width;
+    rpConfig->rect2D.extent.height = height;
+
+    // Clear Value
+    rpConfig->clear_val.color = { 1.0f, 0.0f, 0.0f, 1.0f }; // Default clear color
+
+    // Image Subresource Range (Commonly used for barriers/views)
+    rpConfig->img_subres_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    rpConfig->img_subres_range.baseMipLevel = 0;
+    rpConfig->img_subres_range.levelCount = 1;
+    rpConfig->img_subres_range.baseArrayLayer = 0;
+    rpConfig->img_subres_range.layerCount = 1;
+
+    // Image Subresource Layers (Commonly used for blits/copies)
+    rpConfig->img_subres_layer.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    rpConfig->img_subres_layer.mipLevel = 0;
+    rpConfig->img_subres_layer.baseArrayLayer = 0;
+    rpConfig->img_subres_layer.layerCount = 1;
+
+    // Image Blit region
+    rpConfig->img_blit.srcSubresource = rpConfig->img_subres_layer;
+    rpConfig->img_blit.srcOffsets[0] = {0, 0, 0};
+    rpConfig->img_blit.srcOffsets[1] = {(int32_t)width, (int32_t)height, 1};
+    rpConfig->img_blit.dstSubresource = rpConfig->img_subres_layer;
+    rpConfig->img_blit.dstOffsets[0] = {0, 0, 0};
+    rpConfig->img_blit.dstOffsets[1] = {(int32_t)width, (int32_t)height, 1};
+
+    // Buffer-Image Copy region
+    rpConfig->buffer_img_cpy.bufferOffset = 0;
+    rpConfig->buffer_img_cpy.bufferRowLength = width;
+    rpConfig->buffer_img_cpy.bufferImageHeight = height;
+    rpConfig->buffer_img_cpy.imageSubresource = rpConfig->img_subres_layer;
+    rpConfig->buffer_img_cpy.imageOffset = {0, 0, 0};
+    rpConfig->buffer_img_cpy.imageExtent = {width, height, 1};
+
+    // Viewport
+    rpConfig->vk_viewport.x = 0.0f;
+    rpConfig->vk_viewport.y = 0.0f;
+    rpConfig->vk_viewport.width = (float)width;
+    rpConfig->vk_viewport.height = (float)height;
+    rpConfig->vk_viewport.minDepth = 0.0f;
+    rpConfig->vk_viewport.maxDepth = 1.0f;
+
+    // Note: Sampler creation is handled separately (SamplerManager)
+    // rpConfig->vk_sampler is initialized elsewhere.
 }

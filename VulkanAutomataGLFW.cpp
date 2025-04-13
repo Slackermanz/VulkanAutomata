@@ -333,63 +333,19 @@ int main() {
 	 /**/	hd("STAGE:", "RENDERPASS INFO");		/**/
 	///////////////////////////////////////////////////
 
-	VK_RPConfig rpass_info;
+	VK_RPConfig rpass_info; // Keep declaration
 
-		rpass_info.rect2D.offset.x		= 0;
-		rpass_info.rect2D.offset.y		= 0;
-		rpass_info.rect2D.extent.width	= APP_W;
-		rpass_info.rect2D.extent.height	= APP_H;
+	setupRenderPassConfiguration(
+		APP_W,          // Application width
+		APP_H,          // Application height
+		&rpass_info     // Output struct to be filled
+	);
 
-		rpass_info.clear_val.color = { 1.0f, 0.0f, 0.0f, 1.0f };
-
-		rpass_info.img_subres_range.aspectMask 			= VK_IMAGE_ASPECT_COLOR_BIT;
-		rpass_info.img_subres_range.baseMipLevel 		= 0;
-		rpass_info.img_subres_range.levelCount 			= 1;
-		rpass_info.img_subres_range.baseArrayLayer 		= 0;
-		rpass_info.img_subres_range.layerCount 			= 1;
-
-		rpass_info.img_subres_layer.aspectMask 			= VK_IMAGE_ASPECT_COLOR_BIT;
-		rpass_info.img_subres_layer.mipLevel 			= 0;
-		rpass_info.img_subres_layer.baseArrayLayer 		= 0;
-		rpass_info.img_subres_layer.layerCount 			= 1;
-
-		rpass_info.img_blit.srcSubresource 				= rpass_info.img_subres_layer;
-		rpass_info.img_blit.srcOffsets[0].x 			= 0;
-		rpass_info.img_blit.srcOffsets[0].y 			= 0;
-		rpass_info.img_blit.srcOffsets[0].z 			= 0;
-		rpass_info.img_blit.srcOffsets[1].x 			= APP_W;
-		rpass_info.img_blit.srcOffsets[1].y 			= APP_H;
-		rpass_info.img_blit.srcOffsets[1].z 			= 1;
-		rpass_info.img_blit.dstSubresource 				= rpass_info.img_subres_layer;
-		rpass_info.img_blit.dstOffsets[0].x 			= 0;
-		rpass_info.img_blit.dstOffsets[0].y 			= 0;
-		rpass_info.img_blit.dstOffsets[0].z 			= 0;
-		rpass_info.img_blit.dstOffsets[1].x 			= APP_W;
-		rpass_info.img_blit.dstOffsets[1].y 			= APP_H;
-		rpass_info.img_blit.dstOffsets[1].z 			= 1;
-
-		rpass_info.buffer_img_cpy.bufferOffset 			= 0;
-		rpass_info.buffer_img_cpy.bufferRowLength 		= APP_W;
-		rpass_info.buffer_img_cpy.bufferImageHeight 	= APP_H;
-		rpass_info.buffer_img_cpy.imageSubresource 		= rpass_info.img_subres_layer;
-		rpass_info.buffer_img_cpy.imageOffset.x 		= 0;
-		rpass_info.buffer_img_cpy.imageOffset.y 		= 0;
-		rpass_info.buffer_img_cpy.imageOffset.z 		= 0;
-		rpass_info.buffer_img_cpy.imageExtent.width 	= APP_W;
-		rpass_info.buffer_img_cpy.imageExtent.height 	= APP_H;
-		rpass_info.buffer_img_cpy.imageExtent.depth		= 1;
-
-		rpass_info.vk_viewport.x						= 0;
-		rpass_info.vk_viewport.y						= 0;
-		rpass_info.vk_viewport.width					= APP_W;
-		rpass_info.vk_viewport.height					= APP_H;
-		rpass_info.vk_viewport.minDepth					= 0.0f;
-		rpass_info.vk_viewport.maxDepth					= 1.0f;
-
+	// --- Keep the Sampler creation call that follows ---
 	createDefaultSampler(
-		vob.VKL,                // Logical device
-		&rpass_info.vk_sampler, // Output sampler handle (stored in VK_RPConfig struct)
-		&vkres);                // Result vector
+		vob.VKL,
+		&rpass_info.vk_sampler,
+		&vkres);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "PIPELINE INFO"); 			/**/
