@@ -3,7 +3,7 @@
 
 #include <vulkan/vulkan.h>
 #include <vector>
-#include "../Types/VulkanTypes.h" // For VK_DescSetLayout3 etc.
+#include "../Types/VulkanTypes.h" // For VK_DescSetLayout3, VK_ImageView etc.
 
 // Function to create descriptor set layout, pool, and allocate sets
 // This specifically handles the layout with 3 bindings (Sampler, UBO, SSBO) used in the work pipeline
@@ -19,7 +19,7 @@ void updateWorkDescriptorSets(
     VkDevice logicalDevice,
     VK_DescSetLayout3* descSetLayoutData, // Contains allocated sets
     VkSampler sampler,
-    VkImageView imageViews[2], // [0] for set[1], [1] for set[0]
+    VK_ImageView work_init[2], // *** CORRECTED: Pass array of VK_ImageView structs ***
     VkBuffer uniformBuffer,
     VkBuffer storageBuffer,
     uint32_t setCount // Should match allocation count (usually 2)

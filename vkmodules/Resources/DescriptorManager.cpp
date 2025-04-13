@@ -89,7 +89,7 @@ void updateWorkDescriptorSets(
     VkDevice logicalDevice,
     VK_DescSetLayout3* descSetLayoutData, // Contains allocated sets
     VkSampler sampler,
-    VkImageView imageViews[2], // [0]=next frame, [1]=current frame
+    VK_ImageView work_init[2], // *** CORRECTED: Accept array of VK_ImageView structs ***
     VkBuffer uniformBuffer,
     VkBuffer storageBuffer,
     uint32_t setCount) { // Usually 2
@@ -97,10 +97,10 @@ void updateWorkDescriptorSets(
     // Prepare Descriptor Buffer/Image Infos
     VkDescriptorImageInfo imageInfo[2];
     imageInfo[0].sampler = sampler;
-    imageInfo[0].imageView = imageViews[1]; // Set 0 uses view 1 (current frame)
+    imageInfo[0].imageView = work_init[1].vk_image_view; // *** CORRECTED: Access handle from struct ***
     imageInfo[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageInfo[1].sampler = sampler;
-    imageInfo[1].imageView = imageViews[0]; // Set 1 uses view 0 (next frame)
+    imageInfo[1].imageView = work_init[0].vk_image_view; // *** CORRECTED: Access handle from struct ***
     imageInfo[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorBufferInfo uboInfo;

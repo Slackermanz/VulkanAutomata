@@ -780,84 +780,12 @@ int main() {
 
 	VK_DescSetLayout3 dsl_work;
 
-		dsl_work.set_bind[0].binding				= 1;
-		dsl_work.set_bind[0].descriptorType			= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		dsl_work.set_bind[0].descriptorCount		= 1;
-		dsl_work.set_bind[0].stageFlags				= VK_SHADER_STAGE_FRAGMENT_BIT;
-		dsl_work.set_bind[0].pImmutableSamplers		= NULL;
-		dsl_work.set_bind[1].binding				= 0;
-		dsl_work.set_bind[1].descriptorType			= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		dsl_work.set_bind[1].descriptorCount		= 1;
-		dsl_work.set_bind[1].stageFlags				= VK_SHADER_STAGE_FRAGMENT_BIT;
-		dsl_work.set_bind[1].pImmutableSamplers		= NULL;
-		dsl_work.set_bind[2].binding				= 2;
-		dsl_work.set_bind[2].descriptorType			= VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		dsl_work.set_bind[2].descriptorCount		= 1;
-		dsl_work.set_bind[2].stageFlags				= VK_SHADER_STAGE_FRAGMENT_BIT;
-		dsl_work.set_bind[2].pImmutableSamplers		= NULL;
+	createWorkDescriptorSet(
+		vob.VKL,        // Logical device
+		&dsl_work,      // Input/Output struct for layout, pool, sets
+		2,              // Number of sets to allocate (for ping-pong)
+		&vkres);        // Result vector
 
-		dsl_work.set_info.sType 					= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-	nf(&dsl_work.set_info);
-		dsl_work.set_info.bindingCount				= 3;
-		dsl_work.set_info.pBindings					= dsl_work.set_bind;
-
-		dsl_work.pool_size[0].type 					= dsl_work.set_bind[0].descriptorType;
-		dsl_work.pool_size[0].descriptorCount 		= 2;
-		dsl_work.pool_size[1].type 					= dsl_work.set_bind[1].descriptorType;
-		dsl_work.pool_size[1].descriptorCount 		= 2;
-		dsl_work.pool_size[2].type 					= dsl_work.set_bind[2].descriptorType;
-		dsl_work.pool_size[2].descriptorCount 		= 2;
-
-		dsl_work.pool_info.sType 					= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	nf(&dsl_work.pool_info);
-		dsl_work.pool_info.maxSets 					= dsl_work.pool_size[0].descriptorCount
-													+ dsl_work.pool_size[1].descriptorCount
-													+ dsl_work.pool_size[2].descriptorCount;
-		dsl_work.pool_info.poolSizeCount 			= 3;
-		dsl_work.pool_info.pPoolSizes 				= dsl_work.pool_size;
-
-	ov("pool_info.maxSets", dsl_work.pool_info.maxSets);
-
-	vr("vkCreateDescriptorSetLayout", &vkres, dsl_work.vk_desc_set_layout,
-		vkCreateDescriptorSetLayout(vob.VKL, &dsl_work.set_info, NULL, &dsl_work.vk_desc_set_layout) );
-
-	vr("vkCreateDescriptorPool", &vkres, dsl_work.vk_desc_pool,
-		vkCreateDescriptorPool(vob.VKL, &dsl_work.pool_info, NULL, &dsl_work.vk_desc_pool) );
-
-		dsl_work.allo_info.sType 					= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-		dsl_work.allo_info.pNext 					= NULL;
-		dsl_work.allo_info.descriptorPool 			= dsl_work.vk_desc_pool;
-		dsl_work.allo_info.descriptorSetCount 		= 1;
-		dsl_work.allo_info.pSetLayouts 				= &dsl_work.vk_desc_set_layout;
-
-	for(int i = 0; i < 2; i++) {
-		vr("vkAllocateDescriptorSets", &vkres, dsl_work.vk_descriptor_set[i],
-			vkAllocateDescriptorSets(vob.VKL, &dsl_work.allo_info, &dsl_work.vk_descriptor_set[i]) ); }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK SAMPLER");			/**/
-	///////////////////////////////////////////////////
-
-	VkDescriptorImageInfo vk_desc_img_info_work_sampler[2];
-		vk_desc_img_info_work_sampler[0].sampler		= rpass_info.vk_sampler;
-		vk_desc_img_info_work_sampler[0].imageView		= work_init[1].vk_image_view;
-		vk_desc_img_info_work_sampler[0].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		vk_desc_img_info_work_sampler[1].sampler		= rpass_info.vk_sampler;
-		vk_desc_img_info_work_sampler[1].imageView		= work_init[0].vk_image_view;
-		vk_desc_img_info_work_sampler[1].imageLayout	= VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-	VkWriteDescriptorSet vk_write_descriptor_set_work_sampler[2];
-	for(int i = 0; i < 2; i++) {
-		vk_write_descriptor_set_work_sampler[i].sType				= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vk_write_descriptor_set_work_sampler[i].pNext				= NULL;
-		vk_write_descriptor_set_work_sampler[i].dstSet				= dsl_work.vk_descriptor_set[i];
-		vk_write_descriptor_set_work_sampler[i].dstBinding			= 1;
-		vk_write_descriptor_set_work_sampler[i].dstArrayElement		= 0;
-		vk_write_descriptor_set_work_sampler[i].descriptorCount		= 1;
-		vk_write_descriptor_set_work_sampler[i].descriptorType		= dsl_work.set_bind[0].descriptorType;
-		vk_write_descriptor_set_work_sampler[i].pImageInfo			= &vk_desc_img_info_work_sampler[i];
-		vk_write_descriptor_set_work_sampler[i].pBufferInfo			= NULL;
-		vk_write_descriptor_set_work_sampler[i].pTexelBufferView	= NULL; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK UNIFORM BUFFER");	/**/
@@ -884,33 +812,10 @@ int main() {
 	VkBuffer vkbuff_work = work_ub_data.vk_buffer; // Get the buffer handle
 	VkDeviceMemory vkdevmem_ub_work = work_ub_data.vk_dev_mem; // Get the memory handle
 
-	VkDescriptorBufferInfo vkDescBuff_info_work;
-		vkDescBuff_info_work.buffer         = vkbuff_work;
-		vkDescBuff_info_work.offset         = 0;
-		vkDescBuff_info_work.range          = VK_WHOLE_SIZE;
-
-	// --- Keep the original write descriptor set setup ---
-	VkWriteDescriptorSet vkwritedescset_ub_work[2];
-	for(int i = 0; i < 2; i++) {
-		vkwritedescset_ub_work[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vkwritedescset_ub_work[i].pNext                 = NULL;
-		vkwritedescset_ub_work[i].dstSet                = dsl_work.vk_descriptor_set[i];
-		vkwritedescset_ub_work[i].dstBinding            = 0;
-		vkwritedescset_ub_work[i].dstArrayElement       = 0;
-		vkwritedescset_ub_work[i].descriptorCount       = 1;
-		vkwritedescset_ub_work[i].descriptorType        = dsl_work.set_bind[1].descriptorType;
-		vkwritedescset_ub_work[i].pImageInfo            = NULL;
-		vkwritedescset_ub_work[i].pBufferInfo           = &vkDescBuff_info_work; // Uses the descriptor info
-		vkwritedescset_ub_work[i].pTexelBufferView      = NULL;
-	}
-
-	// --- Keep the original descriptor update calls ---
-	for(int i = 0; i < 2; i++) {
-		rv("vkUpdateDescriptorSets");
-			vkUpdateDescriptorSets(vob.VKL, 1, &vk_write_descriptor_set_work_sampler[i], 0, NULL);
-		rv("vkUpdateDescriptorSets");
-			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_ub_work[i], 0, NULL);
-	}
+    VkDescriptorBufferInfo vkDescBuff_info_work;
+        vkDescBuff_info_work.buffer         = vkbuff_work;
+        vkDescBuff_info_work.offset         = 0;
+        vkDescBuff_info_work.range          = VK_WHOLE_SIZE;
 
 	// --- Keep the original vkMapMemory call ---
 	void *pvoid_memmap_work;
@@ -943,36 +848,25 @@ int main() {
 	VkBuffer vkbuff_ssbo = work_ssbo_data.vk_buffer; // Get the buffer handle
 	VkDeviceMemory vkdevmem_sb_work = work_ssbo_data.vk_dev_mem; // Get the memory handle
 
-	VkDescriptorBufferInfo vkDescBuff_info_ssbo;
-		vkDescBuff_info_ssbo.buffer         = vkbuff_ssbo;
-		vkDescBuff_info_ssbo.offset         = 0;
-		vkDescBuff_info_ssbo.range          = VK_WHOLE_SIZE;
-
-	// --- Keep the original write descriptor set setup ---
-	VkWriteDescriptorSet vkwritedescset_sb_work[2];
-	for(int i = 0; i < 2; i++) {
-		vkwritedescset_sb_work[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		vkwritedescset_sb_work[i].pNext                 = NULL;
-		vkwritedescset_sb_work[i].dstSet                = dsl_work.vk_descriptor_set[i];
-		vkwritedescset_sb_work[i].dstBinding            = 2; // Binding 2 for SSBO
-		vkwritedescset_sb_work[i].dstArrayElement       = 0;
-		vkwritedescset_sb_work[i].descriptorCount       = 1;
-		vkwritedescset_sb_work[i].descriptorType        = dsl_work.set_bind[2].descriptorType; // Type for SSBO
-		vkwritedescset_sb_work[i].pImageInfo            = NULL;
-		vkwritedescset_sb_work[i].pBufferInfo           = &vkDescBuff_info_ssbo; // Uses the SSBO descriptor info
-		vkwritedescset_sb_work[i].pTexelBufferView      = NULL;
-	}
-
-	// --- Keep the original descriptor update calls ---
-	for(int i = 0; i < 2; i++) {
-		rv("vkUpdateDescriptorSets"); // Note: This updates the SSBO binding (index 2)
-			vkUpdateDescriptorSets(vob.VKL, 1, &vkwritedescset_sb_work[i], 0, NULL);
-	}
+    VkDescriptorBufferInfo vkDescBuff_info_ssbo;
+        vkDescBuff_info_ssbo.buffer         = vkbuff_ssbo;
+        vkDescBuff_info_ssbo.offset         = 0;
+        vkDescBuff_info_ssbo.range          = VK_WHOLE_SIZE;
 
 	// --- Keep the original vkMapMemory call ---
 	void *pvoid_memmap_ssbo;
 	vr("vkMapMemory", &vkres, pvoid_memmap_ssbo,
 		vkMapMemory(vob.VKL, vkdevmem_sb_work, vkDescBuff_info_ssbo.offset, vkDescBuff_info_ssbo.range, 0, &pvoid_memmap_ssbo) );
+
+	// Perform bulk update of descriptor sets after all resources are ready
+	updateWorkDescriptorSets(
+		vob.VKL,                        // Logical device
+		&dsl_work,                      // Struct containing the allocated descriptor sets
+		rpass_info.vk_sampler,          // Sampler handle
+		work_init,                      // Array of work image views (work_init[0], work_init[1])
+		vkbuff_work,                    // Uniform buffer handle
+		vkbuff_ssbo,                    // Storage buffer handle
+		2);                             // Number of sets to update
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK RENDER PASS");		/**/
