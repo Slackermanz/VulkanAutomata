@@ -15,11 +15,11 @@
 
 // Include our modularized type definitions
 #include "vkmodules/Types/AllTypes.h"
+#include "vkmodules/Utils/Utils.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
 const	int 		MAXLOG 			=  2;
-		int 		loglevel		=  MAXLOG;
 		int 		valid 			=  1;
 		uint32_t	verbose_loops 	= 12;	// How many loops to output full diagnostics
         uint32_t    panel_n_x_n     =  4;
@@ -90,125 +90,6 @@ int32_t findProperties(
         const 	VkMemoryPropertyFlags 	properties 				= pMemoryProperties->memoryTypes[memoryIndex].propertyFlags;
         const 	bool 					hasRequiredProperties 	= (properties & requiredProperties) == requiredProperties;
         if (isRequiredMemoryType && hasRequiredProperties) { return static_cast<int32_t>(memoryIndex); } } return -1; }
-
-void hd(const std::string& id, const std::string& msg) {
-//	Header output message
-	std::string bar = "";
-	for(int i = 0; i < 20; i++) { bar = bar + "____"; }
-	if(loglevel >= 0) {
-		std::cout << bar << "\n " << id << "\t" << msg << "\n"; } }
-
-void ov(const std::string& id, auto v) {
-//	Single info output message
-	int 		padlen	=  4;
-	int 		pads	= 11;
-	std::string pad 	= " ";
-	int 		padsize = (pads*padlen - id.size()) - 3;
-	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-	if(loglevel >= 1) {
-		std::cout << "\tinfo:\t    " << id << pad << " [" << v << "]\n"; } }
-
-void iv(const std::string& id, auto ov, int idx) {
-//	Multiple info output message
-	int 		padlen 	= 4;
-	int 		pads 	= 10;
-	std::string pad 	= " ";
-	int 		padsize = (pads*padlen - id.size()) - 3;
-	for(int i = 0; i < padsize; i++) { pad = pad + "."; }
-	if(loglevel >= 1) {
-		std::cout << "\tinfo:\t" << idx << "\t" << id << pad << " [" << ov << "]\n"; } }
-
-void vr(const std::string& id, std::vector<VkResult>* reslist, auto v, VkResult res) {
-//	VkResult output message
-	reslist->push_back(res); 	// TODO slow memory leak
-	uint32_t 	idx 		= reslist->size() - 1;
-	std::string	idx_string 	= std::to_string(idx);
-	uint32_t 	idx_sz		= idx_string.size();
-	std::string res_string 	= std::to_string(res);
-	if(idx_sz < 4) { for(int i = 0; i < 4-idx_sz; i++) { idx_string = " " + idx_string; } }
-	int 		padlen	= 4;
-	int 		pads	= 12;
-	std::string pad 	= " ";
-	int 		padsize = (pads*padlen - id.size()) - 3;
-	for(int i = 0; i < padsize; i++) { pad = pad + " "; }
-	if(loglevel >= 2) {
-		std::cout << "  " << idx_string << ":\t" << (res==0?" ":res_string) << " \t" << id << pad << " [" << v << "]\n"; } }
-
-void rv(const std::string& id) {
-//	Return void output message
-	if(loglevel >= 2) {
-		std::cout << "  void: \t" << id	<< "\n"; } }
-
-void nt(const std::string& id) {
-//	Return void output message
-	if(loglevel >= 2) {
-		std::cout << id	<< "\n"; } }
-
-void nf(auto *Vk_obj) {
-//	NullFlags shorthand
-	Vk_obj->pNext = NULL;
-	Vk_obj->flags = 0; }
-
-void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h, GLFW_mouse m, bool cursor = false) {
-	fname = "out/" + fname + ".PAM";
-	ov("Save Image", fname);
-//		char* buffer = new char[w*h*4];
-//		memcpy(buffer, image_data, w*h*4);
-	std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
-		file 	<<	"P7" 							<< "\n"
-			 	<< 	"WIDTH "	<< w 				<< "\n"
-			 	<< 	"HEIGHT "	<< h				<< "\n"
-			 	<< 	"DEPTH "	<< "4"				<< "\n"
-			 	<< 	"MAXVAL "	<< "255"			<< "\n"
-			 	<< 	"TUPLTYPE "	<< "RGB_ALPHA"		<< "\n"
-			 	<< 	"ENDHDR"	<< "\n";
-//		file.write( (const char*)buffer, w*h*4 );
-	if(!cursor) {
-		file.write( (const char*)image_data, w*h*4 ); }
-	else {
-		int maxsize = w*h*4;
-		char* buffer = new char[maxsize];
-		memcpy(buffer, image_data, maxsize);
-		int xoff = int(m.xpos*4+maxsize)%maxsize;
-		int yoff = int(m.ypos*w*4+maxsize)%maxsize;
-		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i-w*4*2+maxsize)%maxsize] = UINT8_MAX; 	}
-		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i-w*4*1+maxsize)%maxsize] = UINT8_MAX; 	}
-		for(int i = -3*4; i < 3*4; i++) { buffer[(xoff+yoff+i-w*4*0+maxsize)%maxsize] = UINT8_MAX; 	}
-		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i+w*4*1+maxsize)%maxsize] = UINT8_MAX; 	}
-		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i+w*4*2+maxsize)%maxsize] = UINT8_MAX; 	}
-		for(int i = -1*4; i < 1*4; i++) { buffer[(xoff+yoff+i-w*4*1+maxsize)%maxsize] = 0; 			}
-		for(int i = -2*4; i < 2*4; i++) { buffer[(xoff+yoff+i-w*4*0+maxsize)%maxsize] = 0; 			}
-		for(int i = -1*4; i < 1*4; i++) { buffer[(xoff+yoff+i+w*4*1+maxsize)%maxsize] = 0; 			}
-		file.write( (const char*)buffer, w*h*4 ); }
-	file.close(); }
-
-void save_sound(void* image_data, std::string fname, uint32_t w, uint32_t h, GLFW_mouse m, bool cursor = false) {
-		int maxsize = w*h*4;
-		char* buffer = new char[maxsize];
-		memcpy(buffer, image_data, maxsize);
-
-		for(int yoff = 0; yoff < h; yoff++) {
-			char* line = new char[w*4];
-			for(int xoff = 0; xoff < w*4; xoff++) { line[xoff] = buffer[(xoff+yoff-w*4*0+maxsize)%maxsize]; }
-			fname = "out/S" + std::to_string(yoff) + ".sound";
-			std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
-				file.write( (const char*)line, w*4 );
-			file.close(); } }
-
-void new_fspec256(fspec256 *fs) { for(int i = 0; i < 256; i++) { fs->rl[i] = 0.0f; fs->im[i] = 0.0f; } }
-
-NS_Timer start_timer(NS_Timer t) {
-	t.st = std::chrono::high_resolution_clock::now();
-	return t; }
-
-void end_timer(NS_Timer t, std::string msg) {
-	t.ft = std::chrono::high_resolution_clock::now();
-	std::string ftime 	= std::to_string(
-		std::chrono::duration_cast<std::chrono::nanoseconds>(t.ft-t.st).count()) + " ns, " +
-		std::to_string( int(1000000000.0 / std::chrono::duration_cast<std::chrono::nanoseconds>(t.ft-t.st).count()) ) + " FPS";
-	ov(msg, ftime); }
-
-void tog(bool *b) { *b = (*b) ? false : true; }
 
 PatternConfigData_408 get_PCD_408(std::string loadfile, int idx, EngineInfo *ei) {
 	PatternConfigData_408 pcd;
@@ -852,9 +733,6 @@ WAVS16_1024 load_WAVS16(std::string loadfile, int idx) {
 	fread(&pcd, sizeof(struct UB32_64), 1, f);
 	fclose(f); }*/
 
-void framesleep(int ms) {
-	std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
-
 uint32_t u32_flp(uint32_t u32, uint32_t off) { return u32 ^ (1 << off); }
 uint32_t u32_set(uint32_t u32, uint32_t off) { return u32 | (1 << off); }
 uint32_t u32_clr(uint32_t u32, uint32_t off) { return u32 & (1 << off); }
@@ -910,52 +788,6 @@ void dft1d(int idx, int smp, fspec256* fs, fsmag256* fsm) {
 
 	//for(int i = 0; i < 256; i++) { std::cout << fs->rl[i] << "," << fs->im[i] << "\n"; }
 	/*std::cout << sizeof(int16_t) << "," << sizeof(WAVS16_1024) << "," << sizeof(d1024) << "," << sizeof(d1024.i16[0]) << "\n";*/ }
-
-void save_fspec(fsmag256 *fsm, std::string fname, uint32_t w, uint32_t h) {
-	fname = "out/" + fname + ".PAM";
-	ov("Save Image", fname);
-
-	std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
-		file 	<<	"P7" 							<< "\n"
-			 	<< 	"WIDTH "	<< w 				<< "\n"
-			 	<< 	"HEIGHT "	<< h				<< "\n"
-			 	<< 	"DEPTH "	<< "4"				<< "\n"
-			 	<< 	"MAXVAL "	<< "255"			<< "\n"
-			 	<< 	"TUPLTYPE "	<< "RGB_ALPHA"		<< "\n"
-			 	<< 	"ENDHDR"	<< "\n";
-
-		int 	maxsize 	= w*h*4;
-		char* 	buffer 		= new char[maxsize];
-
-		//float 	maxmag = 1.0f;
-		//for(int j = 0; j < 256; j++) { maxmag = (fsm->fsm[j] > maxmag) ? fsm->fsm[j] : maxmag; }
-		//std::cout << maxmag << "\n";
-		for(int j = 0; j < 256; j++) {
-			int xoff = int(		   j   *4+maxsize )%maxsize;
-			int mag = int((fsm->fsm[j] / 4096.0f) * 255.0f);
-		//	int mag = int((fsm->fsm[j] /  maxmag) * 255.0f);
-		//	int mag = int(fsm->fsm[j]);
-			int magclamp = (mag > 255) ? 255 : ((mag < 0) ? 0 : mag);
-			for(int k = 0; k < magclamp; k++) {
-				int yoff = int( k*-1*w*4+maxsize-(w*4) )%maxsize;
-				for(int i = 0; i < 4; i++) {
-					buffer[(xoff+yoff+i-w*4*0+maxsize)%maxsize] = UINT8_MAX; } }
-
-			/*int yclampr = (int(abs(fs->rl[j])) > 255) ? 255 : int(abs(fs->rl[j]));
-			int yclampi = (int(abs(fs->im[j])) > 255) ? 255 : int(abs(fs->im[j]));
-			
-			for(int k = 0; k < yclampr; k++) {
-				int yoff = int( k*-1*w*4+maxsize-(w*4) )%maxsize;
-				for(int i = 0; i < 1; i++) {
-					buffer[(xoff+yoff+i+0-w*4*0+maxsize)%maxsize] = UINT8_MAX; } }
-			for(int k = 0; k < yclampi; k++) {
-				int yoff = int( k*-1*w*4+maxsize-(w*4) )%maxsize;
-				for(int i = 0; i < 1; i++) {
-					buffer[(xoff+yoff+i+1-w*4*0+maxsize)%maxsize] = UINT8_MAX; } }*/ }
-
-		file.write( (const char*)buffer, w*h*4 );
-
-	file.close(); }
 
 int main() {
 
