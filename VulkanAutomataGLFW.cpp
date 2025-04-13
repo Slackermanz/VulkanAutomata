@@ -13,6 +13,9 @@
 #include <cstring>
 #include <cmath>
 
+// Include our modularized type definitions
+#include "vkmodules/Types/AllTypes.h"
+
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
 const	int 		MAXLOG 			=  2;
@@ -32,13 +35,7 @@ const	int 		MAXLOG 			=  2;
 	const 	uint32_t 	APP_W 	= 64*4*2*4;	//	Window & Simulation Width
 	const 	uint32_t 	APP_H 	= 64*4*1*4;	//	Window & Simulation Height
 
-//	Keyboard input handler
-struct GLFW_key {
-	GLFWwindow* window;
-	int 		key;
-	int 		scancode;
-	int 		action;
-	int 		mods; };
+// Global variables for input handling
 GLFW_key 	glfw_key;
 void clear_glfw_key(GLFW_key *e) {
 	e->key 		= 0;
@@ -46,25 +43,12 @@ void clear_glfw_key(GLFW_key *e) {
 	e->action 	= 0;
 	e->mods 	= 0; }
 
-//	Mouse input handler
-struct GLFW_mouse {
-	GLFWwindow* window;
-	double 		xpos;
-	double 		ypos;
-	int 		button;
-	int 		action;
-	int 		mods;
-	double 		xoffset;
-	double 		yoffset; };
 GLFW_mouse 	glfw_mouse;
 void clear_glfw_mouse(GLFW_mouse *e) {
 	e->mods 	= 0;
 	e->xoffset 	= 0;
 	e->yoffset 	= 0; }
 
-struct KeyCapture {
-	bool has_mouse;
-	bool has_keyboard; };
 KeyCapture kc;
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
@@ -164,194 +148,6 @@ void nf(auto *Vk_obj) {
 //	NullFlags shorthand
 	Vk_obj->pNext = NULL;
 	Vk_obj->flags = 0; }
-
-struct VK_Obj {
-	VkInstance			VKI;
-	uint32_t			VKP_i;
-	VkPhysicalDevice	VKP;
-	uint32_t			VKQ_i;
-	VkDevice			VKL;
-};
-
-struct VK_Config {
-	VkApplicationInfo 		app_info;
-	VkInstanceCreateInfo	inst_info;
-};
-
-struct VK_Debug {
-	VkDebugUtilsMessengerCreateInfoEXT	debug_msg_info;
-	VkDebugUtilsMessengerEXT			vk_debug_utils_messenger_ext;
-};
-
-struct VK_PhysDev {
-	uint32_t 							pd_count;
-	VkPhysicalDevice					vk_pdev;
-	VkPhysicalDeviceProperties			vk_pdev_props;
-	VkPhysicalDeviceFeatures			vk_pdev_feats;
-	VkPhysicalDeviceMemoryProperties	vk_pdev_mem_props;
-};
-
-struct VK_PDQueues {
-	VkDeviceQueueCreateInfo		pdq_info; 
-};
-
-struct VK_LogDev {
-	VkDeviceCreateInfo			ldev_info;
-};
-
-struct VK_Layer_1x2D {
-	VkExtent3D				ext3D;
-	VkImageCreateInfo		img_info;
-	VkImage					vk_image;
-	uint32_t				MTB_index;
-	VkMemoryRequirements	vk_mem_reqs;
-	VkMemoryAllocateInfo	vk_mem_allo_info;
-	VkDeviceMemory			vk_dev_mem;
-};
-
-struct VK_Buffer_1x2D {
-	VkBufferCreateInfo		buff_info;
-	VkBuffer				vk_buffer;
-	uint32_t				MTB_index;
-	VkMemoryRequirements	vk_mem_reqs;
-	VkMemoryAllocateInfo	vk_mem_allo_info;
-	VkDeviceMemory			vk_dev_mem;
-};
-
-struct VK_Buffer_Data {
-	VkBufferCreateInfo		buff_info;
-	VkBuffer				vk_buffer;
-	uint32_t				MTB_index;
-	VkMemoryRequirements	vk_mem_reqs;
-	VkMemoryAllocateInfo	vk_mem_allo_info;
-	VkDeviceMemory			vk_dev_mem;
-};
-
-struct VK_Layer_2x2D {
-	VkExtent3D				ext3D[2];
-	VkImageCreateInfo		img_info[2];
-	VkImage					vk_image[2];
-	uint32_t				MTB_index[2];
-	VkMemoryRequirements	vk_mem_reqs[2];
-	VkMemoryAllocateInfo	vk_mem_allo_info[2];
-	VkDeviceMemory			vk_dev_mem[2];
-};
-
-struct VK_Command {
-	VkCommandPoolCreateInfo			pool_info;
-	VkCommandPool					vk_command_pool;
-	VkCommandBufferAllocateInfo		comm_buff_alloc_info;
-	VkCommandBuffer					vk_command_buffer;
-	VkCommandBufferBeginInfo		comm_buff_begin_info;
-};
-
-struct ShaderCodeInfo {
-	std::string 		shaderFilename;
-	std::vector<char>	shaderData;
-	size_t 				shaderBytes;
-	bool 				shaderBytesValid; };
-
-ShaderCodeInfo getShaderCodeInfo(const std::string& filename) {
-	std::ifstream 		file		(filename, std::ios::ate | std::ios::binary);
-	size_t 				fileSize = 	(size_t) file.tellg();
-	std::vector<char> 	buffer		(fileSize);
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-	file.close();
-	ShaderCodeInfo sc_info;
-		sc_info.shaderFilename		= filename;
-		sc_info.shaderData			= buffer;
-		sc_info.shaderBytes			= buffer.size();
-		sc_info.shaderBytesValid	= (sc_info.shaderBytes%4==0?1:0);
-	return sc_info; }
-
-struct ShaderData {
-	ShaderCodeInfo 				SC_info;
-	VkShaderModuleCreateInfo	vk_SM_info;
-	VkShaderModule				vk_shader_module;
-	VkShaderStageFlagBits		stage_bits;
-};
-
-struct VK_RPConfig {
-	VkRect2D									rect2D;
-	VkClearValue								clear_val;
-	VkImageSubresourceRange						img_subres_range;
-	VkImageSubresourceLayers					img_subres_layer;
-	VkImageBlit									img_blit;
-	VkBufferImageCopy							buffer_img_cpy;
-	VkViewport									vk_viewport;
-	VkSamplerCreateInfo							samp_info;
-	VkSampler									vk_sampler;
-};
-
-struct VK_PipeInfo {
-	VkPipelineRasterizationStateCreateInfo		p_rast_info;
-	VkPipelineViewportStateCreateInfo			p_vprt_info;
-	VkPipelineMultisampleStateCreateInfo		p_msam_info;
-	VkPipelineVertexInputStateCreateInfo		p_vtin_info;
-	VkPipelineInputAssemblyStateCreateInfo		p_inas_info;
-	VkPipelineColorBlendAttachmentState			p_cbat_info;
-	VkPipelineColorBlendStateCreateInfo			p_cbst_info;
-	VkPipelineShaderStageCreateInfo				p_shad_info[VERT_FLS+FRAG_FLS];
-};
-
-struct VK_ImageView {
-	VkImageViewCreateInfo	img_view_info;
-	VkImageView				vk_image_view;
-	VkImageMemoryBarrier	img_mem_barr;
-};
-
-struct VK_QueueSync {
-	VkQueue				vk_queue;
-	VkSubmitInfo		sub_info;
-	VkFenceCreateInfo	fence_info;
-	VkFence				vk_fence;
-};
-
-struct VK_DescSetLayout {
-	VkDescriptorSetLayoutBinding		set_bind[2];
-	VkDescriptorSetLayoutCreateInfo		set_info;
-	VkDescriptorPoolSize				pool_size[2];
-	VkDescriptorPoolCreateInfo			pool_info;
-	VkDescriptorSetLayout				vk_desc_set_layout;
-	VkDescriptorPool					vk_desc_pool;
-	VkDescriptorSetAllocateInfo			allo_info;
-	VkDescriptorSet						vk_descriptor_set[2];
-};
-
-struct VK_DescSetLayout3 {
-	VkDescriptorSetLayoutBinding		set_bind[3];
-	VkDescriptorSetLayoutCreateInfo		set_info;
-	VkDescriptorPoolSize				pool_size[3];
-	VkDescriptorPoolCreateInfo			pool_info;
-	VkDescriptorSetLayout				vk_desc_set_layout;
-	VkDescriptorPool					vk_desc_pool;
-	VkDescriptorSetAllocateInfo			allo_info;
-	VkDescriptorSet						vk_descriptor_set[3];
-};
-
-struct VK_RenderPass {
-	VkAttachmentDescription		attach_desc;
-	VkAttachmentReference		attach_ref;
-	VkSubpassDescription		subpass_desc;
-	VkRenderPassCreateInfo		rp_info;
-	VkRenderPass				vk_render_pass;
-};
-
-struct VK_FrameBuff {
-	VkFramebufferCreateInfo		fb_info;
-	VkFramebuffer				vk_framebuffer;
-};
-
-struct VK_Pipe {
-	VkPipelineLayoutCreateInfo		layout_info;
-	VkPipelineLayout				vk_pipeline_layout;
-	VkGraphicsPipelineCreateInfo	gfx_pipe_info;
-	VkPipeline						vk_pipeline;
-};
-
-struct UB32_64 { uint32_t u32[64]; };
-struct SB_4096 { UB32_64 ub[16]; };
 
 void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h, GLFW_mouse m, bool cursor = false) {
 	fname = "out/" + fname + ".PAM";
