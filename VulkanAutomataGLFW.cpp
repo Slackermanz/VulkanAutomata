@@ -19,6 +19,7 @@
 #include "vkmodules/CellularAutomata/CellularAutomata.h"
 #include "vkmodules/UI/UI.h"
 #include "vkmodules/Input/Input.h"
+#include "vkmodules/VulkanFoundation/VulkanFoundation.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -37,46 +38,6 @@ const	int 		MAXLOG 			=  2;
 
 	const 	uint32_t 	APP_W 	= 64*4*2*4;	//	Window & Simulation Width
 	const 	uint32_t 	APP_H 	= 64*4*1*4;	//	Window & Simulation Height
-
-static VKAPI_ATTR VkBool32 VKAPI_CALL
-//	Vulkan validation layer message output
-	debugCallback(			VkDebugUtilsMessageSeverityFlagBitsEXT	messageSeverity, 
-							VkDebugUtilsMessageTypeFlagsEXT			messageType, 
-					const 	VkDebugUtilsMessengerCallbackDataEXT* 	pCallbackData, 
-					void* 											pUserData			) {
-	std::string bar = "";
-	for(int i = 0; i < 20; i++) { bar = bar + "####"; }
-
-	std::string msg 	= pCallbackData->pMessage;
-	std::string msg_fmt = "";
-	for(int i = 0; i < msg.size()-1; i++) {
-		char chr = msg[i];
-		char chrhtml = msg[i+1];
-		msg_fmt = ( 
-			chr == ':' && chrhtml != '/' ?
-				msg_fmt+":\n\n" : ( chr == '|' ?
-					msg_fmt+"\n" : msg_fmt+chr ) ); }
-
-	msg_fmt = msg_fmt + msg[msg.size()-1];
-	if(messageSeverity != 16) {
-		loglevel = MAXLOG;
-		if(loglevel >= 0) {	std::cout << "\n\n" << bar << "\n " << msg_fmt << "\n" 	<< bar << "\n\n"; }
-		std::cout << "  Validation messageSeverity: " << messageSeverity << "\n\n";
-		valid = 0; }
-	return VK_FALSE; }
-
-// Find a memory in `memoryTypeBitsRequirement` that includes all of `requiredProperties`
-int32_t findProperties(
-	const 		VkPhysicalDeviceMemoryProperties* 	pMemoryProperties,
-				uint32_t 							memoryTypeBitsRequirement,
-				VkMemoryPropertyFlags 				requiredProperties 			) {
-    const 		uint32_t 	memoryCount = pMemoryProperties->memoryTypeCount;
-    for ( uint32_t memoryIndex = 0; memoryIndex < memoryCount; ++memoryIndex ) {
-        const 	uint32_t 				memoryTypeBits 			= (1 << memoryIndex);
-        const 	bool 					isRequiredMemoryType 	= memoryTypeBitsRequirement & memoryTypeBits;
-        const 	VkMemoryPropertyFlags 	properties 				= pMemoryProperties->memoryTypes[memoryIndex].propertyFlags;
-        const 	bool 					hasRequiredProperties 	= (properties & requiredProperties) == requiredProperties;
-        if (isRequiredMemoryType && hasRequiredProperties) { return static_cast<int32_t>(memoryIndex); } } return -1; }
 
 int main() {
 
@@ -126,14 +87,9 @@ int main() {
 	 /**/	hd("STAGE:", "GLFW EXTENSIONS");		/**/
 	///////////////////////////////////////////////////
 
-	vr("glfwInit",				&vkres, "GLFW", VkResult( glfwInit() 			) );
-	vr("glfwVulkanSupported", 	&vkres, "GLFW", VkResult( glfwVulkanSupported() ) );
-
-	rv("glfwGetRequiredInstanceExtensions");
-	uint32_t 		glfw_ext_count 	= UINT32_MAX;
-	const char** 	glfw_extentions = glfwGetRequiredInstanceExtensions( &glfw_ext_count );
-
-	for(int i = 0; i < glfw_ext_count; i++) { iv("GLFW Extensions", glfw_extentions[i], i ); }
+	uint32_t glfw_ext_count;
+	const char** glfw_extentions; // Keep original variable name with typo for consistency
+	initGLFWExtensions(&glfw_ext_count, &glfw_extentions, &vkres);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "VULKAN EXTENSIONS");		/**/
@@ -162,53 +118,18 @@ int main() {
 	 /**/	hd("STAGE:", "VULKAN INIT");			/**/
 	///////////////////////////////////////////////////
 
-	vr("init", &vkres, "INIT", VK_ERROR_UNKNOWN);
-
 	VK_Obj vob;
-
 	VK_Config vkcfg;
-
-		vkcfg.app_info.sType						= VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		vkcfg.app_info.pNext						= NULL;
-		vkcfg.app_info.pApplicationName				= "VulkanAutomataGLFW";
-		vkcfg.app_info.applicationVersion			= 0;
-		vkcfg.app_info.pEngineName					= NULL;
-		vkcfg.app_info.engineVersion				= 0;
-		vkcfg.app_info.apiVersion					= VK_API_VERSION_1_2;
-
-		vkcfg.inst_info.sType 						= VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-	nf(&vkcfg.inst_info);
-		vkcfg.inst_info.pApplicationInfo 			= &vkcfg.app_info;
-		vkcfg.inst_info.enabledLayerCount 			= LAYR_EXS;
-		vkcfg.inst_info.ppEnabledLayerNames 		= layer_extensions;
-		vkcfg.inst_info.enabledExtensionCount 		= INST_EXS;
-		vkcfg.inst_info.ppEnabledExtensionNames		= instance_extensions;
-
-	vr("vkCreateInstance", &vkres, vob.VKI,
-		vkCreateInstance(&vkcfg.inst_info, NULL, &vob.VKI) );
+	
+	initVulkanInstance(&vob, &vkcfg, instance_extensions, INST_EXS, 
+					  layer_extensions, LAYR_EXS, &vkres);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "DEBUG UTILS");			/**/
 	///////////////////////////////////////////////////
 
 	VK_Debug vkdbg;
-
-		vkdbg.debug_msg_info.sType				= VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-	nf(&vkdbg.debug_msg_info);
-		vkdbg.debug_msg_info.messageSeverity	= VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT 
-												| VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT 
-												| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
-												| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		vkdbg.debug_msg_info.messageType		= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
-												| VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		vkdbg.debug_msg_info.pfnUserCallback	= debugCallback;
-
-	rv("vkGetInstanceProcAddr");
-	auto PFN_VKCDUM = (PFN_vkCreateDebugUtilsMessengerEXT)
-		vkGetInstanceProcAddr( vob.VKI, "vkCreateDebugUtilsMessengerEXT" );
-
-	vr("vkCreateDebugUtilsMessengerEXT", &vkres, vkdbg.vk_debug_utils_messenger_ext,
-		PFN_VKCDUM(vob.VKI, &vkdbg.debug_msg_info, NULL, &vkdbg.vk_debug_utils_messenger_ext) );
+	setupDebugMessenger(&vob, &vkdbg, &vkres);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "PHYSICAL DEVICE");		/**/
@@ -550,14 +471,6 @@ int main() {
 		vr("vkBindImageMemory", &vkres, blit.vk_image,
 			vkBindImageMemory(vob.VKL,  blit.vk_image, blit.vk_dev_mem, 0) );
 
-
-
-	//	Map the memory location on the GPU to export image data
-//		void* pvoid_blit_vk_image;
-//		vr("vkMapMemory", &vkres, pvoid_blit_vk_image,
-//			vkMapMemory(vob.VKL, blit.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit_vk_image) );
-
-
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "BLIT EXPORT BUFFER");		/**/
 	///////////////////////////////////////////////////
@@ -606,57 +519,6 @@ int main() {
 		void* pvoid_blit2buff;
 		vr("vkMapMemory", &vkres, pvoid_blit2buff,
 			vkMapMemory(vob.VKL, blit2buff.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff) );
-
-
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SSBO");		/**/
-	///////////////////////////////////////////////////
-
-/*	VK_Buffer_Data buffData;
-
-		buffData.buff_info.sType 					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	nf(&buffData.buff_info);
-		buffData.buff_info.size 					= sizeof(UB32_64) * 16;
-		buffData.buff_info.usage 					= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-		buffData.buff_info.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
-		buffData.buff_info.queueFamilyIndexCount 	= 1;
-		buffData.buff_info.pQueueFamilyIndices 		= &vob.VKQ_i;
-
-		vr("vkCreateBuffer", &vkres, buffData.vk_buffer,
-			vkCreateBuffer(vob.VKL, &buffData.buff_info, NULL, &buffData.vk_buffer) );
-
-		VkMemoryRequirements vk_memory_requirements_buffData;
-
-		rv("vkGetBufferMemoryRequirements");
-			vkGetBufferMemoryRequirements(vob.VKL, buffData.vk_buffer, &buffData.vk_mem_reqs);
-
-			ov("buffData size", 			buffData.vk_mem_reqs.size);
-			ov("buffData alignment", 		buffData.vk_mem_reqs.alignment);
-			ov("buffData memoryTypeBits", 	buffData.vk_mem_reqs.memoryTypeBits);
-
-		buffData.MTB_index = findProperties(
-			&pdev[vob.VKP_i].vk_pdev_mem_props,
-			buffData.vk_mem_reqs.memoryTypeBits,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
-
-			ov("memoryTypeIndex", buffData.MTB_index);
-
-		buffData.vk_mem_allo_info.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		buffData.vk_mem_allo_info.pNext				= NULL;
-		buffData.vk_mem_allo_info.allocationSize		= buffData.vk_mem_reqs.size;
-		buffData.vk_mem_allo_info.memoryTypeIndex		= buffData.MTB_index;
-
-		vr("vkAllocateMemory", &vkres, buffData.vk_dev_mem,
-			vkAllocateMemory(vob.VKL, &buffData.vk_mem_allo_info, NULL, &buffData.vk_dev_mem) );
-
-		vr("vkBindBufferMemory", &vkres, buffData.vk_buffer,
-			vkBindBufferMemory(vob.VKL,  buffData.vk_buffer, buffData.vk_dev_mem, 0) );
-
-	//	Map the memory location on the GPU to export image data
-		void* pvoid_buffData;
-		vr("vkMapMemory", &vkres, pvoid_buffData,
-			vkMapMemory(vob.VKL, buffData.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_buffData) );*/
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SHADER DATA");			/**/
@@ -2158,10 +2020,6 @@ int main() {
 
 	UB32_64 pcd 	= new_PCD_256();
 
-
-//	loadPattern_PCD408_to_256( &ei, &pcd );
-//	pcd = load_PCD256("sav/PCD256_archive.vkpat", rand()%106 ); // Too lazy to dynamically get filesize for now
-
 //	Uniform Buffer Object ( 64 * 32 bits maximum )
 	UB32_64 ub;
 	SB_4096 sb;
@@ -2241,13 +2099,6 @@ int main() {
 	fsmag256 fsm = new_fsmag256();
 
 	bool do_ub_update = true;
-
-/*	pcd 			= load_PCD256("sav/PCD256_archive.vkpat", gc.load_A256_index);
-	memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
-	memcpy(&gc.zoom_value,  &pcd.u32[61], sizeof(uint32_t));
-	do_ub_update 	= true;
-	gc.scale_update = true;
-	gc.zoom_update 	= true;*/
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
@@ -2549,41 +2400,11 @@ int main() {
 					gc.mutate_backstep_idx--;
 					gc.mutate_backstep_last_value = gc.mutate_backstep_idx; }
 
-				//int16_t sound 	 = 0;
-				//float 	soundavg = 0.0f;
-				if(!ei.paused || ei.tick_loop) {
-
-					//dft1d(frame_index*735, 512, &fs, &fsm);
-					//save_fspec(&fsm, "IMG"+std::to_string(ei.imgdat_idx), 256, 256);
-					//ei.imgdat_idx++;
-
-					//for(int i = 0; i < 20; i+=6) {
-					//	sound = load_WAVS16( "input.wav", frame_index + i );
-					//	soundavg += (float(sound) / float(INT16_MAX)) / 20.0f; }
-
-					//if(!verbose_loops) { loglevel = MAXLOG; }
-					//ov( "WAVS16", std::to_string( float(sound) / float(INT16_MAX) ) );
-					//ov( "WAVS16", std::to_string( soundavg ) );
-					//if(!verbose_loops) { loglevel = -1; }
-					//gc.scale_update = true;
-					/*&gc.zoom_value = &gc.zoom_value + &gc.zoom_value * sound * 0.2f;*/ }
-
 			//	Update special floats
 				//	[62]	'Scale' value
 				if( gc.scale_update ) {
 					gc.scale_update = false;
-					//float fsc = gc.scale_value + gc.scale_value * (float(sound) / float(INT16_MAX)) * 0.8f;
-					/*float fsm_sample
-						=	(fsm.fsm[12] 	* 0.02
-						+	fsm.fsm[18] 	* 0.02
-						+	fsm.fsm[24] 	* 0.02
-						+	fsm.fsm[30] 	* 0.03
-						+	fsm.fsm[36] 	* 0.05
-						+	fsm.fsm[48] 	* 0.05
-						+	fsm.fsm[64] 	* 0.07
-						+	fsm.fsm[96] 	* 0.07
-						+	fsm.fsm[128] 	* 0.08
-						+	fsm.fsm[192] 	* 0.09);*/
+
 					float fsc = gc.scale_value;
 					memcpy(&pcd.u32[62], &fsc, sizeof(uint32_t));
 					do_ub_update = true; }
