@@ -20,6 +20,7 @@
 #include "vkmodules/UI/UI.h"
 #include "vkmodules/Input/Input.h"
 #include "vkmodules/VulkanFoundation/VulkanFoundation.h"
+#include "vkmodules/CommandBuffer/CommandBuffer.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -709,211 +710,32 @@ int main() {
 	// Are all of these used? TODO
 
 	VK_Command combuf_blit2buff_sing[1];
-	for(int i = 0; i < 1; i++) {
-		combuf_blit2buff_sing[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_blit2buff_sing[i].pool_info.pNext							= NULL;
-		combuf_blit2buff_sing[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_blit2buff_sing[i].pool_info.queueFamilyIndex					= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_blit2buff_sing[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_blit2buff_sing[i].pool_info, NULL, &combuf_blit2buff_sing[i].vk_command_pool) );
-
-		combuf_blit2buff_sing[i].comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_blit2buff_sing[i].comm_buff_alloc_info.pNext					= NULL;
-		combuf_blit2buff_sing[i].comm_buff_alloc_info.commandPool			= combuf_blit2buff_sing[i].vk_command_pool;
-		combuf_blit2buff_sing[i].comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_blit2buff_sing[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_blit2buff_sing[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_blit2buff_sing[i].comm_buff_alloc_info, &combuf_blit2buff_sing[i].vk_command_buffer) );
-
-		combuf_blit2buff_sing[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_blit2buff_sing[i].comm_buff_begin_info);
-		combuf_blit2buff_sing[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
-
-
+	createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_blit2buff_sing, &vkres);
 
 	VK_Command combuf_imgui_loop[swap_image_count];
-	for(int i = 0; i < swap_image_count; i++) {
-		combuf_imgui_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_imgui_loop[i].pool_info.pNext							= NULL;
-		combuf_imgui_loop[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_imgui_loop[i].pool_info.queueFamilyIndex					= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_imgui_loop[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_imgui_loop[i].pool_info, NULL, &combuf_imgui_loop[i].vk_command_pool) );
-
-		combuf_imgui_loop[i].comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_imgui_loop[i].comm_buff_alloc_info.pNext					= NULL;
-		combuf_imgui_loop[i].comm_buff_alloc_info.commandPool			= combuf_imgui_loop[i].vk_command_pool;
-		combuf_imgui_loop[i].comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_imgui_loop[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_imgui_loop[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_imgui_loop[i].comm_buff_alloc_info, &combuf_imgui_loop[i].vk_command_buffer) );
-
-		combuf_imgui_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_imgui_loop[i].comm_buff_begin_info);
-		combuf_imgui_loop[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
-
-
+	createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_imgui_loop, &vkres);
 
 	VK_Command combuf_pres_init[swap_image_count];
-	for(int i = 0; i < swap_image_count; i++) {
-		combuf_pres_init[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_pres_init[i].pool_info.pNext							= NULL;
-		combuf_pres_init[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_pres_init[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_pres_init[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_pres_init[i].pool_info, NULL, &combuf_pres_init[i].vk_command_pool) );
-
-		combuf_pres_init[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_pres_init[i].comm_buff_alloc_info.pNext				= NULL;
-		combuf_pres_init[i].comm_buff_alloc_info.commandPool		= combuf_pres_init[i].vk_command_pool;
-		combuf_pres_init[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_pres_init[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_pres_init[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_pres_init[i].comm_buff_alloc_info, &combuf_pres_init[i].vk_command_buffer) );
-
-		combuf_pres_init[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_pres_init[i].comm_buff_begin_info);
-		combuf_pres_init[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
+	createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_pres_init, &vkres);
 
 	VK_Command combuf_pres_loop[swap_image_count*2];
-	for(int i = 0; i < swap_image_count*2; i++) {
-		combuf_pres_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_pres_loop[i].pool_info.pNext							= NULL;
-		combuf_pres_loop[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_pres_loop[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_pres_loop[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_pres_loop[i].pool_info, NULL, &combuf_pres_loop[i].vk_command_pool) );
-
-		combuf_pres_loop[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_pres_loop[i].comm_buff_alloc_info.pNext				= NULL;
-		combuf_pres_loop[i].comm_buff_alloc_info.commandPool		= combuf_pres_loop[i].vk_command_pool;
-		combuf_pres_loop[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_pres_loop[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_pres_loop[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_pres_loop[i].comm_buff_alloc_info, &combuf_pres_loop[i].vk_command_buffer) );
-
-		combuf_pres_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_pres_loop[i].comm_buff_begin_info);
-		combuf_pres_loop[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
+    // Note the count is swap_image_count * 2
+    createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count * 2, combuf_pres_loop, &vkres);
 
 	VK_Command combuf_work_init[2];
-	for(int i = 0; i < 2; i++) {
-		combuf_work_init[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_work_init[i].pool_info.pNext							= NULL;
-		combuf_work_init[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_work_init[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_work_init[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_work_init[i].pool_info, NULL, &combuf_work_init[i].vk_command_pool) );
-
-		combuf_work_init[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_work_init[i].comm_buff_alloc_info.pNext				= NULL;
-		combuf_work_init[i].comm_buff_alloc_info.commandPool		= combuf_work_init[i].vk_command_pool;
-		combuf_work_init[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_work_init[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_work_init[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_work_init[i].comm_buff_alloc_info, &combuf_work_init[i].vk_command_buffer) );
-
-		combuf_work_init[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_work_init[i].comm_buff_begin_info);
-		combuf_work_init[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
+	createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_init, &vkres);
 
 	VK_Command combuf_work_loop[2];
-	for(int i = 0; i < 2; i++) {
-		combuf_work_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_work_loop[i].pool_info.pNext							= NULL;
-		combuf_work_loop[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_work_loop[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_work_loop[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_work_loop[i].pool_info, NULL, &combuf_work_loop[i].vk_command_pool) );
-
-		combuf_work_loop[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_work_loop[i].comm_buff_alloc_info.pNext				= NULL;
-		combuf_work_loop[i].comm_buff_alloc_info.commandPool		= combuf_work_loop[i].vk_command_pool;
-		combuf_work_loop[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_work_loop[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_work_loop[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_work_loop[i].comm_buff_alloc_info, &combuf_work_loop[i].vk_command_buffer) );
-
-		combuf_work_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_work_loop[i].comm_buff_begin_info);
-		combuf_work_loop[i].comm_buff_begin_info.pInheritanceInfo	= NULL; }
+	createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_loop, &vkres);
 
 	VK_Command combuf_work_imagedata_init[1];
-	for(int i = 0; i < 1; i++) {
-		combuf_work_imagedata_init[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_work_imagedata_init[i].pool_info.pNext							= NULL;
-		combuf_work_imagedata_init[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_work_imagedata_init[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
-		vr("vkCreateCommandPool", &vkres, combuf_work_imagedata_init[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_work_imagedata_init[i].pool_info, NULL, &combuf_work_imagedata_init[i].vk_command_pool) );
-		combuf_work_imagedata_init[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_work_imagedata_init[i].comm_buff_alloc_info.pNext				= NULL;
-		combuf_work_imagedata_init[i].comm_buff_alloc_info.commandPool			= combuf_work_imagedata_init[i].vk_command_pool;
-		combuf_work_imagedata_init[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_work_imagedata_init[i].comm_buff_alloc_info.commandBufferCount	= 1;
-		vr("vkAllocateCommandBuffers", &vkres, combuf_work_imagedata_init[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_work_imagedata_init[i].comm_buff_alloc_info, &combuf_work_imagedata_init[i].vk_command_buffer) );
-		combuf_work_imagedata_init[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_work_imagedata_init[i].comm_buff_begin_info);
-		combuf_work_imagedata_init[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
+	createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_work_imagedata_init, &vkres);
 
 	VK_Command combuf_work_imagedata[2];
-	for(int i = 0; i < 2; i++) {
-		combuf_work_imagedata[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_work_imagedata[i].pool_info.pNext							= NULL;
-		combuf_work_imagedata[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_work_imagedata[i].pool_info.queueFamilyIndex					= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_work_imagedata[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_work_imagedata[i].pool_info, NULL, &combuf_work_imagedata[i].vk_command_pool) );
-
-		combuf_work_imagedata[i].comm_buff_alloc_info.sType					= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_work_imagedata[i].comm_buff_alloc_info.pNext					= NULL;
-		combuf_work_imagedata[i].comm_buff_alloc_info.commandPool			= combuf_work_imagedata[i].vk_command_pool;
-		combuf_work_imagedata[i].comm_buff_alloc_info.level					= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_work_imagedata[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_work_imagedata[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_work_imagedata[i].comm_buff_alloc_info, &combuf_work_imagedata[i].vk_command_buffer) );
-
-		combuf_work_imagedata[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_work_imagedata[i].comm_buff_begin_info);
-		combuf_work_imagedata[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
+	createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_imagedata, &vkres);
 
 	VK_Command combuf_blit_imgui_loop[swap_image_count];
-	for(int i = 0; i < swap_image_count; i++) {
-		combuf_blit_imgui_loop[i].pool_info.sType							= VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		combuf_blit_imgui_loop[i].pool_info.pNext							= NULL;
-		combuf_blit_imgui_loop[i].pool_info.flags							= VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-		combuf_blit_imgui_loop[i].pool_info.queueFamilyIndex				= vob.VKQ_i;
-
-		vr("vkCreateCommandPool", &vkres, combuf_blit_imgui_loop[i].vk_command_pool,
-			vkCreateCommandPool(vob.VKL, &combuf_blit_imgui_loop[i].pool_info, NULL, &combuf_blit_imgui_loop[i].vk_command_pool) );
-
-		combuf_blit_imgui_loop[i].comm_buff_alloc_info.sType				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		combuf_blit_imgui_loop[i].comm_buff_alloc_info.pNext				= NULL;
-		combuf_blit_imgui_loop[i].comm_buff_alloc_info.commandPool			= combuf_blit_imgui_loop[i].vk_command_pool;
-		combuf_blit_imgui_loop[i].comm_buff_alloc_info.level				= VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		combuf_blit_imgui_loop[i].comm_buff_alloc_info.commandBufferCount	= 1;
-
-		vr("vkAllocateCommandBuffers", &vkres, combuf_blit_imgui_loop[i].vk_command_buffer,
-			vkAllocateCommandBuffers(vob.VKL, &combuf_blit_imgui_loop[i].comm_buff_alloc_info, &combuf_blit_imgui_loop[i].vk_command_buffer) );
-
-		combuf_blit_imgui_loop[i].comm_buff_begin_info.sType 				= VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	nf(&combuf_blit_imgui_loop[i].comm_buff_begin_info);
-		combuf_blit_imgui_loop[i].comm_buff_begin_info.pInheritanceInfo		= NULL; }
+	createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_blit_imgui_loop, &vkres);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "QUEUE SYNC");				/**/
