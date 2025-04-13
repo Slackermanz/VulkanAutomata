@@ -24,6 +24,7 @@
 #include "vkmodules/Resources/Resources.h"
 #include "vkmodules/Rendering/Rendering.h"
 #include "vkmodules/Platform/Platform.h"
+#include "vkmodules/Core/Core.h"
 
 const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
 const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
@@ -56,19 +57,8 @@ int main() {
 	 /**/	hd("STAGE:", "USER CONFIG");			/**/
 	///////////////////////////////////////////////////
 
-
 	EngineInfo ei;
-		ei.paused 				= false;				//	Pause Simulation
-		ei.show_gui 			=  true;				//	Render Dear IMGUI
-		ei.run_headless 		= false;				//	Use Headless Mode
-		ei.imgdat_idx 			= 0;					//	Use Headless Mode
-		ei.export_frequency 	= 8;					//	Export image file every n frames
-		ei.export_batch_size 	= 180;					//	Pause recording after n exported frames
-		ei.export_batch_left 	= ei.export_batch_size;	//	Frames remaining in batch
-		ei.export_batch_last 	= ei.export_batch_size;	//	For IMGUI handling
-		ei.export_enabled		= false;				//	Enables image exports to disk
-		ei.tick_loop 			= 0;					//	Run the main loop n times, ignoring pause state
-		ei.load_pattern 		= 18372;				//	Load this index from the pattern archive file
+	initEngineInfo(&ei);
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "APPLICATION INIT");		/**/
@@ -1201,54 +1191,7 @@ int main() {
 		vw.sdat	= 0;
 
 	IMGUI_Config gc;
-		gc.load_shader 					= false;
-		gc.load_pattern 				= false;
-		gc.load_pattern_confirm 		= false;
-		gc.load_pattern_check_instant 	=  true;
-		gc.load_pattern_check_reseed 	=  true;
-		gc.load_pattern_random 			= false;
-		gc.save_to_archive				= false;
-		gc.mutate_menu 					= false;
-		gc.mutate_full_random 			= false;
-		gc.mutate_backstep				= false;
-		gc.mutate_backstep_retry		= false;
-		gc.mutate_flip 					= false;
-		gc.throttle_menu 				= false;
-		gc.throttle_enabled 			= false;
-		gc.mode_planar					=  true;
-		gc.mode_linear 					= false;
-		gc.mode_circular 				= false;
-		gc.mode_showdata 				= false;
-		gc.scale_zoom_menu				= false;
-		gc.scale_update					= false;
-		gc.zoom_update					= false;
-		gc.glfw_mod_LCTRL				= false;
-		gc.glfw_mod_LSHIFT				= false;
-		gc.show_notification_float		= false;
-		gc.scale_has_panned				= false;
-		gc.recording_config 			= false;
-		gc.record_imgui					=  true;
-		gc.load_A256_confirm 			=  true;
-
-		gc.load_pattern_last_value 		= ei.load_pattern;
-		gc.mutate_flip_str 				= 80;
-		gc.mutate_backstep_idx 			= -1;
-		gc.mutate_backstep_last_value 	= gc.mutate_backstep_idx;
-		gc.throttle_target				= 32;
-		gc.pmap_index					= 0;
-		gc.pmap_index_last				= gc.pmap_index;
-		gc.glfw_mouse_xpos_last			= ui.mx;
-		gc.load_A256_index				= -1;
-		gc.load_A256_index_last			= gc.load_A256_index;
-		gc.load_A256_count				= get_PCD256_count("sav/PCD256_archive.vkpat");
-
-		gc.notification_float_value		= 0.0f;
-
-		memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
-		gc.scale_last_value				= gc.scale_value;
-
-		memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
-		gc.zoom_last_value				= gc.zoom_value;
+	initImGuiConfig(&gc, &ei, &pcd); // Pass addresses of ei and pcd
 
 	NS_Timer nottime;
 		gc.notification_timer = nottime;
