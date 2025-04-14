@@ -1,26 +1,3 @@
-//	----    ----    ----    ----    ----    ----    ----    ----
-//  Shader developed by Slackermanz
-//
-//  Info/Code:
-//  ﻿ - Website: https://slackermanz.com
-//  ﻿ - Github: https://github.com/Slackermanz
-//  ﻿ - Shadertoy: https://www.shadertoy.com/user/SlackermanzCA
-//  ﻿ - Discord: https://discord.gg/hqRzg74kKT
-//  
-//  Socials:
-//  ﻿ - Discord DM: Slackermanz
-//  ﻿ - Reddit DM: https://old.reddit.com/user/slackermanz
-//  ﻿ - Twitter: https://twitter.com/slackermanz
-//  ﻿ - YouTube: https://www.youtube.com/c/slackermanz
-//  ﻿ - Older YT: https://www.youtube.com/channel/UCZD4RoffXIDoEARW5aGkEbg
-//  
-//  Communities:
-//  ﻿ - Reddit: https://old.reddit.com/r/cellular_automata
-//  ﻿ - Artificial Life: https://discord.gg/7qvBBVca7u
-//  ﻿ - Emergence: https://discord.com/invite/J3phjtD
-//  ﻿ - ConwayLifeLounge: https://discord.gg/BCuYCEn
-//	----    ----    ----    ----    ----    ----    ----    ----
-
 #version 460
 #define PI 3.14159265359
 #define LN 2.71828182846
@@ -56,10 +33,6 @@ struct ConvData {
 	float 	total;
 };
 
-struct RingData {
-	ConvData[MAX_RADIUS] range;
-};
-
 uint u32_upk(uint u32, uint bts, uint off) { return (u32 >> off) & ((1u << bts)-1u); }
 
 float lmap() { return (gl_FragCoord[0] / textureSize(txdata,0)[0]); }
@@ -89,20 +62,6 @@ float ut2(uint v, uint  w, uint o) 	{ return tp2(u32_upk(v,w,o), vwm()); }
 float ut3(uint v, uint  w, uint o) 	{ return tp2(u32_upk(v,w,w*o), vwm()); }
 
 vec4  sigm(vec4  x, float w) { return 1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) ); }
-float hmp2(float x, float w) { return 3.0*((x-0.5)*(x-0.5))+0.25; }
-
-vec4 sigmoid_logistic( vec4 x, float m, float k ) {
-	return 1.0 / ( 1.0 + exp( k * -1.0 * ( x - m ) ) );
-}
-float sigmoid_logistic( float x, float m, float k ) {
-	return 1.0 / ( 1.0 + exp( k * -1.0 * ( x - m ) ) );
-}
-float centeredSigmoid(float v) {
-    return 2.0 * (1.0 / (1.0 + exp(-v)) - 0.5);
-}
-vec4 centeredSigmoid(vec4 v) {
-    return 2.0 * (1.0 / (1.0 + exp(-v)) - 0.5);
-}
 
 vec4  gdv( ivec2 of, sampler2D tx ) {
 	of 		= ivec2(gl_FragCoord) + of;
@@ -180,93 +139,12 @@ ConvData ring( float r ) {
 
 	return ConvData( val, tot ); }
 
-vec4[2] nbhd3( vec2 r, sampler2D tx ) {
-//	Precision limit of signed float32 for [n] neighbors in a 16 bit texture (symmetry preservation)
-	uint	chk = 2147483648u /
-			(	( 	uint( r[0]*r[0]*PI + r[0]*PI + PI + 1u	)
-				- 	uint( r[1]*r[1]*PI + r[1]*PI			) ) * 128u );
-	float	psn = (chk >= 65536u) ? 65536.0 : float(chk);
-	vec4	a = vec4(0.0,0.0,0.0,0.0);
-	vec4 	b = vec4(0.0,0.0,0.0,0.0);
-	float	w = 1.0;	// Weighting, unused
-	if(r[0] == 0.0) { return vec4[2]( gdv( ivec2(0,0), tx )*w*psn, vec4(psn,psn,psn,psn) ); }
-	else             {
-		vec2 r2 = ceil(r + vec2(0.5)) - vec2(0.500001);
-		r2 = r2 * r2;
-		for(float j = 0.0; j <= r[0]; j++) {
-		    vec2 bound = sqrt(max(vec2(0),r2 - vec2(j*j)));
-		    for(float i = floor(bound[1])+1; i <= bound[0]; i++) {
-		        w  = 1.0;    //    Per-Neighbor Weighting, unused
-		        b += w * psn * 4.0;
-		        vec4 t0  = gdv( ivec2( i, j), tx ) * w * psn; a += t0 - fract(t0);
-		        vec4 t1  = gdv( ivec2( j,-i), tx ) * w * psn; a += t1 - fract(t1);
-		        vec4 t2  = gdv( ivec2(-i,-j), tx ) * w * psn; a += t2 - fract(t2);
-		        vec4 t3  = gdv( ivec2(-j, i), tx ) * w * psn; a += t3 - fract(t3); } } 
-		return vec4[2](a, b); } }
-
-vec4[2] nbhd1( vec2 r, sampler2D tx ) {
-//	Precision limit of signed float32 for [n] neighbors in a 16 bit texture (symmetry preservation)
-	uint	chk = 2147483648u /
-			(	( 	uint( r[0]*r[0]*PI + r[0]*PI + PI + 1u	)
-				- 	uint( r[1]*r[1]*PI + r[1]*PI			) ) * 128u );
-	float	psn = (chk >= 65536u) ? 65536.0 : float(chk);
-	vec4	a = vec4(0.0,0.0,0.0,0.0);
-	vec4 	b = vec4(0.0,0.0,0.0,0.0);
-	float	w = 1.0;	// Weighting, unused
-	if(r[0] == 0.0) { return vec4[2]( gdv( ivec2(0,0), tx )*w*psn, vec4(psn,psn,psn,psn) ); }
-	else 			{
-		for(float i = 0.0; i <= r[0]; i++) {
-			for(float j = 1.0; j <= r[0]; j++) {
-				float	d = round(sqrt(i*i+j*j));
-						w = 1.0;	//	Per-Neighbor Weighting, unused
-				if( d <= r[0] && d > r[1] ) {
-						 b 	+= w * psn * 4.0;
-					vec4 t0  = gdv( ivec2( i, j), tx ) * w * psn; a += t0 - fract(t0);
-					vec4 t1  = gdv( ivec2( j,-i), tx ) * w * psn; a += t1 - fract(t1);
-					vec4 t2  = gdv( ivec2(-i,-j), tx ) * w * psn; a += t2 - fract(t2);
-					vec4 t3  = gdv( ivec2(-j, i), tx ) * w * psn; a += t3 - fract(t3); } } }
-		return vec4[2](a, b); } }
-
-vec4[2] nbhd2( vec2 r, sampler2D tx ) {
-//	Precision limit of signed float32 for [n] neighbors in a 16 bit texture (symmetry preservation)
-	uint	chk = 2147483648u /
-			(	( 	uint( r[0]*r[0]*PI + r[0]*PI + PI + 1u	)
-				- 	uint( r[1]*r[1]*PI + r[1]*PI			) ) * 128u );
-	float	psn = (chk >= 65536u) ? 65536.0 : float(chk);
-	vec4	a = vec4(0.0,0.0,0.0,0.0);
-	vec4 	b = vec4(0.0,0.0,0.0,0.0);
-	float	w = 1.0;	// Weighting, unused
-	if(r[0] == 0.0) { return vec4[2]( gdv( ivec2(0,0), tx )*w*psn, vec4(psn,psn,psn,psn) ); }
-		else             {
-		    vec2 r2 = r * r;
-		    for(float i = 0.0; i <= r[0]; i++) {
-		        vec2 bound = sqrt(r2 - vec2(i*i));
-		        for(float j = floor(bound[1]) + 1; j <= bound[0]; j++) {
-		            w  = 1.0;    //    Per-Neighbor Weighting, unused
-		            b += w * psn * 4.0;
-		            vec4 t0  = gdv( ivec2( i, j), tx ) * w * psn; a += t0 - fract(t0);
-		            vec4 t1  = gdv( ivec2( j,-i), tx ) * w * psn; a += t1 - fract(t1);
-		            vec4 t2  = gdv( ivec2(-i,-j), tx ) * w * psn; a += t2 - fract(t2);
-		            vec4 t3  = gdv( ivec2(-j, i), tx ) * w * psn; a += t3 - fract(t3); } } 
-		    return vec4[2](a, b); } }
-
-vec4 bitring(vec4[MAX_RADIUS][2] rings, uint bits, uint of) {
-	vec4 sum = vec4(0.0,0.0,0.0,0.0);
-	vec4 tot = vec4(0.0,0.0,0.0,0.0);
-	for(uint i = 0u; i < MAX_RADIUS; i++) {
-		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i][0]; tot += rings[i][1]; } }
-/**/	return sum / tot; }	/*/
-	return sigm( (sum / tot), LN ); } /**/// TODO
-
-
-// TODO: This should have exclusion ranges or sizes, eg, roll any random NH under size R=4, all others zeroed
 vec4 bitmake(ConvData[MAX_RADIUS] rings, uint bits, uint of) {
 	vec4  sum = vec4(0.0,0.0,0.0,0.0);
 	float tot = 0.0;
 	for(uint i = 0u; i < MAX_RADIUS; i++) {
 		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i].value; tot += rings[i].total; } }
-/**/	return sum / tot; }	/*/
-	return sigm( (sum / tot), LN ); } /**/// TODO
+    	return sum / tot; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -321,22 +199,9 @@ vec4 place( vec4 col, float sz, vec2 mxy, uint s, float off ) {
 	if(dist <= sz) { col += (s != 1u) ? vec4(-0.38,-0.38,-0.38,-0.38)*ds : vec4(vr,vg,vb,1.0); }
 	return col; }
 
-vec4 place_px(vec4 col, float sz, vec2 mxy) {
-    vec2 dxy = (vec2(gl_FragCoord) - mxy) * (vec2(gl_FragCoord) - mxy);
-    float dist = sqrt(dxy[0] + dxy[1]);
-    if (dist <= sz) {
-        col = vec4(1.0, 1.0, 1.0, 1.0); // Adds a white color to the current pixel
-    }
-    return col;
-}
-
 vec4 mouse(vec4 col, float sz) {
 	vec2 mxy = vec2( u32_upk(ub.v60, 12u, 0u), u32_upk(ub.v60, 12u, 12u) );
 	return place(col, sz, mxy, u32_upk(ub.v60, 2u, 24u), 0.0); }
-
-vec4 mouse_px(vec4 col, float sz) {
-	vec2 mxy = vec2( u32_upk(ub.v60, 12u, 0u), u32_upk(ub.v60, 12u, 12u) );
-	return place_px(col, sz, mxy); }
 
 vec4 symsd(vec4 col, float sz) {
 	vec2 posxy = vec2(textureSize(txdata,0)[0]/2.0,textureSize(txdata,0)[1]/2.0);
@@ -348,36 +213,6 @@ vec4 symsd(vec4 col, float sz) {
 		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(  0.0,  sz ), sn, i*u32_upk(ub.v63, 24u, 0u));
 		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(  0.0, -sz ), sn, i*u32_upk(ub.v63, 24u, 0u)); }
 	return col; }
-
-vec4 conv( float r ) {
-	ConvData nh = ring( r );
-	return 	nh.value / (nh.total - nh.total/32768.0); }
-
-vec4 blendseed(vec4 col, uint seed, float str) {
-
-	//		str 	 = str * reseed(seed + 17u, 0.8, 0.0) + str * 0.5;
-
-	float 	amp 	 = 2.4 - (0.6 + str * 2.0);
-
-	float	randr	 = reseed(seed + 0u, 1.0, amp);
-	float	randg	 = reseed(seed + 1u, 1.0, amp);
-	float	randb	 = reseed(seed + 3u, 1.0, amp);
-	float	randa	 = reseed(seed + 5u, 1.0, amp);
-
-	float 	blend	 = sqrt(reseed(seed + 7u, 0.3, 1.0) * reseed(seed + 11u, 0.6, 0.4)) + reseed(seed + 13u, 1.2, 0.0);
-
-	float 	strsq	 = str * str;
-
-			//col 	 = ( col 	- col	 * strsq 	 ) + conv( vec2(round(11.0*str)+1.0, 0.0), txdata ) * strsq;
-
-			col[0]	 = ( col[0]	- col[0] * str * 0.5 ) + sqrt(randr * blend) * str;
-			col[1]	 = ( col[1]	- col[1] * str * 0.5 ) + sqrt(randg * blend) * str;
-			col[2]	 = ( col[2]	- col[2] * str * 0.5 ) + sqrt(randb * blend) * str;
-			col[3]	 = ( col[3]	- col[3] * str * 0.5 ) + sqrt(randa * blend) * str;
-
-			//col 	 = ( col 	- col	 * str 		 ) + conv( vec2(1.0, 0.0), txdata ) * str;
-
-	return 	col; }
 
 void main() {
 
@@ -432,11 +267,6 @@ void main() {
         subres_0[0] = dot(nhv.rgb, nnvr0.rgb);
         subres_0[1] = dot(nhv.rgb, nnvg0.rgb);
         subres_0[2] = dot(nhv.rgb, nnvb0.rgb);
-/*
-        subres_0[0] = min(dot(nhv.rgb, nnvr0.rgb), 1.0);
-        subres_0[1] = min(dot(nhv.rgb, nnvg0.rgb), 1.0);
-        subres_0[2] = min(dot(nhv.rgb, nnvb0.rgb), 1.0);
-*/
 
         vec4 nnvr1 = vec4(
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],9u),
@@ -467,19 +297,9 @@ void main() {
         subres_1[2] = dot(subres_0.rgb, nnvb1.rgb);
 
         res_v += subres_1;
-/*
-        subres_1[0] = min(dot(subres_0.rgb, nnvr1.rgb), 1.0);
-        subres_1[1] = min(dot(subres_0.rgb, nnvg1.rgb), 1.0);
-        subres_1[2] = min(dot(subres_0.rgb, nnvb1.rgb), 1.0);
-
-        res_v += min(subres_1, 1.0);
-*/
-
     }
 
     res_c = res_v;
-//    res_c += centeredSigmoid(res_v);
-//    res_c = conv(1.0) + (res_v) * 0.1;
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Output
