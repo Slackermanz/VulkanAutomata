@@ -42,8 +42,8 @@ const	int 		MAXLOG 			=  2;
 //			W:	16384 	8192 	4096	2048	1024	512		256
 //			H:	8192 	4096  	2048	1024	512		256		128
 
-	const 	uint32_t 	APP_W 	= 64*4*2*4;	//	Window & Simulation Width
-	const 	uint32_t 	APP_H 	= 64*4*1*4;	//	Window & Simulation Height
+	const 	uint32_t 	APP_W 	= 64*2*2*4;	//	Window & Simulation Width
+	const 	uint32_t 	APP_H 	= 64*2*1*4;	//	Window & Simulation Height
 
 int main() {
 

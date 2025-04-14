@@ -1,0 +1,438 @@
+#version 460
+#define PI 3.14159265359
+#define LN 2.71828182846
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+layout(location 	=  0) out 		vec4 		out_col;
+layout(binding 		=  1) uniform 	sampler2D 	txdata;
+layout(binding 		=  0) uniform 	UniBuf {
+	uint v0;  uint v1;  uint v2;  uint v3;	uint v4;  uint v5;  uint v6;  uint v7;
+	uint v8;  uint v9;  uint v10; uint v11;	uint v12; uint v13; uint v14; uint v15;
+	uint v16; uint v17; uint v18; uint v19;	uint v20; uint v21; uint v22; uint v23;
+	uint v24; uint v25; uint v26; uint v27;	uint v28; uint v29; uint v30; uint v31;
+	uint v32; uint v33; uint v34; uint v35;	uint v36; uint v37; uint v38; uint v39;
+	uint v40; uint v41; uint v42; uint v43;	uint v44; uint v45; uint v46; uint v47;
+	uint v48; uint v49; uint v50; uint v51;	uint v52; uint v53; uint v54; uint v55;
+	uint v56; uint v57; uint v58; uint v59;	uint v60; uint v61; uint v62; uint v63; } ub;
+
+struct UB64 { uint v[64]; };
+
+layout(binding 		=  2) readonly buffer SSBO {
+ 	UB64 p[16];
+} sb;
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+const uint MAX_RADIUS = 8u;
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+struct ConvData {
+	vec4 	value;
+	float 	total;
+};
+
+uint u32_upk(uint u32, uint bts, uint off) { return (u32 >> off) & ((1u << bts)-1u); }
+
+float lmap() { return (gl_FragCoord[0] / textureSize(txdata,0)[0]); }
+float vmap() { return (gl_FragCoord[1] / textureSize(txdata,0)[1]); }
+float cmap() { return sqrt	( ((gl_FragCoord[0] - textureSize(txdata,0)[0]*0.5) / textureSize(txdata,0)[0]*0.5)
+							* ((gl_FragCoord[0] - textureSize(txdata,0)[0]*0.5) / textureSize(txdata,0)[0]*0.5)
+							+ ((gl_FragCoord[1] - textureSize(txdata,0)[1]*0.5) / textureSize(txdata,0)[1]*0.5)
+							* ((gl_FragCoord[1] - textureSize(txdata,0)[1]*0.5) / textureSize(txdata,0)[1]*0.5) ); }
+
+float vwm() {
+	float 	scale_raw 	= uintBitsToFloat(ub.v62);
+	float 	zoom 		= uintBitsToFloat(ub.v61);
+	float	scale_new	= scale_raw;
+	uint 	mode 		= u32_upk(ub.v59, 2u, 0u);
+	if( mode == 1u ) { //	Linear Parameter Map
+		scale_new = ((lmap() + zoom) * (scale_raw / (1.0 + zoom * 2.0))) * 2.0; }
+	if( mode == 2u ) { //	Circular Parameter Map
+		scale_new = ((sqrt(cmap()) + zoom) * (scale_raw / (1.0 + zoom * 2.0))) * 2.0; }
+	return scale_new; }
+
+float  tp(uint n, float s) 			{ return (float(n+1u)/256.0) * ((s*0.5)/128.0); }
+float tp2(uint n, float s) 			{ return (float(n+1u)/16.0) * ((s*0.5)/8.0); }
+float tp3(uint n, float s) 			{ return (float(n+1u)/64.0) * ((s*0.5)/32.0); }
+float bsn(uint v, uint  o) 			{ return float(u32_upk(v,1u,o)*2u)-1.0; }
+float utp(uint v, uint  w, uint o) 	{ return tp(u32_upk(v,w,w*o), vwm()); }
+float ut2(uint v, uint  w, uint o) 	{ return tp2(u32_upk(v,w,o), vwm()); }
+float ut3(uint v, uint  w, uint o) 	{ return tp2(u32_upk(v,w,w*o), vwm()); }
+
+vec4  sigm(vec4  x, float w) { return 1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) ); }
+
+// Modified gdv to accept center coordinate
+vec4 gdv(ivec2 center_coord, ivec2 offset, sampler2D tx) {
+    ivec2 coord = center_coord + offset;
+    // Assuming textureSize(tx, 0) is power of 2 for bitwise AND wrapping
+    coord.x = coord.x & (textureSize(tx, 0).x - 1);
+    coord.y = coord.y & (textureSize(tx, 0).y - 1);
+    return texelFetch(tx, coord, 0);
+}
+
+// Modified ring to accept center coordinate
+ConvData ring(ivec2 center_coord, float r, sampler2D tx) {
+    const float psn = 32768.0; // Precision factor
+    float tot = 0.0;
+    vec4 val = vec4(0.0);
+    float sq2 = sqrt(2.0);
+
+    // Outer ring calculations
+    float o_0 = r + 0.5;
+    float o_1 = sq2 * o_0;
+    float o_2 = o_1 / 2.0;
+    float o_3 = sqrt( max(0.0, o_0*o_0 - r*r) ); // Added max(0.0, ...) for safety
+    float o_4 = o_2 - ( floor(o_2) + 0.5 );
+    float o_5 = floor( o_2 ) + floor( o_4 );
+
+    // Inner ring calculations
+    float i_0 = r - 0.5;
+    float i_1 = sq2 * i_0;
+    float i_2 = i_1 / 2.0;
+    float i_3 = sqrt( max(0.0, i_0*i_0 - r*r) ); // Added max(0.0, ...) for safety
+    float i_4 = i_2 - ( floor(i_2) + 1.0 );
+    float i_5 = floor( i_2 ) + floor( i_4 );
+
+    float d_0 = ( i_5 ) + 1.0 - ( o_5 );
+
+    // Loop through relevant part of the ring
+    for (float i = 1.0; i < floor(i_2) + 1.0 - d_0; i++) {
+        float j_0 = sqrt( max(0.0, o_0*o_0 - (i+0.0)*(i+0.0)) ); // Added max
+		float j_1 = sqrt( max(0.0, i_0*i_0 - (i+0.0)*(i+0.0)) ); // Added max
+		float j_2 = ( 1.0 - abs( sign ( (floor( i_2 ) + 1.0) - i ) ) );
+
+        for (float j = floor(j_1) + j_2; j < floor(j_0); j++) {
+            // Accumulate values from 8 symmetric points using modified gdv
+            val += floor(gdv(center_coord, ivec2( int(i),  int(j+1.0)), tx) * psn); // Cast offsets
+            val += floor(gdv(center_coord, ivec2( int(i), -int(j+1.0)), tx) * psn);
+            val += floor(gdv(center_coord, ivec2(-int(i), -int(j+1.0)), tx) * psn);
+            val += floor(gdv(center_coord, ivec2(-int(i),  int(j+1.0)), tx) * psn);
+            val += floor(gdv(center_coord, ivec2( int(j+1.0),  int(i)), tx) * psn);
+            val += floor(gdv(center_coord, ivec2( int(j+1.0), -int(i)), tx) * psn);
+            val += floor(gdv(center_coord, ivec2(-int(j+1.0), -int(i)), tx) * psn);
+            val += floor(gdv(center_coord, ivec2(-int(j+1.0),  int(i)), tx) * psn);
+            tot += 8.0 * psn;
+        }
+    }
+
+    // Orthogonal points using modified gdv
+    val += floor(gdv(center_coord, ivec2( int(r), 0), tx) * psn);
+	val += floor(gdv(center_coord, ivec2( 0,-int(r)), tx) * psn);
+	val += floor(gdv(center_coord, ivec2(-int(r), 0), tx) * psn); // Corrected offset
+	val += floor(gdv(center_coord, ivec2( 0, int(r)), tx) * psn); // Corrected offset
+	tot += 4.0 * psn;
+
+    // Diagonal points using modified gdv (approximate)
+    // float k_0 = r; // Not needed
+	// float k_1 = sq2 * k_0; // Not needed
+	// float k_2 = k_1 / 2.0; // Not needed
+	// float k_3 = sqrt( max(0.0, k_0*k_0 - r*r ) ); // Not needed
+	// float k_4 = o_2 - ( floor(o_2) + 0.5 ); // Re-use o_4 calculation logic for consistency
+    // float k_5 = floor( o_2 ) + floor( k_4 ); // Re-use o_5 calculation logic
+
+    if (sign(o_4) == -1.0) { // Check based on outer ring logic seems more consistent
+        int diag_offset = int(floor(o_5) + 1.0);
+        val += floor(gdv(center_coord, ivec2( diag_offset,  diag_offset), tx) * psn);
+		val += floor(gdv(center_coord, ivec2( diag_offset, -diag_offset), tx) * psn);
+		val += floor(gdv(center_coord, ivec2(-diag_offset, -diag_offset), tx) * psn);
+		val += floor(gdv(center_coord, ivec2(-diag_offset,  diag_offset), tx) * psn);
+		tot += 4.0 * psn;
+    }
+
+    // Return average if tot > 0, otherwise zero
+    return ConvData( (tot > 1e-5) ? (val / tot) : vec4(0.0), tot );
+}
+
+
+// bitmake remains the same as it operates on pre-calculated rings
+vec4 bitmake(ConvData[MAX_RADIUS] rings, uint bits, uint of) {
+	vec4  sum = vec4(0.0,0.0,0.0,0.0);
+	float tot = 0.0;
+	for(uint i = 0u; i < MAX_RADIUS; i++) {
+		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i].value; tot += rings[i].total; } }
+    	return (tot > 1e-5) ? (sum / tot) : vec4(0.0); // Use small epsilon for division check
+}
+
+// Function to calculate the R8 update result (original res_v calculation)
+// Takes center_coord and texture sampler as input
+vec4 calculate_R8_update(ivec2 center_coord, sampler2D tx) {
+    // Get Panel Index ID based on center_coord
+    float frag_x = float(center_coord.x);
+    float frag_y = float(center_coord.y);
+    // Use textureSize of the input texture 'tx'
+    float tex_w = float(textureSize(tx, 0).x);
+    float tex_h = float(textureSize(tx, 0).y);
+    uint v_idx = uint((frag_y / tex_h) * 4.0) * 4u + uint((frag_x / tex_w) * 4.0);
+    v_idx = clamp(v_idx, 0u, 15u); // Clamp to valid range [0, 15]
+
+    // NH Rings calculation using modified ring function
+    ConvData[MAX_RADIUS] nh_rings_m;
+    for (uint i = 0u; i < MAX_RADIUS; i++) {
+        nh_rings_m[i] = ring(center_coord, float(i + 1u), tx);
+    }
+
+    vec4 res_v = vec4(0.0); // Start additive result from zero
+    uint bt = 5u;
+    float t = 31.0;
+
+    // The main loop from your original shader
+    for (uint i = 0u; i < 8u; i++) {
+        vec4 nhv = bitmake(nh_rings_m, sb.p[v_idx].v[i / (32u / MAX_RADIUS)], (i * MAX_RADIUS) & 31u);
+
+        // Weights (nnvr0, nnvg0, nnvb0) calculation
+        vec4 nnvr0 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],0u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],1u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  2u )) / t)*bsn(sb.p[v_idx].v[i+26u],2u),
+		    0.0 // W component not used in dot product below
+	    );
+	    vec4 nnvg0 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],3u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  4u )) / t)*bsn(sb.p[v_idx].v[i+26u],4u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  5u )) / t)*bsn(sb.p[v_idx].v[i+26u],5u),
+		    0.0
+	    );
+	    vec4 nnvb0 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],6u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],7u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  2u )) / t)*bsn(sb.p[v_idx].v[i+26u],8u),
+		    0.0
+	    );
+
+        vec4 subres_0 = vec4(0.0);
+        subres_0[0] = dot(nhv.rgb, nnvr0.rgb);
+        subres_0[1] = dot(nhv.rgb, nnvg0.rgb);
+        subres_0[2] = dot(nhv.rgb, nnvb0.rgb);
+
+        // Weights (nnvr1, nnvg1, nnvb1) calculation
+        vec4 nnvr1 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],9u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  4u )) / t)*bsn(sb.p[v_idx].v[i+26u],10u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  5u )) / t)*bsn(sb.p[v_idx].v[i+26u],11u),
+		    0.0
+	    );
+	    vec4 nnvg1 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],12u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],13u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  2u )) / t)*bsn(sb.p[v_idx].v[i+26u],14u),
+		    0.0
+	    );
+	    vec4 nnvb1 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],15u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  4u )) / t)*bsn(sb.p[v_idx].v[i+26u],16u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  5u )) / t)*bsn(sb.p[v_idx].v[i+26u],17u),
+		    0.0
+	    );
+
+        vec4 subres_1 = vec4(0.0);
+        subres_1[0] = dot(subres_0.rgb, nnvr1.rgb);
+        subres_1[1] = dot(subres_0.rgb, nnvg1.rgb);
+        subres_1[2] = dot(subres_0.rgb, nnvb1.rgb);
+
+        res_v += subres_1; // Additive result
+    }
+    // Return the calculated state from the R8 rule
+    // Add the original state back as res_v represents the *change* or *growth*
+    return gdv(center_coord, ivec2(0), tx) + res_v;
+}
+
+// Function to calculate affinity (using R8 update result's red channel for now)
+// ** This is where you might change how affinity is derived **
+float calculate_affinity(ivec2 center_coord, sampler2D tx) {
+    // Calculate the state the original rule *would* produce
+    vec4 r8_proposed_state = calculate_R8_update(center_coord, tx);
+
+    // --- Define affinity based on the proposed state --- 
+    // Option 1: Red channel
+    return r8_proposed_state.r;
+    // Option 2: Average Luminance 
+    // return dot(r8_proposed_state.rgb, vec3(0.299, 0.587, 0.114));
+    // Option 3: Magnitude of the proposed state vector 
+    // return length(r8_proposed_state.rgb);
+    // Option 4: Magnitude of the *change* (delta)
+    // vec4 current_state = gdv(center_coord, ivec2(0), tx);
+    // vec4 delta = r8_proposed_state - current_state;
+    // return length(delta.rgb);
+}
+
+// Function to calculate Z factor centered at center_coord
+float calculate_Z(ivec2 center_coord, float beta, sampler2D tx) {
+    float Z = 0.0;
+    // Loop over 3x3 Moore neighborhood
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            ivec2 neighbor_coord = center_coord + ivec2(dx, dy);
+            // Calculate affinity AT the neighbor's location
+            float affinity_neighbor = calculate_affinity(neighbor_coord, tx);
+            Z += exp(beta * affinity_neighbor);
+        }
+    }
+    return max(Z, 1e-9); // Avoid division by zero
+}
+
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+//	Used to reseed the surface with lumpy noise
+//	TODO - Breaks down at 2048+ resolution
+float get_xc(float x, float y, float xmod) {
+	float sq = sqrt(mod(x*y+y, xmod)) / sqrt(xmod);
+	float xc = mod((x*x)+(y*y), xmod) / xmod;
+	return clamp((sq+xc)*0.5, 0.0, 1.0); }
+float shuffle(float x, float y, float xmod, float val) {
+	val = val * mod( x*y + x, xmod );
+	return (val-floor(val)); }
+float get_xcn(float x, float y, float xm0, float xm1, float ox, float oy) {
+	float  xc = get_xc(x+ox, y+oy, xm0);
+	return shuffle(x+ox, y+oy, xm1, xc); }
+float get_lump(float x, float y, float nhsz, float xm0, float xm1) {
+	float 	nhsz_c 	= 0.0;
+	float 	xcn 	= 0.0;
+	float 	nh_val 	= 0.0;
+	for(float i = -nhsz; i <= nhsz; i += 1.0) {
+		for(float j = -nhsz; j <= nhsz; j += 1.0) {
+			nh_val = round(sqrt(i*i+j*j));
+			if(nh_val <= nhsz) {
+				xcn = xcn + get_xcn(x, y, xm0, xm1, i, j);
+				nhsz_c = nhsz_c + 1.0; } } }
+	float 	xcnf 	= ( xcn / nhsz_c );
+	float 	xcaf	= xcnf;
+	for(float i = 0.0; i <= nhsz; i += 1.0) {
+			xcaf 	= clamp((xcnf*xcaf + xcnf*xcaf) * (xcnf+xcnf), 0.0, 1.0); }
+	return xcaf; }
+float reseed(uint seed, float scl, float amp) {
+	float 	fx = gl_FragCoord[0];
+	float 	fy = gl_FragCoord[1];
+	float 	r0 = get_lump(fx, fy, round( 6.0  * scl), 19.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,17.0), 23.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,43.0));
+	float 	r1 = get_lump(fx, fy, round( 22.0 * scl), 13.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,29.0), 17.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,31.0));
+	float 	r2 = get_lump(fx, fy, round( 14.0 * scl), 13.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,11.0), 51.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,37.0));
+	float 	r3 = get_lump(fx, fy, round( 18.0 * scl), 29.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed, 7.0), 61.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,28.0));
+	return clamp( sqrt((r0+r1)*r3*(amp+1.2))-r2*(amp*1.8+0.2) , 0.0, 1.0); }
+
+vec4 place( vec4 col, float sz, vec2 mxy, uint s, float off ) {
+	vec2 dxy = (vec2(gl_FragCoord) - mxy) * (vec2(gl_FragCoord) - mxy);
+	float dist = sqrt(dxy[0] + dxy[1]);
+	float cy = mod(u32_upk(ub.v63, 24u, 0u)+off, 213.0) / 213.0;
+	float c2 = mod(u32_upk(ub.v63, 24u, 0u)+off, 377.0) / 377.0;
+	float z2 = ((cos(2.0*PI*c2)/2.0)+0.5);
+	float z3 = z2/4.0;
+	float z4 = z2-z3;
+	float ds = (1.0-dist/sz);
+    ds = clamp(ds, 0.0, 1.0); // Ensure ds is not negative
+	float vr = (((cos((1.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.38 * ds * ds);
+	float vg = (((cos((2.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.38 * ds * ds);
+	float vb = (((cos((3.0*PI*4.0*cy)/2.0)+0.5) * z4 + z3) * ds * 0.85 + 0.38 * ds * ds);
+	if(dist <= sz) { col += (s != 1u) ? vec4(-0.38,-0.38,-0.38,-0.38)*ds : vec4(vr,vg,vb,1.0); }
+	return col; }
+
+vec4 mouse(vec4 col, float sz) {
+	vec2 mxy = vec2( u32_upk(ub.v60, 12u, 0u), u32_upk(ub.v60, 12u, 12u) );
+	return place(col, sz, mxy, u32_upk(ub.v60, 2u, 24u), 0.0); }
+
+vec4 symsd(vec4 col, float sz) {
+	vec2 posxy = vec2(textureSize(txdata,0)[0]/2.0,textureSize(txdata,0)[1]/2.0);
+	for(int i = 0; i < 11; i++) {
+		uint sn = ((i&2u)==0u) ? 1u : 0u;
+        float current_sz = (sz/11.0)*float(11.0-i); // Use float for size
+        float offset = float(i)*float(u32_upk(ub.v63, 24u, 0u)); // Use float for offset
+		col = place(col, current_sz, 		posxy + vec2(  0.0, 0.0 ), sn, offset);
+		col = place(col, current_sz*0.5, 	posxy + vec2(   sz, 0.0 ), sn, offset);
+		col = place(col, current_sz*0.5, 	posxy + vec2(  -sz, 0.0 ), sn, offset);
+		col = place(col, current_sz*0.5, 	posxy + vec2(  0.0,  sz ), sn, offset);
+		col = place(col, current_sz*0.5, 	posxy + vec2(  0.0, -sz ), sn, offset);
+	}
+	return col; }
+
+void main() {
+
+    // --- TOGGLE --- 
+    const bool USE_DIFFUSION_UPDATE = false; // SET TO false TO USE ORIGINAL R8 RULE
+
+    // --- Current Coordinates --- 
+    ivec2 current_coord = ivec2(gl_FragCoord.xy);
+
+    // --- Calculate Update --- 
+    vec4 update_result; // Holds the result from either path
+
+    if (USE_DIFFUSION_UPDATE) {
+        // --- Diffusion Lenia Path ---
+
+        // Hardcoded Beta for testing (replace 5.0 with desired value)
+        float beta = 5.0; 
+        // float beta = uintBitsToFloat(ub.v58); // Original uniform assignment
+
+        // Calculate Central Affinity (using the chosen method in calculate_affinity)
+        float affinity_ij = calculate_affinity(current_coord, txdata);
+        float exp_beta_A_ij = exp(beta * affinity_ij);
+
+        // Calculate Diffusion Update Sum
+        vec4 rho_t_plus_1 = vec4(0.0);
+        // Loop over 3x3 Moore neighborhood
+        for (int dy = -1; dy <= 1; ++dy) {
+            for (int dx = -1; dx <= 1; ++dx) {
+                ivec2 neighbor_coord = current_coord + ivec2(dx, dy);
+
+                // Get neighbor's current state rho_t(i', j') using the correct gdv
+                vec4 rho_t_neighbor = gdv(neighbor_coord, ivec2(0), txdata); // Use neighbor_coord as center for gdv
+
+                // Calculate neighbor's normalization factor Z(i', j')
+                float Z_neighbor = calculate_Z(neighbor_coord, beta, txdata);
+
+                // Add contribution
+                rho_t_plus_1 += (exp_beta_A_ij / Z_neighbor) * rho_t_neighbor;
+            }
+        }
+        update_result = rho_t_plus_1;
+
+    } else {
+        // --- Original R8 Rule Path --- 
+        // calculate_R8_update now returns the full proposed state (rho_t + delta)
+        update_result = calculate_R8_update(current_coord, txdata); 
+    }
+
+    // --- Assign Result --- 
+    vec4 res_c = update_result;
+
+    // --- Apply Original Post-Processing/Seeding/Mouse --- 
+	if( u32_upk(ub.v63, 24u, 0u) <= 0u
+	||	u32_upk(ub.v60, 6u, 26u) == 1u ) { // Seed/Reset
+		res_c[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, 1.0, 0.4 ); 
+		res_c[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, 1.0, 0.4 ); 
+		res_c[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, 1.0, 0.4 ); 
+		res_c[3] = 1.0; // Ensure alpha is 1 after reseed
+	}
+
+	if( u32_upk(ub.v60, 6u, 26u) == 2u ) { // Clear
+		res_c = vec4(0.0, 0.0, 0.0, 1.0); 
+	}
+
+	if( u32_upk(ub.v60, 6u, 26u) == 3u ) { // Symmetric seed
+		// symsd *adds* to the color, start from black if overriding previous state
+		vec4 seed_base = vec4(0.0); 
+		res_c = symsd(seed_base, 128.0); 
+	}
+
+	if( u32_upk(ub.v60, 6u, 26u) == 4u ) { // Masked seed
+		float r_mask = reseed( u32_upk(ub.v63, 8u, 24u) + 4u, 2.0, 0.05 );
+        vec4 seed_res = vec4(0.0);
+		seed_res[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+		seed_res[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+		seed_res[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+		res_c.rgb = seed_res.rgb - r_mask; // Apply mask only to RGB
+        res_c.a = 1.0; // Ensure alpha is 1
+	 }
+
+	if(u32_upk(ub.v60, 2u, 24u) != 0u) { // Mouse interaction
+		// mouse *adds* to the color
+		res_c = mouse(res_c, 64.0); 
+    }
+
+    // Clamp final result for stability
+    res_c = clamp(res_c, 0.0, 1.0);
+
+    // Force alpha to 1.0
+	res_c.a = 1.0;
+	out_col = res_c;
+
+}

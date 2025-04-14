@@ -25,6 +25,7 @@ layout(binding 		=  2) readonly buffer SSBO {
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 const uint MAX_RADIUS = 8u;
+const bool USE_DIFFUSION_UPDATE = false; // <-- Toggle for diffusion path
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -63,13 +64,17 @@ float ut3(uint v, uint  w, uint o) 	{ return tp2(u32_upk(v,w,w*o), vwm()); }
 
 vec4  sigm(vec4  x, float w) { return 1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) ); }
 
+// Reads texel relative to current gl_FragCoord
 vec4  gdv( ivec2 of, sampler2D tx ) {
-	of 		= ivec2(gl_FragCoord) + of;
-	of[0] 	= (of[0] + textureSize(tx,0)[0]) & (textureSize(tx,0)[0]-1);
-	of[1] 	= (of[1] + textureSize(tx,0)[1]) & (textureSize(tx,0)[1]-1);
-	return 	texelFetch( tx, of, 0); }
+	ivec2 coord 	= ivec2(gl_FragCoord);
+	ivec2 pos 		= coord + of;
+	ivec2 size 	= textureSize(tx,0);
+	pos[0] 	= (pos[0] + size[0]) & (size[0]-1);
+	pos[1] 	= (pos[1] + size[1]) & (size[1]-1);
+	return 	texelFetch( tx, pos, 0); }
 
-ConvData ring( float r ) {
+// Calculates ring averages centered at current gl_FragCoord
+ConvData ring( float r, sampler2D tx ) {
 
 	const float psn = 32768.0;
 
@@ -101,25 +106,24 @@ ConvData ring( float r ) {
 		float j_2 = ( 1.0 - abs( sign ( (floor( i_2 ) + 1.0) - i ) ) );
 
 		for(float j = floor( j_1 ) + j_2; j < floor( j_0 ); j++) {
-			val += floor(gdv(ivec2( i, (j+1)), txdata) * psn);
-			val += floor(gdv(ivec2( i,-(j+1)), txdata) * psn);
-			val += floor(gdv(ivec2(-i,-(j+1)), txdata) * psn);
-			val += floor(gdv(ivec2(-i, (j+1)), txdata) * psn);
-			val += floor(gdv(ivec2( (j+1), i), txdata) * psn);
-			val += floor(gdv(ivec2( (j+1),-i), txdata) * psn);
-			val += floor(gdv(ivec2(-(j+1),-i), txdata) * psn);
-			val += floor(gdv(ivec2(-(j+1), i), txdata) * psn);
+			val += floor(gdv(ivec2( i, (j+1)), tx) * psn);
+			val += floor(gdv(ivec2( i,-(j+1)), tx) * psn);
+			val += floor(gdv(ivec2(-i,-(j+1)), tx) * psn);
+			val += floor(gdv(ivec2(-i, (j+1)), tx) * psn);
+			val += floor(gdv(ivec2( (j+1), i), tx) * psn);
+			val += floor(gdv(ivec2( (j+1),-i), tx) * psn);
+			val += floor(gdv(ivec2(-(j+1),-i), tx) * psn);
+			val += floor(gdv(ivec2(-(j+1), i), tx) * psn);
 			tot += 8.0 * psn; } }
 
 //	Orthagonal
-	val += floor(gdv(ivec2( r, 0), txdata) * psn);
-	val += floor(gdv(ivec2( 0,-r), txdata) * psn);
-	val += floor(gdv(ivec2(-r,-0), txdata) * psn);
-	val += floor(gdv(ivec2(-0, r), txdata) * psn);
+	val += floor(gdv(ivec2( r, 0), tx) * psn);
+	val += floor(gdv(ivec2( 0,-r), tx) * psn);
+	val += floor(gdv(ivec2(-r,-0), tx) * psn);
+	val += floor(gdv(ivec2(-0, r), tx) * psn);
 	tot += 4.0 * psn;
 
 //	Diagonal
-//	TODO This is not quite perfect
 	float k_0 = r;
 	float k_1 = sq2 * k_0;
 	float k_2 = k_1 / 2.0;
@@ -130,26 +134,27 @@ ConvData ring( float r ) {
 	float dist = round(k_2);
 
 	if( sign( o_4 ) == -1.0 ) {
-	//	val += gdv(ivec2( (floor(o_5)+1), floor(o_5)+1), txdata);
-		val += floor(gdv(ivec2( (floor(o_5)+1), (floor(o_5)+1)), txdata) * psn);
-		val += floor(gdv(ivec2( (floor(o_5)+1),-(floor(o_5)+1)), txdata) * psn);
-		val += floor(gdv(ivec2(-(floor(o_5)+1),-(floor(o_5)+1)), txdata) * psn);
-		val += floor(gdv(ivec2(-(floor(o_5)+1), (floor(o_5)+1)), txdata) * psn);
+		val += floor(gdv(ivec2( (floor(o_5)+1), (floor(o_5)+1)), tx) * psn);
+		val += floor(gdv(ivec2( (floor(o_5)+1),-(floor(o_5)+1)), tx) * psn);
+		val += floor(gdv(ivec2(-(floor(o_5)+1),-(floor(o_5)+1)), tx) * psn);
+		val += floor(gdv(ivec2(-(floor(o_5)+1), (floor(o_5)+1)), tx) * psn);
 		tot += 4.0 * psn; }
 
 	return ConvData( val, tot ); }
 
+// Combines pre-calculated ring averages based on bitmask
 vec4 bitmake(ConvData[MAX_RADIUS] rings, uint bits, uint of) {
 	vec4  sum = vec4(0.0,0.0,0.0,0.0);
 	float tot = 0.0;
 	for(uint i = 0u; i < MAX_RADIUS; i++) {
 		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i].value; tot += rings[i].total; } }
-    	return sum / tot; }
+    if (tot == 0.0) return vec4(0.0);
+    return sum / tot; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
+//	Reseeding and Mouse Interaction Functions
+//	----    ----    ----    ----    ----    ----    ----    ----
 
-//	Used to reseed the surface with lumpy noise
-//	TODO - Breaks down at 2048+ resolution
 float get_xc(float x, float y, float xmod) {
 	float sq = sqrt(mod(x*y+y, xmod)) / sqrt(xmod);
 	float xc = mod((x*x)+(y*y), xmod) / xmod;
@@ -214,18 +219,21 @@ vec4 symsd(vec4 col, float sz) {
 		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(  0.0, -sz ), sn, i*u32_upk(ub.v63, 24u, 0u)); }
 	return col; }
 
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Main Function
+//	----    ----    ----    ----    ----    ----    ----    ----
+
 void main() {
 
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Rule Initilisation
-//	----    ----    ----    ----    ----    ----    ----    ----
+    // Read current state (rho_t)
+    vec4 res_c = gdv( ivec2(0, 0), txdata );
+
+    // Declare variable for the calculated state before post-processing
+    vec4 calculated_state;
 
 //	NH Rings
-	ConvData[MAX_RADIUS] nh_rings_m;
-	for(uint i = 0u; i < MAX_RADIUS; i++) { nh_rings_m[i] = ring(i+1.0); }
-
-//	Output Values
-	vec4 res_c = gdv( ivec2(0, 0), txdata );
+    ConvData[MAX_RADIUS] nh_rings_m;
+    for(uint i = 0u; i < MAX_RADIUS; i++) { nh_rings_m[i] = ring(i+1.0, txdata); }
 
 //  Panel Index ID
 	uint v_idx = uint(vmap()*4.0) * 4u + uint(lmap()*4.0);
@@ -299,54 +307,57 @@ void main() {
         res_v += subres_1;
     }
 
-    res_c = res_v;
+    if (USE_DIFFUSION_UPDATE) {
+        // --- Diffusion Path ---
 
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Shader Output
-//	----    ----    ----    ----    ----    ----    ----    ----
+        // *** TODO: Implement actual Diffusion Lenia logic here later ***
+        // For now, just replicate original behavior to test infrastructure
+        calculated_state = res_v;
 
-
-	if( u32_upk(ub.v63, 24u, 0u) <= 0u
-	||	u32_upk(ub.v60, 6u, 26u) == 1u ) {
-		res_c[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, 1.0, 0.4 ); 
-		res_c[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, 1.0, 0.4 ); 
-		res_c[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, 1.0, 0.4 ); 
-		res_c[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, 1.0, 0.4 ); }
-
-	if( u32_upk(ub.v60, 6u, 26u) == 2u ) {
-		res_c[0] = 0.0; 
-		res_c[1] = 0.0; 
-		res_c[2] = 0.0; 
-		res_c[3] = 1.0; }
-
-	if( u32_upk(ub.v60, 6u, 26u) == 3u ) {
-		res_c = symsd(res_c, 128.0); }
-
-	if( u32_upk(ub.v60, 6u, 26u) == 4u ) {
-		
-		res_c[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 ); 
-		res_c[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 ); 
-		res_c[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 ); 
-		res_c[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
-
-		float res_c_mask = reseed( u32_upk(ub.v63, 8u, 24u) + 4u, 2.0, 0.05 );
-
-		res_c[0] -= res_c_mask;
-		res_c[1] -= res_c_mask;
-		res_c[2] -= res_c_mask;
-
-	 }
-
-	if(u32_upk(ub.v60, 2u, 24u) != 0u) {
-		//res_c = mouse_px(res_c, 1.0);
-		res_c = mouse(res_c, 64.0);
+    } else {
+        // --- Original Path ---
+        // Calculate and assign the state proposed by the original R8 rule
+        calculated_state = res_v;
     }
 
-//	Force alpha to 1.0
-	res_c[3] 	= 1.0;
+    //	----    ----    ----    ----    ----    ----    ----    ----
+    //	Post-Processing (Reseeding, Mouse, etc.)
+    //	----    ----    ----    ----    ----    ----    ----    ----
 
-	out_col 	= res_c;
+    // Apply post-processing steps to the calculated state
+    if( u32_upk(ub.v63, 24u, 0u) <= 0u
+    || u32_upk(ub.v60, 6u, 26u) == 1u ) { // Reseed All
+        calculated_state[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, 1.0, 0.4 );
+        calculated_state[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, 1.0, 0.4 );
+        calculated_state[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, 1.0, 0.4 );
+        calculated_state[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, 1.0, 0.4 );
+    }
+    else if( u32_upk(ub.v60, 6u, 26u) == 2u ) { // Clear All
+        calculated_state = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+    else if( u32_upk(ub.v60, 6u, 26u) == 3u ) { // Symmetric Seed
+        calculated_state = symsd(calculated_state, 128.0);
+    }
+    else if( u32_upk(ub.v60, 6u, 26u) == 4u ) { // Circular Reseed
+        calculated_state[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+        calculated_state[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+        calculated_state[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+        calculated_state[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+        float res_c_mask = reseed( u32_upk(ub.v63, 8u, 24u) + 4u, 2.0, 0.05 );
+        calculated_state.rgb -= res_c_mask;
+     }
+
+    // Apply mouse interaction if active
+    if(u32_upk(ub.v60, 2u, 24u) != 0u) {
+        calculated_state = mouse(calculated_state, 64.0);
+    }
+
+    //	----    ----    ----    ----    ----    ----    ----    ----
+    //	Final Output
+    //	----    ----    ----    ----    ----    ----    ----    ----
+
+    // Force alpha to 1.0 and assign to output
+    calculated_state[3] = 1.0;
+    out_col = calculated_state;
 
 }
-
-
