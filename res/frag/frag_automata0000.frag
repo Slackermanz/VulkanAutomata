@@ -25,7 +25,6 @@ layout(binding 		=  2) readonly buffer SSBO {
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 const uint MAX_RADIUS = 8u;
-const bool USE_DIFFUSION_UPDATE = true; // <-- Toggle for diffusion path (Set to true to test)
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -64,17 +63,13 @@ float ut3(uint v, uint  w, uint o) 	{ return tp2(u32_upk(v,w,w*o), vwm()); }
 
 vec4  sigm(vec4  x, float w) { return 1.0 / ( 1.0 + exp( (-w*2.0 * x * (PI/2.0)) + w * (PI/2.0) ) ); }
 
-// Reads texel relative to current gl_FragCoord
 vec4  gdv( ivec2 of, sampler2D tx ) {
-	ivec2 coord 	= ivec2(gl_FragCoord);
-	ivec2 pos 		= coord + of;
-	ivec2 size 	= textureSize(tx,0);
-	pos[0] 	= (pos[0] + size[0]) & (size[0]-1);
-	pos[1] 	= (pos[1] + size[1]) & (size[1]-1);
-	return 	texelFetch( tx, pos, 0); }
+	of 		= ivec2(gl_FragCoord) + of;
+	of[0] 	= (of[0] + textureSize(tx,0)[0]) & (textureSize(tx,0)[0]-1);
+	of[1] 	= (of[1] + textureSize(tx,0)[1]) & (textureSize(tx,0)[1]-1);
+	return 	texelFetch( tx, of, 0); }
 
-// Calculates ring averages centered at current gl_FragCoord
-ConvData ring( float r, sampler2D tx ) {
+ConvData ring( float r ) {
 
 	const float psn = 32768.0;
 
@@ -106,24 +101,25 @@ ConvData ring( float r, sampler2D tx ) {
 		float j_2 = ( 1.0 - abs( sign ( (floor( i_2 ) + 1.0) - i ) ) );
 
 		for(float j = floor( j_1 ) + j_2; j < floor( j_0 ); j++) {
-			val += floor(gdv(ivec2( i, (j+1)), tx) * psn);
-			val += floor(gdv(ivec2( i,-(j+1)), tx) * psn);
-			val += floor(gdv(ivec2(-i,-(j+1)), tx) * psn);
-			val += floor(gdv(ivec2(-i, (j+1)), tx) * psn);
-			val += floor(gdv(ivec2( (j+1), i), tx) * psn);
-			val += floor(gdv(ivec2( (j+1),-i), tx) * psn);
-			val += floor(gdv(ivec2(-(j+1),-i), tx) * psn);
-			val += floor(gdv(ivec2(-(j+1), i), tx) * psn);
+			val += floor(gdv(ivec2( i, (j+1)), txdata) * psn);
+			val += floor(gdv(ivec2( i,-(j+1)), txdata) * psn);
+			val += floor(gdv(ivec2(-i,-(j+1)), txdata) * psn);
+			val += floor(gdv(ivec2(-i, (j+1)), txdata) * psn);
+			val += floor(gdv(ivec2( (j+1), i), txdata) * psn);
+			val += floor(gdv(ivec2( (j+1),-i), txdata) * psn);
+			val += floor(gdv(ivec2(-(j+1),-i), txdata) * psn);
+			val += floor(gdv(ivec2(-(j+1), i), txdata) * psn);
 			tot += 8.0 * psn; } }
 
 //	Orthagonal
-	val += floor(gdv(ivec2( r, 0), tx) * psn);
-	val += floor(gdv(ivec2( 0,-r), tx) * psn);
-	val += floor(gdv(ivec2(-r,-0), tx) * psn);
-	val += floor(gdv(ivec2(-0, r), tx) * psn);
+	val += floor(gdv(ivec2( r, 0), txdata) * psn);
+	val += floor(gdv(ivec2( 0,-r), txdata) * psn);
+	val += floor(gdv(ivec2(-r,-0), txdata) * psn);
+	val += floor(gdv(ivec2(-0, r), txdata) * psn);
 	tot += 4.0 * psn;
 
 //	Diagonal
+//	TODO This is not quite perfect
 	float k_0 = r;
 	float k_1 = sq2 * k_0;
 	float k_2 = k_1 / 2.0;
@@ -134,27 +130,26 @@ ConvData ring( float r, sampler2D tx ) {
 	float dist = round(k_2);
 
 	if( sign( o_4 ) == -1.0 ) {
-		val += floor(gdv(ivec2( (floor(o_5)+1), (floor(o_5)+1)), tx) * psn);
-		val += floor(gdv(ivec2( (floor(o_5)+1),-(floor(o_5)+1)), tx) * psn);
-		val += floor(gdv(ivec2(-(floor(o_5)+1),-(floor(o_5)+1)), tx) * psn);
-		val += floor(gdv(ivec2(-(floor(o_5)+1), (floor(o_5)+1)), tx) * psn);
+	//	val += gdv(ivec2( (floor(o_5)+1), floor(o_5)+1), txdata);
+		val += floor(gdv(ivec2( (floor(o_5)+1), (floor(o_5)+1)), txdata) * psn);
+		val += floor(gdv(ivec2( (floor(o_5)+1),-(floor(o_5)+1)), txdata) * psn);
+		val += floor(gdv(ivec2(-(floor(o_5)+1),-(floor(o_5)+1)), txdata) * psn);
+		val += floor(gdv(ivec2(-(floor(o_5)+1), (floor(o_5)+1)), txdata) * psn);
 		tot += 4.0 * psn; }
 
 	return ConvData( val, tot ); }
 
-// Combines pre-calculated ring averages based on bitmask
 vec4 bitmake(ConvData[MAX_RADIUS] rings, uint bits, uint of) {
 	vec4  sum = vec4(0.0,0.0,0.0,0.0);
 	float tot = 0.0;
 	for(uint i = 0u; i < MAX_RADIUS; i++) {
 		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i].value; tot += rings[i].total; } }
-    if (tot == 0.0) return vec4(0.0);
-    return sum / tot; }
+    	return sum / tot; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
-//	Reseeding and Mouse Interaction Functions
-//	----    ----    ----    ----    ----    ----    ----    ----
 
+//	Used to reseed the surface with lumpy noise
+//	TODO - Breaks down at 2048+ resolution
 float get_xc(float x, float y, float xmod) {
 	float sq = sqrt(mod(x*y+y, xmod)) / sqrt(xmod);
 	float xc = mod((x*x)+(y*y), xmod) / xmod;
@@ -185,8 +180,8 @@ float reseed(uint seed, float scl, float amp) {
 	float 	fy = gl_FragCoord[1];
 	float 	r0 = get_lump(fx, fy, round( 6.0  * scl), 19.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,17.0), 23.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,43.0));
 	float 	r1 = get_lump(fx, fy, round( 22.0 * scl), 13.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,29.0), 17.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,31.0));
-	float 	r2 = get_lump(fx, fy, round( 14.0 * scl), 13.0 + mod(u32_upk(ub.v63, 8u, 24u)+seed,11.0), 51.0 + mod(u32_upk(ub.v63, 8u, 24u)+seed,37.0));
-	float 	r3 = get_lump(fx, fy, round( 18.0 * scl), 29.0 + mod(u32_upk(ub.v63, 8u, 24u)+seed, 7.0), 61.0 + mod(u32_upk(ub.v63, 8u, 24u)+seed,28.0));
+	float 	r2 = get_lump(fx, fy, round( 14.0 * scl), 13.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,11.0), 51.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,37.0));
+	float 	r3 = get_lump(fx, fy, round( 18.0 * scl), 29.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed, 7.0), 61.0 + mod(u32_upk(ub.v63, 24u, 0u)+seed,28.0));
 	return clamp( sqrt((r0+r1)*r3*(amp+1.2))-r2*(amp*1.8+0.2) , 0.0, 1.0); }
 
 vec4 place( vec4 col, float sz, vec2 mxy, uint s, float off ) {
@@ -219,70 +214,21 @@ vec4 symsd(vec4 col, float sz) {
 		col = place(col, (sz/11.0)*((11.0-i))*0.5, 	posxy + vec2(  0.0, -sz ), sn, i*u32_upk(ub.v63, 24u, 0u)); }
 	return col; }
 
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Diffusion Lenia Update Function
-//	----    ----    ----    ----    ----    ----    ----    ----
-
-vec4 apply_diffusion_update(vec4 current_state_rho_t, vec4 proposed_state_res_v) {
-    const float beta = 5.0; // Hardcoded beta for testing
-
-    // Calculate intended delta (primary affinity guide)
-    // We use the proposed state directly as affinity here, alternative is delta = proposed - current
-    // Let's use delta for now as discussed:
-    vec3 delta = proposed_state_res_v.rgb - current_state_rho_t.rgb;
-    vec3 exp_beta_Aij_k = exp(beta * delta); // Numerator term (central affinity per channel)
-
-    vec3 next_state_rgb = vec3(0.0); // Accumulator for the final sum
-
-    // Loop over 3x3 Moore neighborhood (neighbors i', j') relative to central pixel
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
-            ivec2 neighbor_offset = ivec2(dx, dy);
-
-            // Get neighbor's current state (rho^t_i'j',k)
-            vec4 neighbor_rho_t = gdv(neighbor_offset, txdata);
-
-            // Calculate normalization factor Z for this neighbor (Z_i'j',k)
-            vec3 Z_k = vec3(0.0);
-            // Loop over the neighbors (k', l') of the neighbor (i', j')
-            for (int dy_z = -1; dy_z <= 1; ++dy_z) {
-                for (int dx_z = -1; dx_z <= 1; ++dx_z) {
-                    // Offset relative to the original central pixel
-                    ivec2 z_neighbor_offset = neighbor_offset + ivec2(dx_z, dy_z);
-                    // Get state for Z calculation proxy (rho^t_k'l',k)
-                    vec4 z_rho_t = gdv(z_neighbor_offset, txdata);
-                    // Hybrid Affinity Proxy: Use current state's channels for affinity inside Z
-                    // A_k'l',k = (rho^t_k'l')_k
-                    Z_k += exp(beta * z_rho_t.rgb);
-                }
-            }
-            // Add epsilon for stability
-            Z_k += vec3(1e-9);
-
-            // Accumulate the neighbor's contribution to the final sum
-            // (exp(beta*A_ij,k) / Z_i'j',k) * rho^t_i'j',k
-            next_state_rgb += (exp_beta_Aij_k / Z_k) * neighbor_rho_t.rgb;
-        }
-    }
-
-    // Return the calculated conserved state, preserving original alpha if needed (currently sets to 1.0)
-    return vec4(next_state_rgb, 1.0);
-}
-
-//	----    ----    ----    ----    ----    ----    ----    ----
-//	Main Function
-//	----    ----    ----    ----    ----    ----    ----    ----
-
 void main() {
 
-    // Read current state (rho_t)
-    vec4 res_c = gdv( ivec2(0, 0), txdata );
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Rule Initilisation
+//	----    ----    ----    ----    ----    ----    ----    ----
 
-    // --- Calculate proposed state (res_v) using the original R8 rule --- 
-    ConvData[MAX_RADIUS] nh_rings_m;
-    for(uint i = 0u; i < MAX_RADIUS; i++) { nh_rings_m[i] = ring(i+1.0, txdata); }
+//	NH Rings
+	ConvData[MAX_RADIUS] nh_rings_m;
+	for(uint i = 0u; i < MAX_RADIUS; i++) { nh_rings_m[i] = ring(i+1.0); }
 
-    uint v_idx = uint(vmap()*4.0) * 4u + uint(lmap()*4.0);
+//	Output Values
+	vec4 res_c = gdv( ivec2(0, 0), txdata );
+
+//  Panel Index ID
+	uint v_idx = uint(vmap()*4.0) * 4u + uint(lmap()*4.0);
 
     vec4 res_v = vec4(0.0,0.0,0.0,1.0);
 	uint bt = 5u;
@@ -290,8 +236,10 @@ void main() {
 
 	for(uint i = 0u; i < 8u; i++) {
 
+        // Get the average values of the color channels for the unique neighborhood kernel
         vec4 nhv = bitmake( nh_rings_m, sb.p[v_idx].v[i/(32u/MAX_RADIUS)], (i*MAX_RADIUS) & 31u );
 
+        // Weights, from -1.0 to +1.0, one set for each color channel being read
         vec4 nnvr0 = vec4(
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],0u),
 		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],1u),
@@ -313,6 +261,7 @@ void main() {
 		    1.0
 	    );
 
+        // sub-result
         vec4 subres_0 = vec4(0.0,0.0,0.0,1.0);
 
         subres_0[0] = dot(nhv.rgb, nnvr0.rgb);
@@ -340,6 +289,7 @@ void main() {
 		    1.0
 	    );
 
+        // sub-result
         vec4 subres_1 = vec4(0.0,0.0,0.0,1.0);
 
         subres_1[0] = dot(subres_0.rgb, nnvr1.rgb);
@@ -348,58 +298,55 @@ void main() {
 
         res_v += subres_1;
     }
-    // --- End of R8 rule calculation ---
 
-    vec4 calculated_state; // Final state before post-processing
+    res_c = res_v;
 
-    if (USE_DIFFUSION_UPDATE) {
-        // --- Diffusion Path ---
-        // Apply the diffusion update, using current state (res_c) and proposed state (res_v)
-        calculated_state = apply_diffusion_update(res_c, res_v);
-    } else {
-        // --- Original Path ---
-        // Assign the state proposed by the original R8 rule directly
-        calculated_state = res_v;
+//	----    ----    ----    ----    ----    ----    ----    ----
+//	Shader Output
+//	----    ----    ----    ----    ----    ----    ----    ----
+
+
+	if( u32_upk(ub.v63, 24u, 0u) <= 0u
+	||	u32_upk(ub.v60, 6u, 26u) == 1u ) {
+		res_c[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, 1.0, 0.4 ); 
+		res_c[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, 1.0, 0.4 ); 
+		res_c[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, 1.0, 0.4 ); 
+		res_c[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, 1.0, 0.4 ); }
+
+	if( u32_upk(ub.v60, 6u, 26u) == 2u ) {
+		res_c[0] = 0.0; 
+		res_c[1] = 0.0; 
+		res_c[2] = 0.0; 
+		res_c[3] = 1.0; }
+
+	if( u32_upk(ub.v60, 6u, 26u) == 3u ) {
+		res_c = symsd(res_c, 128.0); }
+
+	if( u32_upk(ub.v60, 6u, 26u) == 4u ) {
+		
+		res_c[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 ); 
+		res_c[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 ); 
+		res_c[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 ); 
+		res_c[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
+
+		float res_c_mask = reseed( u32_upk(ub.v63, 8u, 24u) + 4u, 2.0, 0.05 );
+
+		res_c[0] -= res_c_mask;
+		res_c[1] -= res_c_mask;
+		res_c[2] -= res_c_mask;
+
+	 }
+
+	if(u32_upk(ub.v60, 2u, 24u) != 0u) {
+		//res_c = mouse_px(res_c, 1.0);
+		res_c = mouse(res_c, 64.0);
     }
 
-    //	----    ----    ----    ----    ----    ----    ----    ----
-    //	Post-Processing (Reseeding, Mouse, etc.)
-    //	----    ----    ----    ----    ----    ----    ----    ----
+//	Force alpha to 1.0
+	res_c[3] 	= 1.0;
 
-    // Apply post-processing steps to the calculated state
-    if( u32_upk(ub.v63, 24u, 0u) <= 0u
-    || u32_upk(ub.v60, 6u, 26u) == 1u ) { // Reseed All
-        calculated_state[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, 1.0, 0.4 );
-        calculated_state[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, 1.0, 0.4 );
-        calculated_state[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, 1.0, 0.4 );
-        calculated_state[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, 1.0, 0.4 );
-    }
-    else if( u32_upk(ub.v60, 6u, 26u) == 2u ) { // Clear All
-        calculated_state = vec4(0.0, 0.0, 0.0, 1.0);
-    }
-    else if( u32_upk(ub.v60, 6u, 26u) == 3u ) { // Symmetric Seed
-        calculated_state = symsd(calculated_state, 128.0);
-    }
-    else if( u32_upk(ub.v60, 6u, 26u) == 4u ) { // Circular Reseed
-        calculated_state[0] = reseed( u32_upk(ub.v63, 8u, 24u) + 0u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
-        calculated_state[1] = reseed( u32_upk(ub.v63, 8u, 24u) + 1u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
-        calculated_state[2] = reseed( u32_upk(ub.v63, 8u, 24u) + 2u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
-        calculated_state[3] = reseed( u32_upk(ub.v63, 8u, 24u) + 3u, clamp(2.0-(cmap())*8.0,0.01,2.0), 0.4 );
-        float res_c_mask = reseed( u32_upk(ub.v63, 8u, 24u) + 4u, 2.0, 0.05 );
-        calculated_state.rgb -= res_c_mask;
-     }
-
-    // Apply mouse interaction if active
-    if(u32_upk(ub.v60, 2u, 24u) != 0u) {
-        calculated_state = mouse(calculated_state, 64.0);
-    }
-
-    //	----    ----    ----    ----    ----    ----    ----    ----
-    //	Final Output
-    //	----    ----    ----    ----    ----    ----    ----    ----
-
-    // Force alpha to 1.0 and assign to output
-    calculated_state[3] = 1.0;
-    out_col = calculated_state;
+	out_col 	= res_c;
 
 }
+
+
