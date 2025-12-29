@@ -18,11 +18,19 @@ void show_qf_info( VK_PhysicalDevice *vk_physical_device, VK_QueueFamily *vk_que
 		ov("queueCount", vk_queue_families[i].qf_props.queueCount); } }
 
 void engine_vulkan_context_init( VK_Context *vk_context, const char *app_name ) {
+
+//	TODO
+	glfwInit();
+	uint32_t 		glfw_ext_count 	= UINT32_MAX;
+	const char** 	glfw_extentions = glfwGetRequiredInstanceExtensions( &glfw_ext_count );
+	for(int i = 0; i < glfw_ext_count; i++) { ov("GLFW Extensions", glfw_extentions[i], i ); }
+//	TODO
+
 	ov( "Define Vulkan Extensions" );
 		const uint32_t 	VK_LAYER_EXTN_COUNT 					= 1;
 		const char* 	VK_LAYER_EXTNS[VK_LAYER_EXTN_COUNT] 	= {	"VK_LAYER_KHRONOS_validation" };
-		const uint32_t 	VK_INSTANCE_EXTN_COUNT 					= 1;
-		const char* 	VK_INSTANCE_EXTNS[VK_LAYER_EXTN_COUNT] 	= {	VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+		const uint32_t 	VK_INSTANCE_EXTN_COUNT 					= 1 + glfw_ext_count;
+		const char* 	VK_INSTANCE_EXTNS[VK_INSTANCE_EXTN_COUNT] 	= {	VK_EXT_DEBUG_UTILS_EXTENSION_NAME, glfw_extentions[0], glfw_extentions[1] };
 
 	ov( "Init Struct: VK_Config" );
 		VK_Config vk_config = new_vk_config(
@@ -42,8 +50,13 @@ void engine_vulkan_context_init( VK_Context *vk_context, const char *app_name ) 
 	ov( "Vulkan Physical Device count" );
 		svk_count_physical_devices( vk_context ); }
 
-void engine_vulkan_context_exit( VK_Context *vk_context, VK_LogicalDevice *vk_logical_device ) {
+void engine_vulkan_context_exit(
+	VK_Context 			*vk_context,
+	VK_LogicalDevice 	*vk_logical_device,
+	VK_CommandPool		 *vk_command_pool ) {
 	ov( "Destroy Vulkan Context" );
+	for(int i = 0; i < vk_logical_device->ld_info.queueCreateInfoCount; i++) {
+		svk_destroy_command_pool	( vk_logical_device, &vk_command_pool[i] ); }
 		svk_destroy_logical_device	( vk_logical_device	);
 		svk_destroy_debug_utils		( vk_context 		);
 		svk_destroy_instance		( vk_context 		); }
@@ -61,6 +74,22 @@ void engine_vulkan_get_queue_families( VK_PhysicalDevice *vk_physical_device, VK
 	ov( "Fill Struct: VK_QueueFamily" );
 		svk_enum_queue_families( vk_queue_families, vk_physical_device ); }
 
+void engine_vulkan_get_queue_family_index(
+	VK_PhysicalDevice 	*vk_physical_device,
+	VK_QueueFamily 		*vk_queue_families,
+	uint32_t			*qf_index,
+	uint32_t			queue_flag_bits,
+	uint32_t			queue_flag_nots ) {
+	ov( "Check QF Index" );
+		ov("bits", queue_flag_bits);
+		ov("nots", queue_flag_nots);
+	for(int i = 0; i < vk_physical_device->qf_count; i++) {
+		if( *qf_index													== UINT32_MAX
+		&& (vk_queue_families[i].qf_props.queueFlags & queue_flag_bits) == queue_flag_bits
+		&& (vk_queue_families[i].qf_props.queueFlags & queue_flag_nots) == 0 ) {
+			*qf_index = i; } }
+	ov("Selected Index", *qf_index); }
+
 void engine_vulkan_queue_list_add(
 	VK_PhysicalDevice 	*vk_physical_device,
 	VK_QueueFamily 		*vk_queue_families,
@@ -68,20 +97,14 @@ void engine_vulkan_queue_list_add(
 	uint32_t			queue_max_threads,
 	uint32_t			queue_flag_bits,
 	uint32_t			queue_flag_nots ) {
-	ov( "Check QF Index" );
-	ov("bits", queue_flag_bits);
-	ov("nots", queue_flag_nots);
 
 	vk_queue_list->qf_index = UINT32_MAX;
-
-	for(int i = 0; i < vk_physical_device->qf_count; i++) {
-		if( vk_queue_list->qf_index										== UINT32_MAX
-		&& (vk_queue_families[i].qf_props.queueFlags & queue_flag_bits) == queue_flag_bits
-		&& (vk_queue_families[i].qf_props.queueFlags & queue_flag_nots) == 0 ) {
-			vk_queue_list->qf_index = i; } }
-
-	ov("Selected Index", vk_queue_list->qf_index);
-
+	engine_vulkan_get_queue_family_index(
+		vk_physical_device,
+		vk_queue_families,
+		&vk_queue_list->qf_index,
+		queue_flag_bits,
+		queue_flag_nots );
 
 	if( vk_queue_list->qf_index == UINT32_MAX ) { queue_max_threads = 0; }
 	else 										{
@@ -157,6 +180,15 @@ void engine_vulkan_logical_device_init(
 
 	ov( "Create Vulkan Logical Device" );
 		svk_create_logical_device( vk_physical_device, vk_logical_device ); }
+
+void engine_vulkan_command_pool_init(
+	VK_QueueList		*vk_queue_list,
+	VK_LogicalDevice 	*vk_logical_device,
+	VK_CommandPool		*vk_command_pool ) {
+	ov( "Create Command Pools" );
+	for(int i = 0; i < vk_logical_device->ld_info.queueCreateInfoCount; i++) {
+		vk_command_pool[i] = new_vk_command_pool( vk_queue_list[i].qf_index );
+		svk_create_command_pool( vk_logical_device, &vk_command_pool[i] ); } }
 
 
 

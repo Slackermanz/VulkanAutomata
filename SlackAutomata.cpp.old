@@ -3,58 +3,21 @@
 #include <vector>
 #include <fstream>
 #include <chrono>
-#include <thread>
-
-struct UB32_64 { uint32_t u32[64]; };
-
-struct GLFW_mouse {
-	GLFWwindow* window;
-	double 		xpos;
-	double 		ypos;
-	int 		button;
-	int 		action;
-	int 		mods;
-	double 		xoffset;
-	double 		yoffset; };
-
-GLFW_mouse 	glfw_mouse;
-
-void clear_glfw_mouse(GLFW_mouse *e) {
-	e->mods 	= 0;
-	e->xoffset 	= 0;
-	e->yoffset 	= 0; }
-
-void glfw_mousemove_event(GLFWwindow* window, double xpos, double ypos) {
-	glfw_mouse.window 	= window;
-	glfw_mouse.xpos		= xpos;
-	glfw_mouse.ypos 	= ypos; }
-
-void glfw_mouseclick_event(GLFWwindow* window, int button, int action, int mods) {
-	glfw_mouse.window 	= window;
-	glfw_mouse.button	= button;
-	glfw_mouse.action 	= action;
-	glfw_mouse.mods 	= mods; }
-
-void glfw_mousescroll_event(GLFWwindow* window, double xoffset, double yoffset) {
-	glfw_mouse.window 	= window;
-	glfw_mouse.xoffset	= xoffset;
-	glfw_mouse.yoffset 	= yoffset; }
-
 
 struct ShaderCodeInfo {
 	std::string 		shaderFilename;
 	std::vector<char>	shaderData;
 	size_t 				shaderBytes;
 	bool 				shaderBytesValid; };
-ShaderCodeInfo getShaderCodeInfo(std::string fname) {
-	std::ifstream 		file		(fname, std::ios::ate | std::ios::binary);
+ShaderCodeInfo getShaderCodeInfo() {
+	std::ifstream 		file		("bin/compute_test.spv", std::ios::ate | std::ios::binary);
 	size_t 				fileSize = 	(size_t) file.tellg();
 	std::vector<char> 	buffer		(fileSize);
 	file.seekg(0);
 	file.read(buffer.data(), fileSize);
 	file.close();
 	ShaderCodeInfo sc_info;
-		sc_info.shaderFilename		= fname;
+		sc_info.shaderFilename		= "bin/compute_test.spv";
 		sc_info.shaderData			= buffer;
 		sc_info.shaderBytes			= buffer.size();
 		sc_info.shaderBytesValid	= (sc_info.shaderBytes%4==0?1:0);
@@ -70,7 +33,7 @@ int32_t findProperties(
         const 	bool 					isRequiredMemoryType 	= memoryTypeBitsRequirement & memoryTypeBits;
         const 	VkMemoryPropertyFlags 	properties 				= pMemoryProperties->memoryTypes[memoryIndex].propertyFlags;
         const 	bool 					hasRequiredProperties 	= (properties & requiredProperties) == requiredProperties;
-        if (isRequiredMemoryType && hasRequiredProperties) { return static_cast<uint32_t>(memoryIndex); } } return -1; }
+        if (isRequiredMemoryType && hasRequiredProperties) { return static_cast<int32_t>(memoryIndex); } } return -1; }
 
 struct NS_Timer {
 	std::chrono::_V2::system_clock::time_point st;
@@ -89,9 +52,6 @@ void end_timer(NS_Timer t, std::string msg) {
 	ov(msg, ftime); }
 
 int main() {
-
-	srand(time(0));
-
 	VK_Context vk_ctx;
 		engine_vulkan_context_init( &vk_ctx, "SlackAutomata" );
 
@@ -142,8 +102,8 @@ int main() {
 
 	ov( "Test shader load ..." );
 
-//	ShaderCodeInfo sci = getShaderCodeInfo("bin/comp_gather_kernels.spv");
-	ShaderCodeInfo sci = getShaderCodeInfo("bin/comp_compare_kernels.spv");
+	ShaderCodeInfo sci = getShaderCodeInfo();
+	uint32_t fake_code = 0;
 
 	VkShaderModuleCreateInfo vk_shader_module_compute_info;
 		vk_shader_module_compute_info.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -155,23 +115,9 @@ int main() {
 	VkShaderModule vk_shader_compute;
 	vkCreateShaderModule( vk_ldv.ld, &vk_shader_module_compute_info, nullptr, &vk_shader_compute );
 
-	ov( "Test shader load ..." );
-
-	ShaderCodeInfo sci2 = getShaderCodeInfo("bin/comp_compare_kernels.spv");
-
-	VkShaderModuleCreateInfo vk_shader_module_compute_info2;
-		vk_shader_module_compute_info2.sType		= VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		vk_shader_module_compute_info2.pNext		= nullptr;
-		vk_shader_module_compute_info2.flags		= 0;
-		vk_shader_module_compute_info2.codeSize		= sci2.shaderBytes;
-		vk_shader_module_compute_info2.pCode		= reinterpret_cast<const uint32_t*>(sci2.shaderData.data());
-
-	VkShaderModule vk_shader_compute2;
-	vkCreateShaderModule( vk_ldv.ld, &vk_shader_module_compute_info2, nullptr, &vk_shader_compute2 );
-
 	ov( "Test descriptors ..." );
 
-	VkDescriptorSetLayoutBinding dslb[3];
+	VkDescriptorSetLayoutBinding dslb[2];
 
 		dslb[0].binding				= 0;
 		dslb[0].descriptorType		= VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -185,17 +131,11 @@ int main() {
 		dslb[1].stageFlags			= VK_SHADER_STAGE_COMPUTE_BIT;
 		dslb[1].pImmutableSamplers	= nullptr;
 
-		dslb[2].binding				= 2;
-		dslb[2].descriptorType		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		dslb[2].descriptorCount		= 1;
-		dslb[2].stageFlags			= VK_SHADER_STAGE_COMPUTE_BIT;
-		dslb[2].pImmutableSamplers	= nullptr;
-
 	VkDescriptorSetLayoutCreateInfo dslcinfo;
 		dslcinfo.sType			= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
 		dslcinfo.pNext			= nullptr;
 		dslcinfo.flags			= 0;
-		dslcinfo.bindingCount	= 3;
+		dslcinfo.bindingCount	= 2;
 		dslcinfo.pBindings		= dslb;
 
 	VkDescriptorSetLayout dsl;
@@ -203,24 +143,17 @@ int main() {
 
 	ov( "Test descriptors ..." );
 
-	VkDescriptorPoolSize vkdps[3];
-
-		vkdps[0].type				= VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		vkdps[0].descriptorCount	= 1;
-
-		vkdps[1].type				= VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		vkdps[1].descriptorCount	= 1;
-
-		vkdps[2].type				= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		vkdps[2].descriptorCount	= 1;
+	VkDescriptorPoolSize vkdps;
+		vkdps.type				= VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		vkdps.descriptorCount	= 2;
 
 	VkDescriptorPoolCreateInfo dspinfo;
 		dspinfo.sType			= VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
 		dspinfo.pNext			= nullptr;
 		dspinfo.flags			= 0;
 		dspinfo.maxSets			= 1;
-		dspinfo.poolSizeCount	= 3;
-		dspinfo.pPoolSizes		= vkdps;
+		dspinfo.poolSizeCount	= 1;
+		dspinfo.pPoolSizes		= &vkdps;
 
 	VkDescriptorPool vkdsp;
 	vkCreateDescriptorPool(vk_ldv.ld, &dspinfo, nullptr, &vkdsp);
@@ -253,8 +186,8 @@ int main() {
 	const uint32_t LG = 32;
 
 	VkExtent3D ext3d;
-		ext3d.width 	= 512*1;
-		ext3d.height 	= 512*1;
+		ext3d.width 	= 512*4;
+		ext3d.height 	= 512*4;
 		ext3d.depth 	= 1;
 
 	VkImageCreateInfo vkicinfo;
@@ -262,29 +195,27 @@ int main() {
 		vkicinfo.pNext					= nullptr;
 		vkicinfo.flags					= 0;
 		vkicinfo.imageType				= VK_IMAGE_TYPE_2D;
-		vkicinfo.format					= VK_FORMAT_R8_UNORM;
+		vkicinfo.format					= VK_FORMAT_R16G16B16A16_UNORM;
 		vkicinfo.extent					= ext3d;
 		vkicinfo.mipLevels				= 1;
 		vkicinfo.arrayLayers			= 1;
 		vkicinfo.samples				= VK_SAMPLE_COUNT_1_BIT;
-		vkicinfo.tiling					= VK_IMAGE_TILING_LINEAR;
+		vkicinfo.tiling					= VK_IMAGE_TILING_OPTIMAL;
 		vkicinfo.usage					= VK_IMAGE_USAGE_STORAGE_BIT;
 		vkicinfo.sharingMode			= VK_SHARING_MODE_EXCLUSIVE;
 		vkicinfo.queueFamilyIndexCount	= 0;
 		vkicinfo.pQueueFamilyIndices	= nullptr;
 		vkicinfo.initialLayout			= VK_IMAGE_LAYOUT_UNDEFINED;
 
-	VkImage vkimg[3];
+	VkImage vkimg[2];
 	vkCreateImage(vk_ldv.ld, &vkicinfo, nullptr, &vkimg[0]);
 	vkCreateImage(vk_ldv.ld, &vkicinfo, nullptr, &vkimg[1]);
-	vkCreateImage(vk_ldv.ld, &vkicinfo, nullptr, &vkimg[2]);
 
-	VkMemoryRequirements vkmr[3];
+	VkMemoryRequirements vkmr[2];
 	vkGetImageMemoryRequirements(vk_ldv.ld, vkimg[0], &vkmr[0]);
 	vkGetImageMemoryRequirements(vk_ldv.ld, vkimg[1], &vkmr[1]);
-	vkGetImageMemoryRequirements(vk_ldv.ld, vkimg[2], &vkmr[2]);
 
-	VkMemoryAllocateInfo vkmainfo[3];
+	VkMemoryAllocateInfo vkmainfo[2];
 
 		vkmainfo[0].sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		vkmainfo[0].pNext				= nullptr;
@@ -292,7 +223,8 @@ int main() {
 		vkmainfo[0].memoryTypeIndex		= findProperties(
 											&vk_pdv[vk_ctx.pd_index].pd_memos,
 											vkmr[0].memoryTypeBits,
-											VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
+											VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+										|	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
 
 		vkmainfo[1].sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 		vkmainfo[1].pNext				= nullptr;
@@ -300,33 +232,25 @@ int main() {
 		vkmainfo[1].memoryTypeIndex		= findProperties(
 											&vk_pdv[vk_ctx.pd_index].pd_memos,
 											vkmr[1].memoryTypeBits,
-											VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
+											VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+										|	VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
 
-		vkmainfo[2].sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		vkmainfo[2].pNext				= nullptr;
-		vkmainfo[2].allocationSize		= vkmr[2].size;
-		vkmainfo[2].memoryTypeIndex		= findProperties(
-											&vk_pdv[vk_ctx.pd_index].pd_memos,
-											vkmr[2].memoryTypeBits,
-											VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT );
-
-	VkDeviceMemory vkdm[3];
+	VkDeviceMemory vkdm[2];
 	vkAllocateMemory(vk_ldv.ld, &vkmainfo[0], nullptr, &vkdm[0]);
 	vkAllocateMemory(vk_ldv.ld, &vkmainfo[1], nullptr, &vkdm[1]);
-	vkAllocateMemory(vk_ldv.ld, &vkmainfo[2], nullptr, &vkdm[2]);
 
 	vkBindImageMemory(vk_ldv.ld, vkimg[0], vkdm[0], 0);
 	vkBindImageMemory(vk_ldv.ld, vkimg[1], vkdm[1], 0);
-	vkBindImageMemory(vk_ldv.ld, vkimg[2], vkdm[2], 0);
 
 	void* pvoid_buffer_in;
 	vkMapMemory(vk_ldv.ld, vkdm[0], 0, VK_WHOLE_SIZE, 0, &pvoid_buffer_in);
 
-	void* pvoid_buffer_ki;
-	vkMapMemory(vk_ldv.ld, vkdm[1], 0, VK_WHOLE_SIZE, 0, &pvoid_buffer_ki);
+	void* pvoid_buffer_out;
+	vkMapMemory(vk_ldv.ld, vkdm[1], 0, VK_WHOLE_SIZE, 0, &pvoid_buffer_out);
 
-	void* pvoid_buffer_ko;
-	vkMapMemory(vk_ldv.ld, vkdm[2], 0, VK_WHOLE_SIZE, 0, &pvoid_buffer_ko);
+//	VkSamplerCreateInfo vksampinfo;
+//	VkSampler vksam;
+//	vkCreateSampler(vk_ldv.ld, &vksampinfo, nullptr, &vksam);
 
 	VkComponentMapping vkcmap;
 		vkcmap.r = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -341,7 +265,7 @@ int main() {
 		vkimgsr.baseArrayLayer	= 0;
 		vkimgsr.layerCount		= 1;
 
-	VkImageViewCreateInfo vkimvinfo[3];
+	VkImageViewCreateInfo vkimvinfo[2];
 
 		vkimvinfo[0].sType				= VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		vkimvinfo[0].pNext				= nullptr;
@@ -361,21 +285,11 @@ int main() {
 		vkimvinfo[1].components			= vkcmap;
 		vkimvinfo[1].subresourceRange	= vkimgsr;
 
-		vkimvinfo[2].sType				= VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		vkimvinfo[2].pNext				= nullptr;
-		vkimvinfo[2].flags				= 0;
-		vkimvinfo[2].image				= vkimg[2];
-		vkimvinfo[2].viewType			= VK_IMAGE_VIEW_TYPE_2D;
-		vkimvinfo[2].format				= vkicinfo.format;
-		vkimvinfo[2].components			= vkcmap;
-		vkimvinfo[2].subresourceRange	= vkimgsr;
-
-	VkImageView	vkimv[3];
+	VkImageView	vkimv[2];
 	vkCreateImageView(vk_ldv.ld, &vkimvinfo[0], nullptr, &vkimv[0]);
 	vkCreateImageView(vk_ldv.ld, &vkimvinfo[1], nullptr, &vkimv[1]);
-	vkCreateImageView(vk_ldv.ld, &vkimvinfo[2], nullptr, &vkimv[2]);
 
-	VkDescriptorImageInfo vkdii[3];
+	VkDescriptorImageInfo vkdii[2];
 
 		vkdii[0].sampler		= VK_NULL_HANDLE;
 		vkdii[0].imageView		= vkimv[0];
@@ -385,53 +299,8 @@ int main() {
 		vkdii[1].imageView		= vkimv[1];
 		vkdii[1].imageLayout	= VK_IMAGE_LAYOUT_GENERAL;
 
-		vkdii[2].sampler		= VK_NULL_HANDLE;
-		vkdii[2].imageView		= vkimv[2];
-		vkdii[2].imageLayout	= VK_IMAGE_LAYOUT_GENERAL;
 
-	ov( "Uniform Buffer ..." ); 
-
-	VkBufferCreateInfo vkubuf;
-		vkubuf.sType 					= VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-		vkubuf.pNext 					= nullptr;
-		vkubuf.flags 					= 0;
-		vkubuf.size 					= sizeof(UB32_64);
-		vkubuf.usage 					= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-		vkubuf.sharingMode 				= VK_SHARING_MODE_EXCLUSIVE;
-		vkubuf.queueFamilyIndexCount 	= 0;
-		vkubuf.pQueueFamilyIndices 		= nullptr;
-
-	VkBuffer vkUBuff;
-		vkCreateBuffer( vk_ldv.ld, &vkubuf, nullptr, &vkUBuff );
-
-	VkDescriptorBufferInfo vkdescbuffinfo;
-		vkdescbuffinfo.buffer 	= vkUBuff;
-		vkdescbuffinfo.offset 	= 0;
-		vkdescbuffinfo.range 	= VK_WHOLE_SIZE;
-
-	VkMemoryRequirements vkmr_ub;
-	vkGetBufferMemoryRequirements(vk_ldv.ld, vkUBuff, &vkmr_ub);
-
-	VkMemoryAllocateInfo vkmemallo_ub;
-		vkmemallo_ub.sType				= VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		vkmemallo_ub.pNext				= nullptr;
-		vkmemallo_ub.allocationSize		= vkmr_ub.size;
-		vkmemallo_ub.memoryTypeIndex	= findProperties(
-											&vk_pdv[vk_ctx.pd_index].pd_memos,
-											vkmr_ub.memoryTypeBits,
-											VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT );
-
-	VkDeviceMemory ubdevmem;
-	vkAllocateMemory(vk_ldv.ld, &vkmemallo_ub, nullptr, &ubdevmem);
-
-	vkBindBufferMemory( vk_ldv.ld, vkUBuff, ubdevmem, 0 );
-
-	void* pvoid_ub;
-	vkMapMemory(vk_ldv.ld, ubdevmem, 0, VK_WHOLE_SIZE, 0, &pvoid_ub);
-
-	ov( "vkUpdateDescriptorSets ..." ); 
-
-	VkWriteDescriptorSet wds[3];
+	VkWriteDescriptorSet wds[2];
 
 		wds[0].sType 				= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		wds[0].pNext 				= nullptr;
@@ -455,20 +324,7 @@ int main() {
 		wds[1].pBufferInfo 			= nullptr;
 		wds[1].pTexelBufferView 	= nullptr;
 
-		wds[2].sType 				= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		wds[2].pNext 				= nullptr;
-		wds[2].dstSet 				= vkds;
-		wds[2].dstBinding 			= 2;
-		wds[2].dstArrayElement 		= 0;
-		wds[2].descriptorCount 		= 1;
-		wds[2].descriptorType 		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		wds[2].pImageInfo 			= nullptr;
-		wds[2].pBufferInfo 			= &vkdescbuffinfo;
-		wds[2].pTexelBufferView 	= nullptr;
-
-	vkUpdateDescriptorSets(vk_ldv.ld, 3, wds, 0, nullptr);
-
-	ov( "vkUpdateDescriptorSets ..." ); 
+	vkUpdateDescriptorSets(vk_ldv.ld, 2, wds, 0, nullptr);
 
 	VkWriteDescriptorSet wds2[2];
 
@@ -490,22 +346,11 @@ int main() {
 		wds2[1].dstArrayElement 	= 0;
 		wds2[1].descriptorCount 	= 1;
 		wds2[1].descriptorType 		= VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		wds2[1].pImageInfo 			= &vkdii[2];
+		wds2[1].pImageInfo 			= &vkdii[0];
 		wds2[1].pBufferInfo 		= nullptr;
 		wds2[1].pTexelBufferView 	= nullptr;
 
-		wds2[2].sType 				= VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		wds2[2].pNext 				= nullptr;
-		wds2[2].dstSet 				= vkds2;
-		wds2[2].dstBinding 			= 2;
-		wds2[2].dstArrayElement 	= 0;
-		wds2[2].descriptorCount 	= 1;
-		wds2[2].descriptorType 		= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		wds2[2].pImageInfo 			= nullptr;
-		wds2[2].pBufferInfo 		= &vkdescbuffinfo;
-		wds2[2].pTexelBufferView 	= nullptr;
-
-	vkUpdateDescriptorSets(vk_ldv.ld, 3, wds2, 0, nullptr);
+	vkUpdateDescriptorSets(vk_ldv.ld, 2, wds2, 0, nullptr);
 
 /*
 	ov( "Test buffers ..." );
@@ -644,17 +489,11 @@ int main() {
 	VkPipeline vk_pipeline_compute;
 	vkCreateComputePipelines( vk_ldv.ld, VK_NULL_HANDLE, 1, &pipe_compute_info, nullptr, &vk_pipeline_compute );
 
-	pipe_compute_shader_info.module		= vk_shader_compute2;
-	pipe_compute_info.stage 			= pipe_compute_shader_info;
-
-	VkPipeline vk_pipeline_compute2;
-	vkCreateComputePipelines( vk_ldv.ld, VK_NULL_HANDLE, 1, &pipe_compute_info, nullptr, &vk_pipeline_compute2 );
-
 
 
 	ov( "Test record buffer ..." );
 
-	VkImageMemoryBarrier vk_IMB_UND_to_GEN[3];
+	VkImageMemoryBarrier vk_IMB_UND_to_GEN[2];
 
 		vk_IMB_UND_to_GEN[0].sType					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 		vk_IMB_UND_to_GEN[0].pNext					= nullptr;
@@ -678,17 +517,6 @@ int main() {
 		vk_IMB_UND_to_GEN[1].image					= vkimg[1];
 		vk_IMB_UND_to_GEN[1].subresourceRange		= vkimgsr;
 
-		vk_IMB_UND_to_GEN[2].sType					= VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		vk_IMB_UND_to_GEN[2].pNext					= nullptr;
-		vk_IMB_UND_to_GEN[2].srcAccessMask			= 0;
-		vk_IMB_UND_to_GEN[2].dstAccessMask			= 0;
-		vk_IMB_UND_to_GEN[2].oldLayout				= VK_IMAGE_LAYOUT_UNDEFINED;
-		vk_IMB_UND_to_GEN[2].newLayout				= VK_IMAGE_LAYOUT_GENERAL;
-		vk_IMB_UND_to_GEN[2].srcQueueFamilyIndex	= vk_cmd_init.qf_index;
-		vk_IMB_UND_to_GEN[2].dstQueueFamilyIndex	= vk_cmd_init.qf_index;
-		vk_IMB_UND_to_GEN[2].image					= vkimg[2];
-		vk_IMB_UND_to_GEN[2].subresourceRange		= vkimgsr;
-
 	vkBeginCommandBuffer( vk_cmd_init.cmd, &vk_cmd_init.begin_info );
 
 	vkCmdPipelineBarrier(
@@ -698,7 +526,7 @@ int main() {
 		0,
 		0, NULL,
 		0, NULL,
-		3, vk_IMB_UND_to_GEN );
+		2, vk_IMB_UND_to_GEN );
 
 	vkEndCommandBuffer( vk_cmd_init.cmd );
 
@@ -714,17 +542,20 @@ int main() {
 
 	vkEndCommandBuffer( vk_cmd.cmd );
 
+
 	ov( "Test record buffer ..." );
 
 	vkBeginCommandBuffer( vk_cmd2.cmd, &vk_cmd2.begin_info );
 
-	vkCmdBindPipeline( vk_cmd2.cmd, vk_cmd2.bind_type, vk_pipeline_compute2 );
+	vkCmdBindPipeline( vk_cmd2.cmd, vk_cmd2.bind_type, vk_pipeline_compute );
 
 	vkCmdBindDescriptorSets( vk_cmd2.cmd, vk_cmd2.bind_type, vk_layout_compute, 0, 1, &vkds2, 0, nullptr );
 
 	vkCmdDispatch( vk_cmd2.cmd, (ext3d.width)/LG, (ext3d.height)/LG, 1 );
 
 	vkEndCommandBuffer( vk_cmd2.cmd );
+
+
 
 
 	ov( "Test queue submit ..." );
@@ -752,6 +583,7 @@ int main() {
 		sub2.pCommandBuffers		= &vk_cmd2.cmd;
 		sub2.signalSemaphoreCount	= 0;
 		sub2.pSignalSemaphores		= nullptr;
+
 
 	VkSubmitInfo sub_init;
 		sub_init.sType					= VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -786,9 +618,6 @@ int main() {
 	memcpy( pvoid_buffer_in, buffer_float_in, sizeof(uint32_t) * res_x * res_y * 4 );
 */
 
-	UB32_64 ub;
-	for(int i = 0; i < 64; i++) { ub.u32[i] = 0; }
-
 	NS_Timer optime;
 
 	optime = start_timer(optime);
@@ -799,180 +628,34 @@ int main() {
 			break; } }
 	end_timer(optime, "init Time");
 
-	uint32_t image_index = 7;
-
-	std::string 		img_path = "";
-//						img_path = "res/data/PGM_512x512/IMG" + std::to_string((rand()%45)) + ".PGM";
-						img_path = "res/data/PGM_512x512/IMG" + std::to_string(image_index) + ".PGM";
-
-	std::string cmd;
-	cmd = "feh " + img_path + "&";
-	system(cmd.c_str());
-
-	std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-	GLFWwindow* glfw_W;
-	glfwWindowHint(GLFW_CLIENT_API,	GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, 	GL_FALSE);
-	glfw_W = glfwCreateWindow(512, 512, "a", NULL, NULL);
-
-	VkSurfaceKHR glfw_surface;
-	glfwCreateWindowSurface(vk_ctx.vi, glfw_W, NULL, &glfw_surface);
-
-	uint32_t mx_last = 0;
-	uint32_t my_last = 0;
-
-	uint32_t reps = 0;
-
-	uint32_t radius = 1;
-
-
-//for( int reps = (512)*(255); reps < (512)*(256); reps++) {
-do {
-	bool step = false;
-
-	clear_glfw_mouse(&glfw_mouse);
-	glfwPollEvents();
-	glfwSetCursorPosCallback 	( glfw_W, glfw_mousemove_event 	 );
-	glfwSetMouseButtonCallback	( glfw_W, glfw_mouseclick_event	 );
-	glfwSetScrollCallback		( glfw_W, glfw_mousescroll_event );
-
-	if( glfw_mouse.button == 0
-	&&	glfw_mouse.action == 1  ) { image_index = (image_index + 1) % 45; step = true; }
-	
-//	Mouse Wheel Up
-	if( glfw_mouse.yoffset ==  1 ) {
-		glfw_mouse.yoffset  =  0;
-		radius += 1; step = true; }
-
-//	Mouse Wheel Down
-	if( glfw_mouse.yoffset == -1 ) {
-		glfw_mouse.yoffset  =  0;
-		radius -= 1; step = true; }
-
-	radius = (radius < 1) ? 1 : radius;
-
-	ub.u32[0] = radius;
-	ub.u32[1] = uint32_t(glfw_mouse.xpos);
-	ub.u32[2] = uint32_t(glfw_mouse.ypos);
-
-	if( ub.u32[1] != mx_last
-	||	ub.u32[2] != my_last
-	||	step ) {
-
-	mx_last = ub.u32[1];
-	my_last = ub.u32[2];
-
-
-	memcpy(pvoid_ub, &ub, sizeof(UB32_64));
-
-	char buffer_testimg[ext3d.width][ext3d.height];
-
-//	for(int i = 0; i < ext3d.width; i++) { for(int j = 0; j < ext3d.height; j++) { buffer_testimg[i][j] = UINT8_MAX; } }
-
-//	if(reps == 0) 	{ 	img_path = "res/data/PGM_512x512/IMG1.PGM"; }
-//	else 			{ 	img_path = "out/output/kernel_3x3/IMG" + std::to_string(reps-1) + ".PGM"; }
-
-//				img_path = "out/output/kernel_3x3/IMG1.PGM";
-	img_path = "res/data/PGM_512x512/IMG" + std::to_string(image_index) + ".PGM";
-	std::ifstream fload_img(img_path.c_str(), std::ios::in | std::ios::binary);
-		fload_img.seekg(0, fload_img.end);
-		int f_len = fload_img.tellg();
-		fload_img.seekg(f_len-sizeof(buffer_testimg));
-		fload_img.read((char*)&buffer_testimg, sizeof(buffer_testimg));
-	fload_img.close();
-
-//	for(int i = 0; i < ext3d.width; i++) { for(int j = 0; j < ext3d.height; j++) { buffer_testimg[i][j] = UINT8_MAX; } }
-	memcpy( pvoid_buffer_ki, buffer_testimg, sizeof(char) * ext3d.width * ext3d.height );
-
-
-/*	for(int i = 0; i < 1; i++) {
+	for(int i = 0; i < 100; i++) {
 		optime = start_timer(optime);
-		vkQueueSubmit( q, 1, &sub, f );
+		if(i%2 == 0) 	{ vkQueueSubmit( q, 1, &sub, f ); }
+		else			{ vkQueueSubmit( q, 1, &sub2, f ); }
 		while (true) {
 			if( vkGetFenceStatus( vk_ldv.ld, f ) == VK_SUCCESS ) {
 				vkResetFences( vk_ldv.ld, 1, &f );
 				break; } }
-		end_timer(optime, "Queue Time"); }*/
+		end_timer(optime, "Queue Time");
 
-	for(int i = 0; i < 1; i++) {
-		optime = start_timer(optime);
-		vkQueueSubmit( q, 1, &sub2, f );
-		while (true) {
-			if( vkGetFenceStatus( vk_ldv.ld, f ) == VK_SUCCESS ) {
-				vkResetFences( vk_ldv.ld, 1, &f );
-				break; } }
-		end_timer(optime, "Queue Time"); }/**/
-
-/*	std::string fname = "out/output/IMG" + std::to_string(0) + ".PGM";
+/*	std::string fname = "out/IMG" + std::to_string(i) + ".PAM";
 	std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
-		file 	<< "P5" 		<< "\n"
-			 	<< ext3d.width 	<< " "
-			 	<< ext3d.height	<< "\n"
-			 	<< "255"		<< "\n";
-	file.write( (const char*)pvoid_buffer_in,  ext3d.width * ext3d.height );
-	file.close();*/
-
-/*	fname = "out/output/kernel_3x3/IMG" + std::to_string(0) + ".PGM";
-	std::ofstream filek(fname.c_str(), std::ios::out | std::ios::binary);
-		filek 	<< "P5" 				<< "\n"
-			 	<< ext3d_ker.width   	<< " "
-			 	<< ext3d_ker.height * ext3d_ker.depth		<< "\n"
-			 	<< "255"				<< "\n";
-	filek.write( (const char*)pvoid_buffer_ki, ext3d_ker.width * ext3d_ker.height * ext3d_ker.depth );
-	filek.close();
-
-	fname = "out/output/kernel_3x3/IMG" + std::to_string(1) + ".PGM";
-	std::ofstream filek2(fname.c_str(), std::ios::out | std::ios::binary);
-		filek2 	<< "P5" 				<< "\n"
-			 	<< ext3d_ker.width   	<< " "
-			 	<< ext3d_ker.height * ext3d_ker.depth		<< "\n"
-			 	<< "255"				<< "\n";
-	filek2.write( (const char*)pvoid_buffer_ko, ext3d_ker.width * ext3d_ker.height * ext3d_ker.depth );
-	filek2.close();*/
-
-	std::string fname = "out/output/ConvOut/IMG" + std::to_string(reps) + ".PGM";
-	std::ofstream filek2(fname.c_str(), std::ios::out | std::ios::binary);
-		filek2 	<< "P5" 				<< "\n"
-			 	<< ext3d.width   		<< " "
-			 	<< ext3d.height			<< "\n"
-			 	<< "255"				<< "\n";
-	filek2.write( (const char*)pvoid_buffer_ko, ext3d.width * ext3d.height );
-	filek2.close();
-
-/*	std::string fname2 = "out/output/ConvOut/feh.PGM";
-	std::ofstream filek3(fname2.c_str(), std::ios::out | std::ios::binary);
-		filek3 	<< "P5" 				<< "\n"
-			 	<< ext3d_ker.width   	<< " "
-			 	<< ext3d_ker.height		<< "\n"
-			 	<< "255"				<< "\n";
-	filek3.write( (const char*)pvoid_buffer_ko, ext3d_ker.width * ext3d_ker.height );
-	filek3.close();*/
-
-	std::this_thread::sleep_for(std::chrono::milliseconds(30));
-
-	cmd = "feh " + fname + "&";
-	system(cmd.c_str());
-
-	std::this_thread::sleep_for(std::chrono::milliseconds(30));
-
-	cmd = "pkill -TERM -f 'feh .*IMG" + std::to_string(reps-4) + "'";
-	system(cmd.c_str());
-
-	std::this_thread::sleep_for(std::chrono::milliseconds(30));
-
-	ub.u32[63]++;
-	reps++;
-	}
-} while ( !glfwWindowShouldClose(glfw_W) );
+		file 	<<	"P7" 							<< "\n"
+			 	<< 	"WIDTH "	<< ext3d.width 		<< "\n"
+			 	<< 	"HEIGHT "	<< ext3d.height		<< "\n"
+			 	<< 	"DEPTH "	<< "4"				<< "\n"
+			 	<< 	"MAXVAL "	<< "255"			<< "\n"
+			 	<< 	"TUPLTYPE "	<< "RGB_ALPHA"		<< "\n"
+			 	<< 	"ENDHDR"	<< "\n";
+		if(i%2 == 0) 	{ file.write( (const char*)pvoid_buffer_out, ext3d.width * ext3d.height * 4 ); }
+		else			{ file.write( (const char*)pvoid_buffer_in, ext3d.width * ext3d.height * 4 ); }/**/ }
 
 	ov( "done" );
 
+//	memcpy( buffer_float_in, pvoid_buffer_out, sizeof(uint32_t) * res_x * res_y * 4 );
+
 	ov( "EXIT" );
 		engine_vulkan_context_exit( &vk_ctx, &vk_ldv, vk_cpl );
-
-	cmd = "killall 'feh'";
-	system(cmd.c_str());
 
 	return 0;
 }

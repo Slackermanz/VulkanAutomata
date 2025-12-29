@@ -1,0 +1,1493 @@
+#version 460
+
+const int WG_SIZE = 16;
+
+layout(local_size_x = WG_SIZE, local_size_y = WG_SIZE) in;
+
+layout(set = 0, binding = 0, rgba16f) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba16f) uniform writeonly image2D img_out;
+
+const int R = 5;
+const int NBWGS = R / (WG_SIZE/2) + 1;
+
+//shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 ns( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+of[0]][gl_LocalInvocationID.y+of[1]]; }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1)); }
+
+vec4 cgol() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int i = -1; i < 2; i++) {
+		for(int j = -1; j < 2; j++) {
+			if( i != 0 || j != 0 ) { sum += sign( nb(ivec2(i,j)) ); } } }
+	vec4 res = nb(ivec2(0,0));
+	if( sum[0] >= 0.0 && sum[0] <= 1.0 ) { res = vec4(0.0,0.0,0.0,1.0); }
+	if( sum[0] >= 3.0 && sum[0] <= 3.0 ) { res = vec4(1.0,1.0,1.0,1.0); }
+	if( sum[0] >= 4.0 && sum[0] <= 8.0 ) { res = vec4(0.0,0.0,0.0,1.0); }
+	return res; }
+
+void main() {
+
+
+/*	vec4 	texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+			if(gl_GlobalInvocationID.x > 120 && gl_GlobalInvocationID.x < 150) {
+			if(gl_GlobalInvocationID.y > 120 && gl_GlobalInvocationID.y < 150) { texel = vec4(0.0,0.5,1.0,1.0); } }
+			if(gl_GlobalInvocationID.x > 280 && gl_GlobalInvocationID.x < 320) {
+			if(gl_GlobalInvocationID.y > 380 && gl_GlobalInvocationID.y < 420) { texel = vec4(1.0,0.0,1.0,1.0); } }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );*/
+
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), nh() );
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), cgol() );
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) ) );
+
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) );
+
+	memoryBarrierShared();
+	barrier();
+
+	for(int i = -R; i < R+1; i++) {
+		for(int j = -R; j < R+1; j++) {
+			tot += 1.0;
+			ivec2 lo = ivec2(gl_LocalInvocationID.xy) + ivec2(i,j);
+			if( lo.x >= 0 && lo.x < gl_WorkGroupSize.x
+			&& 	lo.y >= 0 && lo.y < gl_WorkGroupSize.y ) { sum += ns( ivec2(i,j) ); }
+			else 										 { sum += nb( ivec2(i,j) ); } } }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+//	for (int i = -NBWGS; i < NBWGS+1; i++) {
+//		for (int j = -NBWGS; j < NBWGS+1; j++) {
+
+//			ivec2 wg_nbr = ((ivec2(gl_WorkGroupID.xy) + ivec2(i,j) + ivec2(gl_NumWorkGroups.xy)) & (ivec2(gl_NumWorkGroups.xy)-1));
+
+//			ivec2 li2D = ivec2(gl_LocalInvocationID.xy) + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+
+//			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+//			memoryBarrierShared();
+//			barrier();
+			
+//			for (int k = 0; k < gl_WorkGroupSize.x; k++) {
+//				for (int l = 0; l < gl_WorkGroupSize.y; l++) {
+//					ivec2 sh_id = ivec2(k,l);
+//					ivec2 sh_li2D = sh_id + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+//					ivec2 sh_gid = ivec2(gl_GlobalInvocationID.xy);
+//					if(abs(sh_gid.x - sh_li2D.x) <= R) {
+//						if(abs(sh_gid.y - sh_li2D.y) <= R) { sum += tx_shared[k][l]; tot += 1.0; } }
+					//if(length(sh_gid-sh_li2D) <= float(R)) { sum += tx_shared[k][l]; tot += 1.0; }
+//				}
+//			}
+
+		//	show local invocation order
+		//	sum += vec4(float(gl_LocalInvocationID.x)/float(gl_WorkGroupSize.x), float(gl_LocalInvocationID.y)/float(gl_WorkGroupSize.y), 0.0, 1.0);
+		//	tot += 1.0;
+
+		//	show wg order
+		//	sum += vec4(float(gl_WorkGroupID.x)/float(gl_NumWorkGroups.x), float(gl_WorkGroupID.y)/float(gl_NumWorkGroups.y), 0.0, 1.0);
+		//	tot += 1.0;
+
+		// This is doing a (R*2+1)^2 NH for (NBWGS*2+1)^2 WGs
+
+//			for (int k = -R; k < R+1; k++) {
+//				for (int l = -R; l < R+1; l++) {
+//					ivec2 lid = ivec2(gl_LocalInvocationID.xy);
+//					ivec2 wsz = ivec2(gl_WorkGroupSize.xy);
+//					ivec2 lands_in = (((lid*2)-(wsz-1)) + ivec2(k,l)*2) / wsz;
+				//	ivec2 lands_in = (lid + ivec2(k,l)) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-R)) + ivec2(k,l)) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-R)) + ivec2(k,l)*R) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-1)) + ivec2(k,l)*2) / wsz;
+				//	if(ivec2(i,j) == ivec2(0,0) && lands_in == ivec2(0,0)) { sum += vec4(1.0,0.0,0.0,1.0); tot += 1.0; }
+				//	if(ivec2(i,j) == ivec2(0,0) && lands_in != ivec2(0,0)) { sum += vec4(0.0,1.0,1.0,1.0); tot += 1.0; }
+				//	ivec2 lands_in = (lid + ivec2(k,l)*wsz) / wsz;
+//					if(ivec2(i,j) == lands_in) {
+//						sum += tx_shared[(gl_LocalInvocationID.x+k+gl_WorkGroupSize.x)&(gl_WorkGroupSize.y-1)][(gl_LocalInvocationID.y+l+gl_WorkGroupSize.y)&(gl_WorkGroupSize.y-1)];
+					//	sum += tx_shared[gl_LocalInvocationID.x+k][gl_LocalInvocationID.y+l];
+					//	sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+//						tot += 1.0; } } }
+
+		//	Average value of this local index, for all involved workgroups
+		//	sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+		//	tot += 1.0;
+
+//			barrier();
+//		}
+//		barrier();
+//	}
+
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+const int WG_SIZE = 8;
+
+layout(local_size_x = WG_SIZE, local_size_y = WG_SIZE) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 15;
+const int NBWGS = R / (WG_SIZE/2) + 1;
+
+//shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+
+	vec4 	texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+			if(gl_GlobalInvocationID.x > 120 && gl_GlobalInvocationID.x < 150) {
+			if(gl_GlobalInvocationID.y > 120 && gl_GlobalInvocationID.y < 150) { texel = vec4(0.0,0.5,1.0,1.0); } }
+			if(gl_GlobalInvocationID.x > 280 && gl_GlobalInvocationID.x < 320) {
+			if(gl_GlobalInvocationID.y > 380 && gl_GlobalInvocationID.y < 420) { texel = vec4(0.0,0.5,1.0,1.0); } }
+
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), nh() );
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) ) );
+
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (int i = -NBWGS; i < NBWGS+1; i++) {
+		for (int j = -NBWGS; j < NBWGS+1; j++) {
+
+			ivec2 wg_nbr = ((ivec2(gl_WorkGroupID.xy) + ivec2(i,j) + ivec2(gl_NumWorkGroups.xy)) & (ivec2(gl_NumWorkGroups.xy)-1));
+
+			ivec2 li2D = ivec2(gl_LocalInvocationID.xy) + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+
+			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+			memoryBarrierShared();
+			barrier();
+			
+			for (int k = 0; k < gl_WorkGroupSize.x; k++) {
+				for (int l = 0; l < gl_WorkGroupSize.y; l++) {
+					ivec2 sh_id = ivec2(k,l);
+					ivec2 sh_li2D = sh_id + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+					ivec2 sh_gid = ivec2(gl_GlobalInvocationID.xy);
+					if(abs(sh_gid.x - sh_li2D.x) <= R) {
+						if(abs(sh_gid.y - sh_li2D.y) <= R) { sum += tx_shared[k][l]; tot += 1.0; } }
+					//if(length(sh_gid-sh_li2D) <= float(R)) { sum += tx_shared[k][l]; tot += 1.0; }
+				}
+			}
+
+		//	show local invocation order
+		//	sum += vec4(float(gl_LocalInvocationID.x)/float(gl_WorkGroupSize.x), float(gl_LocalInvocationID.y)/float(gl_WorkGroupSize.y), 0.0, 1.0);
+		//	tot += 1.0;
+
+		//	show wg order
+		//	sum += vec4(float(gl_WorkGroupID.x)/float(gl_NumWorkGroups.x), float(gl_WorkGroupID.y)/float(gl_NumWorkGroups.y), 0.0, 1.0);
+		//	tot += 1.0;
+
+		// This is doing a (R*2+1)^2 NH for (NBWGS*2+1)^2 WGs
+
+//			for (int k = -R; k < R+1; k++) {
+//				for (int l = -R; l < R+1; l++) {
+//					ivec2 lid = ivec2(gl_LocalInvocationID.xy);
+//					ivec2 wsz = ivec2(gl_WorkGroupSize.xy);
+//					ivec2 lands_in = (((lid*2)-(wsz-1)) + ivec2(k,l)*2) / wsz;
+				//	ivec2 lands_in = (lid + ivec2(k,l)) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-R)) + ivec2(k,l)) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-R)) + ivec2(k,l)*R) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-1)) + ivec2(k,l)*2) / wsz;
+				//	if(ivec2(i,j) == ivec2(0,0) && lands_in == ivec2(0,0)) { sum += vec4(1.0,0.0,0.0,1.0); tot += 1.0; }
+				//	if(ivec2(i,j) == ivec2(0,0) && lands_in != ivec2(0,0)) { sum += vec4(0.0,1.0,1.0,1.0); tot += 1.0; }
+				//	ivec2 lands_in = (lid + ivec2(k,l)*wsz) / wsz;
+//					if(ivec2(i,j) == lands_in) {
+//						sum += tx_shared[(gl_LocalInvocationID.x+k+gl_WorkGroupSize.x)&(gl_WorkGroupSize.y-1)][(gl_LocalInvocationID.y+l+gl_WorkGroupSize.y)&(gl_WorkGroupSize.y-1)];
+					//	sum += tx_shared[gl_LocalInvocationID.x+k][gl_LocalInvocationID.y+l];
+					//	sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+//						tot += 1.0; } } }
+
+		//	Average value of this local index, for all involved workgroups
+		//	sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+		//	tot += 1.0;
+
+			barrier();
+		}
+		barrier();
+	}
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 3;
+const int NBWGS = R / (8/2) + 1;
+
+//shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+
+	vec4 	texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+			if(gl_GlobalInvocationID.x > 120 && gl_GlobalInvocationID.x < 150) {
+			if(gl_GlobalInvocationID.y > 120 && gl_GlobalInvocationID.y < 150) { texel = vec4(0.0,0.5,1.0,1.0); } }
+			if(gl_GlobalInvocationID.x > 280 && gl_GlobalInvocationID.x < 320) {
+			if(gl_GlobalInvocationID.y > 380 && gl_GlobalInvocationID.y < 420) { texel = vec4(0.0,0.5,1.0,1.0); } }
+
+//	vec4 	texel 	= nh();
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) ) );
+
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (int i = -NBWGS; i < NBWGS+1; i++) {
+		for (int j = -NBWGS; j < NBWGS+1; j++) {
+
+			ivec2 wg_nbr = ((ivec2(gl_WorkGroupID.xy) + ivec2(i,j) + ivec2(gl_NumWorkGroups.xy)) & (ivec2(gl_NumWorkGroups.xy)-1));
+
+			ivec2 li2D = ivec2(gl_LocalInvocationID.xy) + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+
+			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+			memoryBarrierShared();
+			barrier();
+
+		//	show local invocation order
+		//	sum += vec4(float(gl_LocalInvocationID.x)/float(gl_WorkGroupSize.x), float(gl_LocalInvocationID.y)/float(gl_WorkGroupSize.y), 0.0, 1.0);
+		//	tot += 1.0;
+
+		//	show wg order
+		//	sum += vec4(float(gl_WorkGroupID.x)/float(gl_NumWorkGroups.x), float(gl_WorkGroupID.y)/float(gl_NumWorkGroups.y), 0.0, 1.0);
+		//	tot += 1.0;
+
+			for (int k = -R; k < R+1; k++) {
+				for (int l = -R; l < R+1; l++) {
+					ivec2 lid = ivec2(gl_LocalInvocationID.xy);
+					ivec2 wsz = ivec2(gl_WorkGroupSize.xy);
+					ivec2 lands_in = (((lid*2)-(wsz-1)) + ivec2(k,l)*2) / wsz;
+				//	ivec2 lands_in = (lid + ivec2(k,l)) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-R)) + ivec2(k,l)) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-R)) + ivec2(k,l)*R) / wsz;
+				//	ivec2 lands_in = (((lid*2)-(wsz-1)) + ivec2(k,l)*2) / wsz;
+				//	if(ivec2(i,j) == ivec2(0,0) && lands_in == ivec2(0,0)) { sum += vec4(1.0,0.0,0.0,1.0); tot += 1.0; }
+				//	if(ivec2(i,j) == ivec2(0,0) && lands_in != ivec2(0,0)) { sum += vec4(0.0,1.0,1.0,1.0); tot += 1.0; }
+				//	ivec2 lands_in = (lid + ivec2(k,l)*wsz) / wsz;
+					if(ivec2(i,j) == lands_in) {
+						sum += tx_shared[(gl_LocalInvocationID.x+k+gl_WorkGroupSize.x)&(gl_WorkGroupSize.y-1)][(gl_LocalInvocationID.y+l+gl_WorkGroupSize.y)&(gl_WorkGroupSize.y-1)];
+					//	sum += tx_shared[gl_LocalInvocationID.x+k][gl_LocalInvocationID.y+l];
+					//	sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+						tot += 1.0; } } }
+
+		//	Average value of this local index, for all involved workgroups
+		//	sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+		//	tot += 1.0;
+
+			barrier();
+		}
+		barrier();
+	}
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 1;
+
+//shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+
+	vec4 	texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+
+//	vec4 	texel 	= nh();
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) ) );
+
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (int i = -1; i < 2; i++) {
+		for (int j = -1; j < 2; j++) {
+
+			ivec2 wg_nbr = ((ivec2(gl_WorkGroupID.xy) + ivec2(i,j) + ivec2(gl_NumWorkGroups.xy)) & (ivec2(gl_NumWorkGroups.xy)-1));
+
+			ivec2 li2D = ivec2(gl_LocalInvocationID.xy) + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+
+			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+			memoryBarrierShared();
+			barrier();
+
+			for (int k = -R; k < R+1; k++) {
+				for (int l = -R; l < R+1; l++) {
+
+				//	Neighbor lands in which WG ?
+					ivec2 lands_in = (ivec2(gl_LocalInvocationID.xy) + ivec2(k,l)) / ivec2(gl_WorkGroupSize.xy);
+
+					if( ivec2(i,j) == lands_in ) {
+					//	ivec2 wrap_id = (ivec2(gl_LocalInvocationID.xy)+ivec2(i,j)+ivec2(gl_WorkGroupSize.xy)) & (ivec2(gl_WorkGroupSize.xy)-1);
+						ivec2 wrap_id = (ivec2(gl_LocalInvocationID.xy)+ivec2(k,l)+ivec2(gl_WorkGroupSize.xy)) & (ivec2(gl_WorkGroupSize.xy)-1);
+						sum += tx_shared[wrap_id[0]][wrap_id[1]];
+						tot += 1.0; } } }
+
+//			if( i == 0 && j == 0 ) {
+//				sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+//				tot += 1.0; }
+				
+
+//			if( i == 0 && j == 0 ) {
+//				for (int k = -R; k < R+1; k++) {
+//					for (int l = -R; l < R+1; l++) {
+//						if( int(gl_LocalInvocationID.x) + k >= 0 ) {
+//							if( int(gl_LocalInvocationID.y) + l >= 0 ) {
+//								if( int(gl_LocalInvocationID.x) + k < gl_WorkGroupSize.x ) {
+//									if( int(gl_LocalInvocationID.y) + l < gl_WorkGroupSize.y ) {
+//										sum += tx_shared[k][l];
+//										tot += 1.0; } } } } } } }
+
+
+//			if( i == 0 && j == 0 ) {
+//				if( gl_LocalInvocationID.x > R - 1 ) {
+//					if( gl_LocalInvocationID.y > R - 1 ) {
+//						if( gl_LocalInvocationID.x - R < gl_WorkGroupSize.x - R) {
+//							if( gl_LocalInvocationID.y - R < gl_WorkGroupSize.y - R) {
+				
+
+//			if( i == 0 && j == 0 ) {
+//				if( gl_LocalInvocationID.x )
+//			}
+
+		//	Average value of , for 
+//			for (int k = gl_LocalInvocationID.x; k < gl_LocalInvocationID.x+1; k++) {
+//				for (int l = gl_LocalInvocationID.y; l < gl_LocalInvocationID.y+1; l++) {
+//					sum += tx_shared[k][l];
+//					tot += 1.0; } }
+
+		//	Average value of this local index, for all involved workgroups
+		//	for (int k = gl_LocalInvocationID.x; k < gl_LocalInvocationID.x+1; k++) {
+		//		for (int l = gl_LocalInvocationID.y; l < gl_LocalInvocationID.y+1; l++) {
+		//			sum += tx_shared[k][l];
+		//			tot += 1.0; } }
+
+		//	Average value of all local indexes, for all involved workgroups
+		//	for (int k = 0; k < gl_WorkGroupSize.x; k++) {
+		//		for (int l = 0; l < gl_WorkGroupSize.y; l++) {
+		//			sum += tx_shared[k][l];
+		//			tot += 1.0; } }
+
+			barrier();
+
+		}
+		barrier();
+	}
+
+//	vec4 res = vec4(0.0,0.0,1.0,1.0);
+//		ressum / tot;
+
+//	if(tot == 0.0) { res = vec4(0.0,0.0,1.0,1.0); }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 1;
+
+//shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+
+	vec4 	texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+
+//	vec4 	texel 	= nh();
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) ) );
+
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (int i = -1; i < 2; i++) {
+		for (int j = -1; j < 2; j++) {
+
+			ivec2 wg_nbr = ((ivec2(gl_WorkGroupID.xy) + ivec2(i,j) + ivec2(gl_NumWorkGroups.xy)) & (ivec2(gl_NumWorkGroups.xy)-1));
+
+			ivec2 li2D = ivec2(gl_LocalInvocationID.xy) + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+
+			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+			memoryBarrierShared();
+			barrier();
+
+			for (int k = -R; k < R+1; k++) {
+				for (int l = -R; l < R+1; l++) {
+
+				//	Neighbor lands in which WG ?
+					ivec2 lands_in = (ivec2(gl_LocalInvocationID.xy) + ivec2(k,l)) / ivec2(gl_WorkGroupSize.xy);
+
+					if( ivec2(i,j) == lands_in ) {
+						ivec2 wrap_id = (ivec2(gl_LocalInvocationID.xy)+ivec2(i,j)+ivec2(gl_WorkGroupSize.xy)) & (ivec2(gl_WorkGroupSize.xy)-1);
+					//	ivec2 wrap_id = (ivec2(gl_LocalInvocationID.xy)+ivec2(k,l)+ivec2(gl_WorkGroupSize.xy)) & (ivec2(gl_WorkGroupSize.xy)-1);
+						sum += tx_shared[wrap_id[0]][wrap_id[1]];
+						tot += 1.0; } } }
+
+//			if( i == 0 && j == 0 ) {
+//				sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+//				tot += 1.0; }
+				
+
+//			if( i == 0 && j == 0 ) {
+//				for (int k = -R; k < R+1; k++) {
+//					for (int l = -R; l < R+1; l++) {
+//						if( int(gl_LocalInvocationID.x) + k >= 0 ) {
+//							if( int(gl_LocalInvocationID.y) + l >= 0 ) {
+//								if( int(gl_LocalInvocationID.x) + k < gl_WorkGroupSize.x ) {
+//									if( int(gl_LocalInvocationID.y) + l < gl_WorkGroupSize.y ) {
+//										sum += tx_shared[k][l];
+//										tot += 1.0; } } } } } } }
+
+
+//			if( i == 0 && j == 0 ) {
+//				if( gl_LocalInvocationID.x > R - 1 ) {
+//					if( gl_LocalInvocationID.y > R - 1 ) {
+//						if( gl_LocalInvocationID.x - R < gl_WorkGroupSize.x - R) {
+//							if( gl_LocalInvocationID.y - R < gl_WorkGroupSize.y - R) {
+				
+
+//			if( i == 0 && j == 0 ) {
+//				if( gl_LocalInvocationID.x )
+//			}
+
+		//	Average value of , for 
+//			for (int k = gl_LocalInvocationID.x; k < gl_LocalInvocationID.x+1; k++) {
+//				for (int l = gl_LocalInvocationID.y; l < gl_LocalInvocationID.y+1; l++) {
+//					sum += tx_shared[k][l];
+//					tot += 1.0; } }
+
+		//	Average value of this local index, for all involved workgroups
+		//	for (int k = gl_LocalInvocationID.x; k < gl_LocalInvocationID.x+1; k++) {
+		//		for (int l = gl_LocalInvocationID.y; l < gl_LocalInvocationID.y+1; l++) {
+		//			sum += tx_shared[k][l];
+		//			tot += 1.0; } }
+
+		//	Average value of all local indexes, for all involved workgroups
+		//	for (int k = 0; k < gl_WorkGroupSize.x; k++) {
+		//		for (int l = 0; l < gl_WorkGroupSize.y; l++) {
+		//			sum += tx_shared[k][l];
+		//			tot += 1.0; } }
+
+			barrier();
+
+		}
+		barrier();
+	}
+
+//	vec4 res = vec4(0.0,0.0,1.0,1.0);
+//		ressum / tot;
+
+//	if(tot == 0.0) { res = vec4(0.0,0.0,1.0,1.0); }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 1;
+
+//shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+
+	vec4 	texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+
+//	vec4 	texel 	= nh();
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) ) );
+
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (int i = -1; i < 2; i++) {
+		for (int j = -1; j < 2; j++) {
+
+			ivec2 wg_nbr = ((ivec2(gl_WorkGroupID.xy) + ivec2(i,j) + ivec2(gl_NumWorkGroups.xy)) & (ivec2(gl_NumWorkGroups.xy)-1));
+
+			ivec2 li2D = ivec2(gl_LocalInvocationID.xy) + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+
+			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+			memoryBarrierShared();
+			barrier();
+
+			for (int k = -R; k < R+1; k++) {
+				for (int l = -R; l < R+1; l++) {
+
+					//ivec2 nbh_id = ivec2(gl_WorkGroupSize.xy) * ivec2(i,j) + ivec2(gl_LocalInvocationID.xy);
+
+					if(gl_LocalInvocationID.x+k < 0) {
+						if(i == -1 && j == 0) {
+							
+						}
+					}
+					if(gl_LocalInvocationID.x+k >= 0 && gl_LocalInvocationID.y+l >= 0) {
+						if(gl_LocalInvocationID.x+k < gl_WorkGroupSize.x && gl_LocalInvocationID.y+l < gl_WorkGroupSize.y) {
+							if( i == 0 && j == 0 ) {
+								sum += tx_shared[gl_LocalInvocationID.x+k][gl_LocalInvocationID.y+l];
+								tot += 1.0; } } } } }
+
+
+//			if( i == 0 && j == 0 ) {
+//				sum += tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y];
+//				tot += 1.0; }
+				
+
+//			if( i == 0 && j == 0 ) {
+//				for (int k = -R; k < R+1; k++) {
+//					for (int l = -R; l < R+1; l++) {
+//						if( int(gl_LocalInvocationID.x) + k >= 0 ) {
+//							if( int(gl_LocalInvocationID.y) + l >= 0 ) {
+//								if( int(gl_LocalInvocationID.x) + k < gl_WorkGroupSize.x ) {
+//									if( int(gl_LocalInvocationID.y) + l < gl_WorkGroupSize.y ) {
+//										sum += tx_shared[k][l];
+//										tot += 1.0; } } } } } } }
+
+
+//			if( i == 0 && j == 0 ) {
+//				if( gl_LocalInvocationID.x > R - 1 ) {
+//					if( gl_LocalInvocationID.y > R - 1 ) {
+//						if( gl_LocalInvocationID.x - R < gl_WorkGroupSize.x - R) {
+//							if( gl_LocalInvocationID.y - R < gl_WorkGroupSize.y - R) {
+				
+
+//			if( i == 0 && j == 0 ) {
+//				if( gl_LocalInvocationID.x )
+//			}
+
+		//	Average value of , for 
+//			for (int k = gl_LocalInvocationID.x; k < gl_LocalInvocationID.x+1; k++) {
+//				for (int l = gl_LocalInvocationID.y; l < gl_LocalInvocationID.y+1; l++) {
+//					sum += tx_shared[k][l];
+//					tot += 1.0; } }
+
+		//	Average value of this local index, for all involved workgroups
+		//	for (int k = gl_LocalInvocationID.x; k < gl_LocalInvocationID.x+1; k++) {
+		//		for (int l = gl_LocalInvocationID.y; l < gl_LocalInvocationID.y+1; l++) {
+		//			sum += tx_shared[k][l];
+		//			tot += 1.0; } }
+
+		//	Average value of all local indexes, for all involved workgroups
+		//	for (int k = 0; k < gl_WorkGroupSize.x; k++) {
+		//		for (int l = 0; l < gl_WorkGroupSize.y; l++) {
+		//			sum += tx_shared[k][l];
+		//			tot += 1.0; } }
+
+			barrier();
+
+		}
+		barrier();
+	}
+
+//	vec4 res = vec4(0.0,0.0,1.0,1.0);
+//		ressum / tot;
+
+//	if(tot == 0.0) { res = vec4(0.0,0.0,1.0,1.0); }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 1;
+
+//shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+
+	vec4 	texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+
+//	vec4 	texel 	= nh();
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+
+//	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), imageLoad( img_in, ivec2(gl_GlobalInvocationID.xy) ) );
+
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (int i = -1; i < 2; i++) {
+		for (int j = -1; j < 2; j++) {
+
+			ivec2 wg_nbr = ((ivec2(gl_WorkGroupID.xy) + ivec2(i,j) + ivec2(gl_NumWorkGroups.xy)) & (ivec2(gl_NumWorkGroups.xy)-1));
+
+			ivec2 li2D = ivec2(gl_LocalInvocationID.xy) + ivec2(gl_WorkGroupSize.xy) * wg_nbr;
+
+			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+			memoryBarrierShared();
+			barrier();
+
+			for (uint k = gl_LocalInvocationID.x; k < gl_LocalInvocationID.x+1u; k++) {
+				for (uint l = gl_LocalInvocationID.y; l < gl_LocalInvocationID.y+1u; l++) {
+					sum += tx_shared[k][l];
+					tot += 1.0;
+				}
+			}
+
+			barrier();
+
+		}
+		barrier();
+	}
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 7;
+
+shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+	vec4 	texel 	= nh();
+
+			texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 220 && gl_GlobalInvocationID.x < 350) { texel = vec4(0.0,0.0,0.0,1.0); }
+			if(gl_GlobalInvocationID.y > 220 && gl_GlobalInvocationID.y < 350) { texel = vec4(1.0,1.0,1.0,1.0); }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (uint i = gl_WorkGroupID.x; i < gl_WorkGroupID.x+1u; i++) {
+		for (uint j = gl_WorkGroupID.y; j < gl_WorkGroupID.y+1u; j++) {
+
+			ivec2 li2D = ivec2(
+				gl_LocalInvocationID.x + gl_WorkGroupSize.x * i,
+				gl_LocalInvocationID.y + gl_WorkGroupSize.y * j );
+
+
+			tx_shared[gl_LocalInvocationID.x+R][gl_LocalInvocationID.y+R] = imageLoad( img_in, li2D );
+
+
+			if(gl_LocalInvocationID.x < R) {
+				tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y+R] = imageLoad( img_in, li2D+ivec2(-R,0) );
+				if(gl_LocalInvocationID.y < R) {
+					tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D+ivec2(-R,-R) ); }
+				if(gl_LocalInvocationID.y > (gl_WorkGroupSize.y - 1) - R) {
+					tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y+R*2] = imageLoad( img_in, li2D+ivec2(-R,R) ); } }
+
+			if(gl_LocalInvocationID.y < R) {
+				tx_shared[gl_LocalInvocationID.x+R][gl_LocalInvocationID.y] = imageLoad( img_in, li2D+ivec2(0,-R) ); }
+
+
+			if(gl_LocalInvocationID.x > (gl_WorkGroupSize.x - 1) - R) {
+				tx_shared[gl_LocalInvocationID.x+R*2][gl_LocalInvocationID.y+R] = imageLoad( img_in, li2D+ivec2(R,0) );
+				if(gl_LocalInvocationID.y < R) {
+					tx_shared[gl_LocalInvocationID.x+R*2][gl_LocalInvocationID.y] = imageLoad( img_in, li2D+ivec2(R,-R) ); }
+				if(gl_LocalInvocationID.y > (gl_WorkGroupSize.y - 1) - R) {
+					tx_shared[gl_LocalInvocationID.x+R*2][gl_LocalInvocationID.y+R*2] = imageLoad( img_in, li2D+ivec2(R,R) ); } }
+
+			if(gl_LocalInvocationID.y > (gl_WorkGroupSize.y - 1) - R) {
+				tx_shared[gl_LocalInvocationID.x+R][gl_LocalInvocationID.y+R*2] = imageLoad( img_in, li2D+ivec2(0,R) ); }
+
+
+			memoryBarrierShared();
+			barrier();
+
+			for (int k = -R; k < R+1; k++) {
+				for (int l = -R; l < R+1; l++) {
+					sum += tx_shared[gl_LocalInvocationID.x+R+k][gl_LocalInvocationID.y+R+l];
+					tot += 1.0;
+				}
+			}
+
+//			for (int k = 0; k < gl_WorkGroupSize.x; k++) {
+//				for (int l = 0; l < gl_WorkGroupSize.y; l++) {
+//					sum += tx_shared[k][l];
+//					tot += 1.0;
+//				}
+//			}
+			barrier();
+
+		}
+		barrier();
+	}
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 2;
+
+shared vec4 tx_shared[gl_WorkGroupSize.x][gl_WorkGroupSize.y];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+	vec4 	texel 	= nh();
+
+			texel = vec4( float(gl_GlobalInvocationID.x)/(512.0*1.0), float(gl_GlobalInvocationID.y)/(512.0*1.0), 0.0, 1.0 );
+			if(gl_GlobalInvocationID.x > 256 && gl_GlobalInvocationID.x < 256+128) { texel = vec4(0.0,0.0,0.0,1.0); }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+/*/
+
+	vec4 	sum = vec4(0.0,0.0,0.0,0.0);
+	float 	tot = 0.0;
+
+	for (int i = 0; i < gl_NumWorkGroups.x; i++) {
+		for (int j = 0; j < gl_NumWorkGroups.y; j++) {
+
+			ivec2 li2D = ivec2(
+				gl_LocalInvocationID.x + gl_WorkGroupSize.x * i,
+				gl_LocalInvocationID.y + gl_WorkGroupSize.y * j );
+
+			//li2D = ((li2D + imageSize(img_in)) & (imageSize(img_in)-1));
+
+			tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = imageLoad( img_in, li2D );
+
+			memoryBarrierShared();
+			barrier();
+
+			for (int k = 0; k < gl_WorkGroupSize.x; k++) {
+				for (int l = 0; l < gl_WorkGroupSize.y; l++) {
+					sum += tx_shared[k][l];
+					tot += 1.0;
+				}
+			}
+
+			memoryBarrierShared();
+			barrier();
+
+		}
+		memoryBarrierShared();
+		barrier();
+	}
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum / tot );
+
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout(set = 0, binding = 0, rgba8) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba8) uniform writeonly image2D img_out;
+
+const int R = 2;
+
+shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+/*
+	vec4 	texel 	= nh();
+
+			//texel = vec4( float(gl_GlobalInvocationID.x)/(1024.0*4.0), float(gl_GlobalInvocationID.y)/(1024.0*4.0), 0.0, 1.0 );
+			//if(gl_GlobalInvocationID.x > 512 && gl_GlobalInvocationID.x < 512+64) { texel = vec4(0.0,0.0,0.0,1.0); }
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+/*/
+
+	ivec2 lof = ivec2( gl_LocalInvocationID.x+R, gl_LocalInvocationID.y+R );
+
+	tx_shared[lof[0]][lof[1]] = nb(ivec2(0,0));
+
+//	if(lof[0]-R < R) { tx_shared[lof[0]-R][lof[1]] = nb(ivec2((lof[0]-R)-R,0)); }
+//	if(lof[1]-R < R) { tx_shared[lof[0]][lof[1]-R] = nb(ivec2(0,(lof[1]-R)-R)); }
+
+//	if(lof[0]-R > (gl_WorkGroupSize.x-1)-R) { tx_shared[lof[0]+R][lof[1]] = nb( ivec2( (lof[0]-R) - ((gl_WorkGroupSize.x-1)-R), 0 )); }
+//	if(lof[1]-R > (gl_WorkGroupSize.y-1)-R) { tx_shared[lof[0]][lof[1]+R] = nb( ivec2( 0, (lof[1]-R) - ((gl_WorkGroupSize.y-1)-R) )); }
+
+	memoryBarrierShared();
+	barrier();
+
+	vec4 sum = nhs();
+//	vec4 sum = nbs(ivec2(0,0));
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum );
+/**/
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout(set = 0, binding = 0) readonly buffer InputBuffer{
+    uvec4 tx[];
+} tx_in;
+
+layout(set = 0, binding = 1) buffer OutputBuffer{
+    uvec4 tx[];
+} tx_out;
+
+//uint R = 1u;
+//shared uvec4 tx_shared[ gl_WorkGroupSize.x + 2u * R ][ gl_WorkGroupSize.y + 2u * R ];
+
+shared uvec4 tx_shared[ gl_WorkGroupSize.x * gl_WorkGroupSize.y ];
+
+void main() {
+
+	uint gi1D 	= 	gl_GlobalInvocationID.x
+				+ 	gl_GlobalInvocationID.y * gl_WorkGroupSize.x * gl_WorkGroupSize.y;
+
+	tx_out.tx[gi1D] = tx_in.tx[gi1D];
+
+//	uvec4 res = uvec4(0u,0u,0u,0u);
+//	for(int i = 0; i < gl_WorkGroupSize.x * gl_WorkGroupSize.y; i++) {
+//	res	= tx_in.tx[gi1D]; }
+//	tx_out.tx[gi1D]	=res;
+/*/
+
+	uint gi1D 	= 	gl_GlobalInvocationID.x
+				+ 	gl_GlobalInvocationID.y * gl_WorkGroupSize.x * gl_WorkGroupSize.y;
+
+	uint si1D	= 	gl_LocalInvocationID.x
+				+ 	gl_LocalInvocationID.y 	* gl_WorkGroupSize.x;
+
+	tx_shared[si1D] = tx_in.tx[gi1D];
+
+	memoryBarrier();
+	barrier();
+
+	tx_out.tx[gi1D] = tx_shared[si1D];
+
+/*	uvec4 res = uvec4(0u,0u,0u,0u);
+
+	for(int i = 0; i < gl_WorkGroupSize.x * gl_WorkGroupSize.y; i++) {
+	res = tx_shared[si1D]; }
+	tx_out.tx[gi1D] = res;
+
+	barrier();
+/**/
+
+}
+
+
+#version 460
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, rgba16f) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba16f) uniform writeonly image2D img_out;
+
+const int R = 2;
+
+shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh( int r ) {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -r; x < r+1; x++) {
+		for(int y = -r; y < r+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((r*2+1)*(r*2+1));
+}
+
+void main() {
+
+
+	vec4 	texel 	= nh( R );
+
+			//texel = vec4( float(gl_GlobalInvocationID.x)/(1024.0*4.0), float(gl_GlobalInvocationID.y)/(1024.0*4.0), 0.0, 1.0 );
+			//texel[3] = 1.0;
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+/*/
+
+	tx_shared[gl_LocalInvocationID.x+R][gl_LocalInvocationID.y+R] = nb(ivec2(0,0));
+
+	if(gl_LocalInvocationID.x == 0) { tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y+R] = nb(ivec2(-R,0)); }
+	if(gl_LocalInvocationID.y == 0) { tx_shared[gl_LocalInvocationID.x+R][gl_LocalInvocationID.y] = nb(ivec2(0,-R)); }
+
+	if(gl_LocalInvocationID.x == gl_WorkGroupSize.x-1) { tx_shared[gl_LocalInvocationID.x+R*2][gl_LocalInvocationID.y+R] = nb(ivec2(R,0)); }
+	if(gl_LocalInvocationID.y == gl_WorkGroupSize.y-1) { tx_shared[gl_LocalInvocationID.x+R][gl_LocalInvocationID.y+R*2] = nb(ivec2(0,R)); }
+
+	if( gl_LocalInvocationID.x 	== 0
+	&& gl_LocalInvocationID.y 	== 0						) { tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = nb(ivec2(-R,-R)); }
+
+	if( gl_LocalInvocationID.x 	== gl_WorkGroupSize.x-1
+	&& 	gl_LocalInvocationID.y 	== 0						) { tx_shared[gl_LocalInvocationID.x+R*2][gl_LocalInvocationID.y] = nb(ivec2( R,-R)); }
+
+	if( gl_LocalInvocationID.x 	== 0
+	&& 	gl_LocalInvocationID.y 	== gl_WorkGroupSize.y-1		) { tx_shared[gl_LocalInvocationID.x][gl_LocalInvocationID.y+R*2] = nb(ivec2(-R, R)); }
+
+	if( gl_LocalInvocationID.x 	== gl_WorkGroupSize.x-1
+	&& 	gl_LocalInvocationID.y 	== gl_WorkGroupSize.y-1		) { tx_shared[gl_LocalInvocationID.x+R*2][gl_LocalInvocationID.y+R*2] = nb(ivec2( R, R)); }
+
+	memoryBarrier();
+	barrier();
+
+	vec4 sum 	=(tx_shared[gl_LocalInvocationID.x+R-1][gl_LocalInvocationID.y+R-1]
+				+ tx_shared[gl_LocalInvocationID.x+R+0][gl_LocalInvocationID.y+R-1]
+				+ tx_shared[gl_LocalInvocationID.x+R+1][gl_LocalInvocationID.y+R-1]
+				+ tx_shared[gl_LocalInvocationID.x+R-1][gl_LocalInvocationID.y+R+0]
+				+ tx_shared[gl_LocalInvocationID.x+R+1][gl_LocalInvocationID.y+R+0]
+				+ tx_shared[gl_LocalInvocationID.x+R+1][gl_LocalInvocationID.y+R-1]
+				+ tx_shared[gl_LocalInvocationID.x+R+1][gl_LocalInvocationID.y+R+0]
+				+ tx_shared[gl_LocalInvocationID.x+R+1][gl_LocalInvocationID.y+R+1])/8.0;
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum );
+
+	barrier();
+/**/
+}
+
+
+
+
+
+
+#version 460
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+layout(set = 0, binding = 0, rgba16f) uniform readonly image2D img_in;
+layout(set = 0, binding = 1, rgba16f) uniform writeonly image2D img_out;
+
+const int R = 4;
+
+shared vec4 tx_shared[gl_WorkGroupSize.x+R*2][gl_WorkGroupSize.y+R*2];
+
+vec4 nb( ivec2 of ) {
+	return imageLoad( img_in, (((of + ivec2(gl_GlobalInvocationID.xy)) + imageSize(img_in)) & (imageSize(img_in)-1)) ); }
+
+vec4 nh( int r ) {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -r; x < r+1; x++) {
+		for(int y = -r; y < r+1; y++) {
+			sum += nb( ivec2( x, y ) ); } }
+	return sum / ((r*2+1)*(r*2+1));
+}
+
+vec4 nbs( ivec2 of ) {
+	return tx_shared[gl_LocalInvocationID.x+R+of[0]][gl_LocalInvocationID.y+R+of[1]]; }
+
+vec4 nhs() {
+	vec4 sum = vec4(0.0,0.0,0.0,0.0);
+	for(int x = -R; x < R+1; x++) {
+		for(int y = -R; y < R+1; y++) {
+			sum += nbs( ivec2( x, y ) ); } }
+	return sum / ((R*2+1)*(R*2+1));
+}
+
+void main() {
+
+/*
+	vec4 	texel 	= nh( R );
+
+			//texel = vec4( float(gl_GlobalInvocationID.x)/(1024.0*4.0), float(gl_GlobalInvocationID.y)/(1024.0*4.0), 0.0, 1.0 );
+			//texel[3] = 1.0;
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), texel );
+/*/
+
+	ivec2 lof = ivec2( gl_LocalInvocationID.x+R, gl_LocalInvocationID.y+R );
+
+	tx_shared[lof[0]][lof[1]] = nb(ivec2(0,0));
+
+//	if(lof[0]-R < R) { tx_shared[lof[0]-R][lof[1]] = nb(ivec2((lof[0]-R)-R,0)); }
+//	if(lof[1]-R < R) { tx_shared[lof[0]][lof[1]-R] = nb(ivec2(0,(lof[1]-R)-R)); }
+
+//	if(lof[0]-R > (gl_WorkGroupSize.x-1)-R) { tx_shared[lof[0]+R][lof[1]] = nb( ivec2( (lof[0]-R) - ((gl_WorkGroupSize.x-1)-R), 0 )); }
+//	if(lof[1]-R > (gl_WorkGroupSize.y-1)-R) { tx_shared[lof[0]][lof[1]+R] = nb( ivec2( 0, (lof[1]-R) - ((gl_WorkGroupSize.y-1)-R) )); }
+
+	memoryBarrier();
+	barrier();
+
+	vec4 sum = nhs();
+//	vec4 sum = nbs(ivec2(0,0));
+
+	imageStore( img_out, ivec2(gl_GlobalInvocationID.xy), sum );
+
+	barrier();
+/**/
+}
