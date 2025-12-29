@@ -116,15 +116,22 @@ int main() {
 	VK_Obj vob;
 	VK_Config vkcfg;
 	
-	initVulkanInstance(&vob, &vkcfg, instance_extensions, INST_EXS, 
+	VkResult instanceResult = initVulkanInstance(&vob, &vkcfg, instance_extensions, INST_EXS, 
 					  layer_extensions, LAYR_EXS, &vkres);
+	
+	if (instanceResult != VK_SUCCESS) {
+		ov("Error", "Vulkan instance creation failed. Check if validation layers are installed.");
+		valid = 0;
+	}
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "DEBUG UTILS");			/**/
 	///////////////////////////////////////////////////
 
 	VK_Debug vkdbg;
-	setupDebugMessenger(&vob, &vkdbg, &vkres);
+	if (valid) {
+		setupDebugMessenger(&vob, &vkdbg, &vkres);
+	}
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "PHYSICAL DEVICE");		/**/

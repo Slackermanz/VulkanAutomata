@@ -115,6 +115,12 @@ VkResult setupDebugMessenger(VK_Obj* vob, VK_Debug* vkdbg, std::vector<VkResult>
     auto PFN_VKCDUM = (PFN_vkCreateDebugUtilsMessengerEXT)
         vkGetInstanceProcAddr(vob->VKI, "vkCreateDebugUtilsMessengerEXT");
     
+    if (PFN_VKCDUM == nullptr) {
+        ov("Error", "Failed to load vkCreateDebugUtilsMessengerEXT! Extension may not be available.");
+        valid = 0;
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+    
     // Create debug messenger
     VkResult result = PFN_VKCDUM(vob->VKI, &vkdbg->debug_msg_info, NULL, &vkdbg->vk_debug_utils_messenger_ext);
     vr("vkCreateDebugUtilsMessengerEXT", vkres, vkdbg->vk_debug_utils_messenger_ext, result);
