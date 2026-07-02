@@ -296,35 +296,7 @@ void main() {
         subres_1[1] = dot(subres_0.rgb, nnvg1.rgb);
         subres_1[2] = dot(subres_0.rgb, nnvb1.rgb);
 
-        vec4 nnvr2 = vec4(
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)], bt,  (i&1u)*3u+0u )) / t)*bsn(sb.p[v_idx].v[i+26u],18u),
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)], bt,  (i&1u)*3u+1u )) / t)*bsn(sb.p[v_idx].v[i+26u],19u),
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)], bt,  (i&1u)*3u+2u )) / t)*bsn(sb.p[v_idx].v[i+26u],20u),
-		    1.0
-	    );
-
-	    vec4 nnvg2 = vec4(
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)*2u], bt,  (1u-(i&1u))*3u+0u )) / t)*bsn(sb.p[v_idx].v[i+26u],21u),
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)*2u], bt,  (1u-(i&1u))*3u+1u )) / t)*bsn(sb.p[v_idx].v[i+26u],22u),
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)*2u], bt,  (1u-(i&1u))*3u+2u )) / t)*bsn(sb.p[v_idx].v[i+26u],23u),
-		    1.0
-	    );
-
-	    vec4 nnvb2 = vec4(
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)+1u], bt,  (i&1u)*3u+0u )) / t)*bsn(sb.p[v_idx].v[i+26u],24u),
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)+1u], bt,  (i&1u)*3u+1u )) / t)*bsn(sb.p[v_idx].v[i+26u],25u),
-		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)+1u], bt,  (i&1u)*3u+2u )) / t)*bsn(sb.p[v_idx].v[i+26u],26u),
-		    1.0
-	    );
-
-        // sub-result
-        vec4 subres_2 = vec4(0.0,0.0,0.0,1.0);
-
-        subres_2[0] = dot(subres_1.rgb, nnvr2.rgb);
-        subres_2[1] = dot(subres_1.rgb, nnvg2.rgb);
-        subres_2[2] = dot(subres_1.rgb, nnvb2.rgb);
-
-        res_v += subres_2;
+        res_v += subres_1;
     }
 
     res_c = res_v;
@@ -376,3 +348,5 @@ void main() {
 	out_col 	= res_c;
 
 }
+
+
