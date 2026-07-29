@@ -28,217 +28,217 @@
 #include "vkmodules/Core/Core.h"
 #include "vkmodules/Export/Export.h"
 
-const 	uint32_t 	VERT_FLS 		=  1;	//	Number of Vertex Shader Files
-const 	uint32_t 	FRAG_FLS 		=  1;	//	Number of Fragment Shader Files
-const	int 		MAXLOG 			=  2;
-		int 		valid 			=  1;
-		uint32_t	verbose_loops 	= 12;	// How many loops to output full diagnostics
+const   uint32_t    VERT_FLS        =  1;   //  Number of Vertex Shader Files
+const   uint32_t    FRAG_FLS        =  1;   //  Number of Fragment Shader Files
+const   int         MAXLOG          =  2;
+        int         valid           =  1;
+        uint32_t    verbose_loops   = 12;   // How many loops to output full diagnostics
         uint32_t    panel_n_x_n     =  4;
 
-//	Some shaders require dimensions to be powers of two (fast wrap-around/torus code)
-//		16:9 Resolutions:
-//			W:	1920 	1536 	1280	768		512		384		256
-//			H:	1080 	864  	720		432		288		216		144
-//		2:1 Resolutions:
-//			W:	16384 	8192 	4096	2048	1024	512		256
-//			H:	8192 	4096  	2048	1024	512		256		128
+//  Some shaders require dimensions to be powers of two (fast wrap-around/torus code)
+//      16:9 Resolutions:
+//          W:  1920    1536    1280    768     512     384     256
+//          H:  1080    864     720     432     288     216     144
+//      2:1 Resolutions:
+//          W:  16384   8192    4096    2048    1024    512     256
+//          H:  8192    4096    2048    1024    512     256     128
 
-	const 	uint32_t 	APP_W 	= 64*4*2*4;	//	Window & Simulation Width
-	const 	uint32_t 	APP_H 	= 64*4*1*4;	//	Window & Simulation Height
+    const   uint32_t    APP_W   = 64*4*2*4; //  Window & Simulation Width
+    const   uint32_t    APP_H   = 64*4*1*4; //  Window & Simulation Height
 
 int main() {
 
-//	Set the random seed
-	uint32_t INIT_TIME = time(0);
-	srand(INIT_TIME);
+//  Set the random seed
+    uint32_t INIT_TIME = time(0);
+    srand(INIT_TIME);
 
-//	Result storage
-	std::vector<VkResult> vkres;
+//  Result storage
+    std::vector<VkResult> vkres;
 
-	auto stage_failed = [&](const std::string& stage, VkResult result) {
-		if(result == VK_SUCCESS) { return false; }
-		ov("Error", stage + " failed");
-		ov("VkResult", result);
-		valid = 0;
-		return true;
-	};
+    auto stage_failed = [&](const std::string& stage, VkResult result) {
+        if(result == VK_SUCCESS) { return false; }
+        ov("Error", stage + " failed");
+        ov("VkResult", result);
+        valid = 0;
+        return true;
+    };
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "USER CONFIG");			/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "USER CONFIG");            /**/
+    ///////////////////////////////////////////////////
 
-	EngineInfo ei;
-	initEngineInfo(&ei);
+    EngineInfo ei;
+    initEngineInfo(&ei);
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "APPLICATION INIT");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "APPLICATION INIT");       /**/
+    ///////////////////////////////////////////////////
 
-//	Paths to shader files
-	const 	char* 	filepath_vert		[VERT_FLS]
-	=	{	"./app/vert_TriQuad.spv" 			};
-	const 	char* 	filepath_frag		[FRAG_FLS]
-	=	{	"./app/frag_automata0000.spv"		};
+//  Paths to shader files
+    const   char*   filepath_vert       [VERT_FLS]
+    =   {   "./app/vert_TriQuad.spv"            };
+    const   char*   filepath_frag       [FRAG_FLS]
+    =   {   "./app/frag_automata0000.spv"       };
 
-//	Config Notification Messages
-	ov("Application Width", 	APP_W			);
-	ov("Application Height", 	APP_H			);
-	ov("ei.load_pattern", 		ei.load_pattern	);
-	for(int i = 0; i < VERT_FLS; i++) {	iv("Vertex Shaders", 			filepath_vert[i], 		i ); }
-	for(int i = 0; i < FRAG_FLS; i++) {	iv("Fragment Shaders", 			filepath_frag[i], 		i ); }
+//  Config Notification Messages
+    ov("Application Width",     APP_W           );
+    ov("Application Height",    APP_H           );
+    ov("ei.load_pattern",       ei.load_pattern );
+    for(int i = 0; i < VERT_FLS; i++) { iv("Vertex Shaders",            filepath_vert[i],       i ); }
+    for(int i = 0; i < FRAG_FLS; i++) { iv("Fragment Shaders",          filepath_frag[i],       i ); }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "GLFW EXTENSIONS");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "GLFW EXTENSIONS");        /**/
+    ///////////////////////////////////////////////////
 
-	uint32_t glfw_ext_count = 0;
-	const char** glfw_extentions = nullptr; // Keep original variable name with typo for consistency
-	if (!initGLFWExtensions(&glfw_ext_count, &glfw_extentions, &vkres)) {
-		ov("Error", "GLFW initialization failed or Vulkan surface extensions are unavailable.");
-		return 1;
-	}
+    uint32_t glfw_ext_count = 0;
+    const char** glfw_extentions = nullptr; // Keep original variable name with typo for consistency
+    if (!initGLFWExtensions(&glfw_ext_count, &glfw_extentions, &vkres)) {
+        ov("Error", "GLFW initialization failed or Vulkan surface extensions are unavailable.");
+        return 1;
+    }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "VULKAN EXTENSIONS");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "VULKAN EXTENSIONS");      /**/
+    ///////////////////////////////////////////////////
 
-	std::vector<const char*> instance_extensions;
-	const bool enable_debug_utils =
-		isInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, &vkres);
-	if (enable_debug_utils) {
-		instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	} else {
-		ov("Instance Extension", "VK_EXT_debug_utils not available; continuing without debug messenger.");
-	}
-	for (uint32_t i = 0; i < glfw_ext_count; ++i) {
-		instance_extensions.push_back(glfw_extentions[i]);
-	}
+    std::vector<const char*> instance_extensions;
+    const bool enable_debug_utils =
+        isInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, &vkres);
+    if (enable_debug_utils) {
+        instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    } else {
+        ov("Instance Extension", "VK_EXT_debug_utils not available; continuing without debug messenger.");
+    }
+    for (uint32_t i = 0; i < glfw_ext_count; ++i) {
+        instance_extensions.push_back(glfw_extentions[i]);
+    }
 
-	std::vector<const char*> layer_extensions;
-	const char* validation_layer_name = "VK_LAYER_KHRONOS_validation";
-	if (isInstanceLayerAvailable(validation_layer_name, &vkres)) {
-		layer_extensions.push_back(validation_layer_name);
-	} else {
-		ov("Validation Layer", "VK_LAYER_KHRONOS_validation not available; continuing without validation layer.");
-	}
+    std::vector<const char*> layer_extensions;
+    const char* validation_layer_name = "VK_LAYER_KHRONOS_validation";
+    if (isInstanceLayerAvailable(validation_layer_name, &vkres)) {
+        layer_extensions.push_back(validation_layer_name);
+    } else {
+        ov("Validation Layer", "VK_LAYER_KHRONOS_validation not available; continuing without validation layer.");
+    }
 
-	uint32_t 	INST_EXS 		= static_cast<uint32_t>(instance_extensions.size());
-	uint32_t 	LAYR_EXS 		= static_cast<uint32_t>(layer_extensions.size());
-	uint32_t 	LDEV_EXS 		= 1;					//	Number of Vulkan Logical Device Extensions
+    uint32_t    INST_EXS        = static_cast<uint32_t>(instance_extensions.size());
+    uint32_t    LAYR_EXS        = static_cast<uint32_t>(layer_extensions.size());
+    uint32_t    LDEV_EXS        = 1;                    //  Number of Vulkan Logical Device Extensions
 
-//	Paths to shader files and extension names
-	const 	char* 	device_extensions	[LDEV_EXS]
-	=	{	VK_KHR_SWAPCHAIN_EXTENSION_NAME		};
+//  Paths to shader files and extension names
+    const   char*   device_extensions   [LDEV_EXS]
+    =   {   VK_KHR_SWAPCHAIN_EXTENSION_NAME     };
 
-//	Extension Notification Messages
-	for(uint32_t i = 0; i < INST_EXS; i++) {	iv("Instance Extensions", 		instance_extensions[i], static_cast<int>(i) ); }
-	for(uint32_t i = 0; i < LAYR_EXS; i++) {	iv("Layer Extensions", 			layer_extensions[i], 	static_cast<int>(i) ); }
-	for(int i = 0; i < LDEV_EXS; i++) {	iv("Logical Device Extensions", device_extensions[i], 	i ); }
+//  Extension Notification Messages
+    for(uint32_t i = 0; i < INST_EXS; i++) {    iv("Instance Extensions",       instance_extensions[i], static_cast<int>(i) ); }
+    for(uint32_t i = 0; i < LAYR_EXS; i++) {    iv("Layer Extensions",          layer_extensions[i],    static_cast<int>(i) ); }
+    for(int i = 0; i < LDEV_EXS; i++) { iv("Logical Device Extensions", device_extensions[i],   i ); }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "VULKAN INIT");			/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "VULKAN INIT");            /**/
+    ///////////////////////////////////////////////////
 
-	VK_Obj vob;
-	VK_Config vkcfg;
-	
-	VkResult instanceResult = initVulkanInstance(&vob, &vkcfg, instance_extensions.data(), INST_EXS, 
-					  layer_extensions.data(), LAYR_EXS, &vkres);
-	
-	if(stage_failed("Vulkan instance creation", instanceResult)) { return 1; }
+    VK_Obj vob;
+    VK_Config vkcfg;
+    
+    VkResult instanceResult = initVulkanInstance(&vob, &vkcfg, instance_extensions.data(), INST_EXS, 
+                      layer_extensions.data(), LAYR_EXS, &vkres);
+    
+    if(stage_failed("Vulkan instance creation", instanceResult)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "DEBUG UTILS");			/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "DEBUG UTILS");            /**/
+    ///////////////////////////////////////////////////
 
-	VK_Debug vkdbg;
-	if (valid && enable_debug_utils) {
-		setupDebugMessenger(&vob, &vkdbg, &vkres);
-	} else if (!enable_debug_utils) {
-		rv("Skipping debug messenger setup");
-	}
+    VK_Debug vkdbg;
+    if (valid && enable_debug_utils) {
+        setupDebugMessenger(&vob, &vkdbg, &vkres);
+    } else if (!enable_debug_utils) {
+        rv("Skipping debug messenger setup");
+    }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "PHYSICAL DEVICE");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "PHYSICAL DEVICE");        /**/
+    ///////////////////////////////////////////////////
 
-	VK_PhysDev selectedPdevInfo; // To store properties/features of the selected device
-	VkResult physicalDeviceResult = selectPhysicalDevice(
-		vob.VKI,            // Vulkan instance handle
-		&vob,               // Output: Stores VKP handle and index
-		&selectedPdevInfo,  // Output: Stores selected device properties/features
-		&vkres);            // Result vector
-	if(stage_failed("Physical device selection", physicalDeviceResult)) { return 1; }
+    VK_PhysDev selectedPdevInfo; // To store properties/features of the selected device
+    VkResult physicalDeviceResult = selectPhysicalDevice(
+        vob.VKI,            // Vulkan instance handle
+        &vob,               // Output: Stores VKP handle and index
+        &selectedPdevInfo,  // Output: Stores selected device properties/features
+        &vkres);            // Result vector
+    if(stage_failed("Physical device selection", physicalDeviceResult)) { return 1; }
 
-	// --- Queue Selection ---
-	hd("STAGE:", "QUEUES"); // Keep stage header
+    // --- Queue Selection ---
+    hd("STAGE:", "QUEUES"); // Keep stage header
 
-	uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
-	uint32_t graphicsQueueCount = 0;
-	VkResult queueFamilyResult = findGraphicsQueueFamily(
-		vob.VKP,                // Selected physical device handle
-		&graphicsQueueFamilyIndex, // Output: Queue family index
-		&graphicsQueueCount,       // Output: Queue count in the family
-		&vkres);                // Result vector
-	if(stage_failed("Graphics queue family selection", queueFamilyResult)) { return 1; }
+    uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
+    uint32_t graphicsQueueCount = 0;
+    VkResult queueFamilyResult = findGraphicsQueueFamily(
+        vob.VKP,                // Selected physical device handle
+        &graphicsQueueFamilyIndex, // Output: Queue family index
+        &graphicsQueueCount,       // Output: Queue count in the family
+        &vkres);                // Result vector
+    if(stage_failed("Graphics queue family selection", queueFamilyResult)) { return 1; }
 
-	// Store the found queue index in vob
-	vob.VKQ_i = graphicsQueueFamilyIndex;
+    // Store the found queue index in vob
+    vob.VKQ_i = graphicsQueueFamilyIndex;
 
-	// Setup queue priorities array (using the found queueCount)
-	std::vector<float> gfxQueuePriorities(graphicsQueueCount, 0.0f); // Use std::vector
+    // Setup queue priorities array (using the found queueCount)
+    std::vector<float> gfxQueuePriorities(graphicsQueueCount, 0.0f); // Use std::vector
 
-	VK_PDQueues pdq; // Keep declaration for queue create info struct
-	setupDeviceQueueCreateInfo(
-		vob.VKQ_i,                  // The selected graphics queue family index
-		graphicsQueueCount,         // The number of queues in the family
-		gfxQueuePriorities.data(),  // Pointer to the priorities array
-		&pdq);                      // Output struct
+    VK_PDQueues pdq; // Keep declaration for queue create info struct
+    setupDeviceQueueCreateInfo(
+        vob.VKQ_i,                  // The selected graphics queue family index
+        graphicsQueueCount,         // The number of queues in the family
+        gfxQueuePriorities.data(),  // Pointer to the priorities array
+        &pdq);                      // Output struct
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "GLFW VULKAN SURFACE");	/**/
-	///////////////////////////////////////////////////
-	
-	VkSurfaceKHR 				glfw_surface = VK_NULL_HANDLE; // Initialize
-	VkSurfaceCapabilitiesKHR 	vk_surface_capabilities = {}; // Initialize
-	GLFWwindow* 				glfw_W = nullptr; // Initialize
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "GLFW VULKAN SURFACE");    /**/
+    ///////////////////////////////////////////////////
+    
+    VkSurfaceKHR                glfw_surface = VK_NULL_HANDLE; // Initialize
+    VkSurfaceCapabilitiesKHR    vk_surface_capabilities = {}; // Initialize
+    GLFWwindow*                 glfw_W = nullptr; // Initialize
 
-	VkResult windowSurfaceResult = createGLFWWindowAndSurface(
-		APP_W,                      // Width
-		APP_H,                      // Height
-		vkcfg.app_info.pApplicationName, // Title from app info
-		&vob,                       // Core Vulkan objects
-		&ei,                        // Engine info
-		&glfw_W,                    // Output: Window handle
-		&glfw_surface,              // Output: Surface handle
-		&vk_surface_capabilities,   // Output: Surface capabilities
-		&vkres                      // Result vector
-	);
-	if(stage_failed("GLFW window and surface creation", windowSurfaceResult)) { return 1; }
+    VkResult windowSurfaceResult = createGLFWWindowAndSurface(
+        APP_W,                      // Width
+        APP_H,                      // Height
+        vkcfg.app_info.pApplicationName, // Title from app info
+        &vob,                       // Core Vulkan objects
+        &ei,                        // Engine info
+        &glfw_W,                    // Output: Window handle
+        &glfw_surface,              // Output: Surface handle
+        &vk_surface_capabilities,   // Output: Surface capabilities
+        &vkres                      // Result vector
+    );
+    if(stage_failed("GLFW window and surface creation", windowSurfaceResult)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "LOGICAL DEVICE");			/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "LOGICAL DEVICE");         /**/
+    ///////////////////////////////////////////////////
 
-	VkResult logicalDeviceResult = createLogicalDevice(
-		vob.VKP,                    // Physical device handle
-		&pdq,                       // Struct containing queue create info
-		device_extensions,          // Device extensions array
-		LDEV_EXS,                   // Device extension count
-		&selectedPdevInfo.vk_pdev_feats, // Enabled features from selected physical device
-		&vob,                       // Output: stores logical device handle (VKL)
-		&vkres);                    // Result vector
-	if(stage_failed("Logical device creation", logicalDeviceResult)) { return 1; }
+    VkResult logicalDeviceResult = createLogicalDevice(
+        vob.VKP,                    // Physical device handle
+        &pdq,                       // Struct containing queue create info
+        device_extensions,          // Device extensions array
+        LDEV_EXS,                   // Device extension count
+        &selectedPdevInfo.vk_pdev_feats, // Enabled features from selected physical device
+        &vob,                       // Output: stores logical device handle (VKL)
+        &vkres);                    // Result vector
+    if(stage_failed("Logical device creation", logicalDeviceResult)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SWAPCHAIN");				/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SWAPCHAIN");              /**/
+    ///////////////////////////////////////////////////
 
-	VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE; // Initialize to NULL
-	uint32_t swap_image_count = 0;
-	std::vector<VkImage> vk_image_swapimgs_vec; // Use std::vector
+    VkSwapchainKHR vk_swapchain = VK_NULL_HANDLE; // Initialize to NULL
+    uint32_t swap_image_count = 0;
+    std::vector<VkImage> vk_image_swapimgs_vec; // Use std::vector
 
-	if(!ei.run_headless) {
+    if(!ei.run_headless) {
         VkResult swapchainResult = createSwapChain(
             &vob,                       // Core Vulkan objects
             glfw_surface,               // Window surface
@@ -256,1314 +256,1314 @@ int main() {
             valid = 0;
             return 1;
         }
-	} else { rv("Headless Mode Enabled!"); }
+    } else { rv("Headless Mode Enabled!"); }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK LAYER IMAGES");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "WORK LAYER IMAGES");      /**/
+    ///////////////////////////////////////////////////
 
-	VK_Layer_2x2D work; // Keep the declaration of the struct array
+    VK_Layer_2x2D work; // Keep the declaration of the struct array
 
-	for(int i = 0; i < 2; i++) {
-		// Use a temporary VK_Layer_1x2D to pass to the function
-		VK_Layer_1x2D tempImageData;
+    for(int i = 0; i < 2; i++) {
+        // Use a temporary VK_Layer_1x2D to pass to the function
+        VK_Layer_1x2D tempImageData;
 
-		VkResult workImageResult = createImage(
-			vob.VKL,                    // Logical device
-			vob.VKP,                    // Physical device
-			APP_W,                      // Width
-			APP_H,                      // Height
-			VK_FORMAT_R16G16B16A16_UNORM, // Format
-			VK_IMAGE_TILING_OPTIMAL,    // Tiling
-			VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // Usage flags
-			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // Memory properties
-			VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
-			NULL,                       // pQueueFamilyIndices (optional for exclusive)
-			0,                          // queueFamilyIndexCount
-			&tempImageData,             // Output struct (single image data)
-			&vkres);                    // Result vector
-		if(stage_failed("Work image creation", workImageResult)) { return 1; }
+        VkResult workImageResult = createImage(
+            vob.VKL,                    // Logical device
+            vob.VKP,                    // Physical device
+            APP_W,                      // Width
+            APP_H,                      // Height
+            VK_FORMAT_R16G16B16A16_UNORM, // Format
+            VK_IMAGE_TILING_OPTIMAL,    // Tiling
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // Usage flags
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // Memory properties
+            VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+            NULL,                       // pQueueFamilyIndices (optional for exclusive)
+            0,                          // queueFamilyIndexCount
+            &tempImageData,             // Output struct (single image data)
+            &vkres);                    // Result vector
+        if(stage_failed("Work image creation", workImageResult)) { return 1; }
 
-		// Copy results from temp struct to the correct index in the work array
-		work.ext3D[i] = tempImageData.ext3D;
-		work.img_info[i] = tempImageData.img_info;
-		work.vk_image[i] = tempImageData.vk_image;
-		work.MTB_index[i] = tempImageData.MTB_index;
-		work.vk_mem_reqs[i] = tempImageData.vk_mem_reqs;
-		work.vk_mem_allo_info[i] = tempImageData.vk_mem_allo_info;
-		work.vk_dev_mem[i] = tempImageData.vk_dev_mem;
-	}
-	
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "BLIT EXPORT IMAGE");		/**/
-	///////////////////////////////////////////////////
+        // Copy results from temp struct to the correct index in the work array
+        work.ext3D[i] = tempImageData.ext3D;
+        work.img_info[i] = tempImageData.img_info;
+        work.vk_image[i] = tempImageData.vk_image;
+        work.MTB_index[i] = tempImageData.MTB_index;
+        work.vk_mem_reqs[i] = tempImageData.vk_mem_reqs;
+        work.vk_mem_allo_info[i] = tempImageData.vk_mem_allo_info;
+        work.vk_dev_mem[i] = tempImageData.vk_dev_mem;
+    }
+    
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "BLIT EXPORT IMAGE");      /**/
+    ///////////////////////////////////////////////////
 
-	VK_Layer_1x2D blit; // Keep the declaration
+    VK_Layer_1x2D blit; // Keep the declaration
 
-	VkResult blitImageResult = createImage(
-		vob.VKL,                    // Logical device
-		vob.VKP,                    // Physical device
-		APP_W,                      // Width
-		APP_H,                      // Height
-		VK_FORMAT_R8G8B8A8_UNORM,   // Format
-		VK_IMAGE_TILING_OPTIMAL,    // Tiling
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // Usage flags
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // Memory properties
-		VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
-		NULL,                       // pQueueFamilyIndices
-		0,                          // queueFamilyIndexCount
-		&blit,                      // Output struct (directly use 'blit' here)
-		&vkres);                    // Result vector
-	if(stage_failed("Blit export image creation", blitImageResult)) { return 1; }
+    VkResult blitImageResult = createImage(
+        vob.VKL,                    // Logical device
+        vob.VKP,                    // Physical device
+        APP_W,                      // Width
+        APP_H,                      // Height
+        VK_FORMAT_R8G8B8A8_UNORM,   // Format
+        VK_IMAGE_TILING_OPTIMAL,    // Tiling
+        VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, // Usage flags
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, // Memory properties
+        VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+        NULL,                       // pQueueFamilyIndices
+        0,                          // queueFamilyIndexCount
+        &blit,                      // Output struct (directly use 'blit' here)
+        &vkres);                    // Result vector
+    if(stage_failed("Blit export image creation", blitImageResult)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "BLIT EXPORT BUFFER");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "BLIT EXPORT BUFFER");     /**/
+    ///////////////////////////////////////////////////
 
-	VK_Buffer_Data blit2buff_data; // Declare the new struct
-	VkDeviceSize blit_buffer_size = blit.vk_mem_reqs.size; // Get size from the blit image mem reqs
-	VkResult blitBufferResult = createBuffer(
-		vob.VKL,
-		vob.VKP,
-		blit_buffer_size, // Use the size from the blit image
-		VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
-		VK_SHARING_MODE_EXCLUSIVE,
-		&vob.VKQ_i, // Pass address of the queue index
-		1,          // Queue family index count
-		&blit2buff_data, // Pass the address of our data struct
-		&vkres);
-	if(stage_failed("Blit export buffer creation", blitBufferResult)) { return 1; }
+    VK_Buffer_Data blit2buff_data; // Declare the new struct
+    VkDeviceSize blit_buffer_size = blit.vk_mem_reqs.size; // Get size from the blit image mem reqs
+    VkResult blitBufferResult = createBuffer(
+        vob.VKL,
+        vob.VKP,
+        blit_buffer_size, // Use the size from the blit image
+        VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+        VK_SHARING_MODE_EXCLUSIVE,
+        &vob.VKQ_i, // Pass address of the queue index
+        1,          // Queue family index count
+        &blit2buff_data, // Pass the address of our data struct
+        &vkres);
+    if(stage_failed("Blit export buffer creation", blitBufferResult)) { return 1; }
 
-	//	Map the memory location on the GPU to export image data
-		void* pvoid_blit2buff = nullptr;
-		VkResult map_blit2buff_result =
-			vkMapMemory(vob.VKL, blit2buff_data.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff);
-		vr("vkMapMemory", &vkres, pvoid_blit2buff, map_blit2buff_result);
-		if(stage_failed("Blit export buffer mapping", map_blit2buff_result)) { return 1; }
+    //  Map the memory location on the GPU to export image data
+        void* pvoid_blit2buff = nullptr;
+        VkResult map_blit2buff_result =
+            vkMapMemory(vob.VKL, blit2buff_data.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff);
+        vr("vkMapMemory", &vkres, pvoid_blit2buff, map_blit2buff_result);
+        if(stage_failed("Blit export buffer mapping", map_blit2buff_result)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SHADER DATA");			/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SHADER DATA");            /**/
+    ///////////////////////////////////////////////////
 
-	ShaderData shade_data[VERT_FLS + FRAG_FLS]; // Keep declaration
+    ShaderData shade_data[VERT_FLS + FRAG_FLS]; // Keep declaration
 
-	// Load Vertex Shaders
-	for (int i = 0; i < VERT_FLS; i++) {
-		VkResult shaderResult = loadAndCreateShaderModule(
-			vob.VKL,
-			filepath_vert[i],
-			&shade_data[i], // Output struct for this shader
-			&vkres);
-		if(shaderResult != VK_SUCCESS) {
-			ov("Error", "Vertex shader load failed; aborting before pipeline creation.");
-			valid = 0;
-			return 1;
-		}
-		shade_data[i].stage_bits = VK_SHADER_STAGE_VERTEX_BIT; // Set stage after loading
-	}
+    // Load Vertex Shaders
+    for (int i = 0; i < VERT_FLS; i++) {
+        VkResult shaderResult = loadAndCreateShaderModule(
+            vob.VKL,
+            filepath_vert[i],
+            &shade_data[i], // Output struct for this shader
+            &vkres);
+        if(shaderResult != VK_SUCCESS) {
+            ov("Error", "Vertex shader load failed; aborting before pipeline creation.");
+            valid = 0;
+            return 1;
+        }
+        shade_data[i].stage_bits = VK_SHADER_STAGE_VERTEX_BIT; // Set stage after loading
+    }
 
-	// Load Fragment Shaders
-	for (int i = VERT_FLS; i < VERT_FLS + FRAG_FLS; i++) {
-		VkResult shaderResult = loadAndCreateShaderModule(
-			vob.VKL,
-			filepath_frag[i - VERT_FLS], // Adjust index for frag file array
-			&shade_data[i], // Output struct for this shader
-			&vkres);
-		if(shaderResult != VK_SUCCESS) {
-			ov("Error", "Fragment shader load failed; aborting before pipeline creation.");
-			valid = 0;
-			return 1;
-		}
-		shade_data[i].stage_bits = VK_SHADER_STAGE_FRAGMENT_BIT; // Set stage after loading
-	}
+    // Load Fragment Shaders
+    for (int i = VERT_FLS; i < VERT_FLS + FRAG_FLS; i++) {
+        VkResult shaderResult = loadAndCreateShaderModule(
+            vob.VKL,
+            filepath_frag[i - VERT_FLS], // Adjust index for frag file array
+            &shade_data[i], // Output struct for this shader
+            &vkres);
+        if(shaderResult != VK_SUCCESS) {
+            ov("Error", "Fragment shader load failed; aborting before pipeline creation.");
+            valid = 0;
+            return 1;
+        }
+        shade_data[i].stage_bits = VK_SHADER_STAGE_FRAGMENT_BIT; // Set stage after loading
+    }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RENDERPASS INFO");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RENDERPASS INFO");        /**/
+    ///////////////////////////////////////////////////
 
-	VK_RPConfig rpass_info; // Keep declaration
+    VK_RPConfig rpass_info; // Keep declaration
 
-	setupRenderPassConfiguration(
-		APP_W,          // Application width
-		APP_H,          // Application height
-		&rpass_info     // Output struct to be filled
-	);
+    setupRenderPassConfiguration(
+        APP_W,          // Application width
+        APP_H,          // Application height
+        &rpass_info     // Output struct to be filled
+    );
 
-	// --- Keep the Sampler creation call that follows ---
-	VkResult samplerResult = createDefaultSampler(
-		vob.VKL,
-		&rpass_info.vk_sampler,
-		&vkres);
-	if(stage_failed("Default sampler creation", samplerResult)) { return 1; }
+    // --- Keep the Sampler creation call that follows ---
+    VkResult samplerResult = createDefaultSampler(
+        vob.VKL,
+        &rpass_info.vk_sampler,
+        &vkres);
+    if(stage_failed("Default sampler creation", samplerResult)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "PIPELINE INFO"); 			/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "PIPELINE INFO");          /**/
+    ///////////////////////////////////////////////////
 
-	VK_PipeInfo pipe_info; // Keep declaration
+    VK_PipeInfo pipe_info; // Keep declaration
 
-	setupPipelineInfoDefaults(
-		&pipe_info,     // Output struct to be filled
-		&rpass_info     // Input struct containing viewport/scissor
-	);
+    setupPipelineInfoDefaults(
+        &pipe_info,     // Output struct to be filled
+        &rpass_info     // Input struct containing viewport/scissor
+    );
 
-	// --- Keep the shader stage setup loop that follows ---
-	for(int i = 0; i < VERT_FLS+FRAG_FLS; i++) {
-		pipe_info.p_shad_info[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-		nf(&pipe_info.p_shad_info[i]);
-		pipe_info.p_shad_info[i].stage = shade_data[i].stage_bits;
-		pipe_info.p_shad_info[i].module = shade_data[i].vk_shader_module;
-		pipe_info.p_shad_info[i].pName = "main";
-		pipe_info.p_shad_info[i].pSpecializationInfo = NULL;
-	}
+    // --- Keep the shader stage setup loop that follows ---
+    for(int i = 0; i < VERT_FLS+FRAG_FLS; i++) {
+        pipe_info.p_shad_info[i].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        nf(&pipe_info.p_shad_info[i]);
+        pipe_info.p_shad_info[i].stage = shade_data[i].stage_bits;
+        pipe_info.p_shad_info[i].module = shade_data[i].vk_shader_module;
+        pipe_info.p_shad_info[i].pName = "main";
+        pipe_info.p_shad_info[i].pSpecializationInfo = NULL;
+    }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "COMMAND BUFFERS");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "COMMAND BUFFERS");        /**/
+    ///////////////////////////////////////////////////
 
-	// Are all of these used? TODO
+    // Are all of these used? TODO
 
-	std::vector<VK_Command> combuf_blit2buff_sing(1);
-	if(stage_failed("Blit-to-buffer command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_blit2buff_sing.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_blit2buff_sing(1);
+    if(stage_failed("Blit-to-buffer command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_blit2buff_sing.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_imgui_loop(swap_image_count);
-	if(stage_failed("ImGui loop command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_imgui_loop.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_imgui_loop(swap_image_count);
+    if(stage_failed("ImGui loop command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_imgui_loop.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_pres_init(swap_image_count);
-	if(stage_failed("Presentation init command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_pres_init.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_pres_init(swap_image_count);
+    if(stage_failed("Presentation init command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_pres_init.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_pres_loop(swap_image_count * 2);
+    std::vector<VK_Command> combuf_pres_loop(swap_image_count * 2);
     // Note the count is swap_image_count * 2
     if(stage_failed("Presentation loop command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count * 2, combuf_pres_loop.data(), &vkres))) { return 1; }
+        createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count * 2, combuf_pres_loop.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_work_init(2);
-	if(stage_failed("Work init command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_init.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_work_init(2);
+    if(stage_failed("Work init command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_init.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_work_loop(2);
-	if(stage_failed("Work loop command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_loop.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_work_loop(2);
+    if(stage_failed("Work loop command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_loop.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_work_imagedata_init(1);
-	if(stage_failed("Image-data init command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_work_imagedata_init.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_work_imagedata_init(1);
+    if(stage_failed("Image-data init command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_work_imagedata_init.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_work_imagedata(2);
-	if(stage_failed("Image-data loop command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_imagedata.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_work_imagedata(2);
+    if(stage_failed("Image-data loop command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_imagedata.data(), &vkres))) { return 1; }
 
-	std::vector<VK_Command> combuf_blit_imgui_loop(swap_image_count);
-	if(stage_failed("Blit ImGui command buffer creation",
-		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_blit_imgui_loop.data(), &vkres))) { return 1; }
+    std::vector<VK_Command> combuf_blit_imgui_loop(swap_image_count);
+    if(stage_failed("Blit ImGui command buffer creation",
+        createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_blit_imgui_loop.data(), &vkres))) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "QUEUE SYNC");				/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "QUEUE SYNC");             /**/
+    ///////////////////////////////////////////////////
 
-	VK_QueueSync qsync; // Keep declaration
+    VK_QueueSync qsync; // Keep declaration
 
-	getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &qsync.vk_queue);
-	setupBasicSubmitInfo(&qsync); // Setup basic submit info (no semaphores)
+    getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &qsync.vk_queue);
+    setupBasicSubmitInfo(&qsync); // Setup basic submit info (no semaphores)
 
-	// Keep fence creation call
-	VkResult queueFenceResult = createFence(vob.VKL, 0, &qsync.vk_fence, &vkres);
-	if(stage_failed("Queue fence creation", queueFenceResult)) { return 1; }
+    // Keep fence creation call
+    VkResult queueFenceResult = createFence(vob.VKL, 0, &qsync.vk_fence, &vkres);
+    if(stage_failed("Queue fence creation", queueFenceResult)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SWAPCHAIN SYNC");			/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SWAPCHAIN SYNC");         /**/
+    ///////////////////////////////////////////////////
 
-	VkSemaphore vk_semaphore_swapchain_img_acq; // Keep declaration
-	VkResult acquireSemaphoreResult = createSemaphore(
-		vob.VKL,
-		&vk_semaphore_swapchain_img_acq,
-		&vkres);
-	if(stage_failed("Swapchain acquire semaphore creation", acquireSemaphoreResult)) { return 1; }
+    VkSemaphore vk_semaphore_swapchain_img_acq; // Keep declaration
+    VkResult acquireSemaphoreResult = createSemaphore(
+        vob.VKL,
+        &vk_semaphore_swapchain_img_acq,
+        &vkres);
+    if(stage_failed("Swapchain acquire semaphore creation", acquireSemaphoreResult)) { return 1; }
 
-	VkSemaphore vk_semaphore_swapchain_imgui; // Keep declaration
-	VkResult imguiSemaphoreResult = createSemaphore(
-		vob.VKL,
-		&vk_semaphore_swapchain_imgui,
-		&vkres);
-	if(stage_failed("Swapchain ImGui semaphore creation", imguiSemaphoreResult)) { return 1; }
+    VkSemaphore vk_semaphore_swapchain_imgui; // Keep declaration
+    VkResult imguiSemaphoreResult = createSemaphore(
+        vob.VKL,
+        &vk_semaphore_swapchain_imgui,
+        &vkres);
+    if(stage_failed("Swapchain ImGui semaphore creation", imguiSemaphoreResult)) { return 1; }
 
-	VkSemaphore vk_semaphore_swapchain_pres; // Keep declaration
-	VkResult presentSemaphoreResult = createSemaphore(
-		vob.VKL,
-		&vk_semaphore_swapchain_pres,
-		&vkres);
-	if(stage_failed("Swapchain present semaphore creation", presentSemaphoreResult)) { return 1; }
+    VkSemaphore vk_semaphore_swapchain_pres; // Keep declaration
+    VkResult presentSemaphoreResult = createSemaphore(
+        vob.VKL,
+        &vk_semaphore_swapchain_pres,
+        &vkres);
+    if(stage_failed("Swapchain present semaphore creation", presentSemaphoreResult)) { return 1; }
 
-	uint32_t swap_image_index = 0;
+    uint32_t swap_image_index = 0;
 
-	VK_QueueSync swpsync; // Keep declaration
-	getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync.vk_queue);
-	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Keep stage flag
-	setupPresentSubmitInfo(
-		&vk_semaphore_swapchain_img_acq, // Pass address
-		&vk_pipeline_stage_flags_swpsync, // Pass address
-		&vk_semaphore_swapchain_imgui,   // Pass address
-		&swpsync);                    // Output struct
+    VK_QueueSync swpsync; // Keep declaration
+    getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync.vk_queue);
+    VkPipelineStageFlags vk_pipeline_stage_flags_swpsync = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Keep stage flag
+    setupPresentSubmitInfo(
+        &vk_semaphore_swapchain_img_acq, // Pass address
+        &vk_pipeline_stage_flags_swpsync, // Pass address
+        &vk_semaphore_swapchain_imgui,   // Pass address
+        &swpsync);                    // Output struct
 
-	VK_QueueSync swpsync_imgui; // Keep declaration
-	getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync_imgui.vk_queue);
-	VkPipelineStageFlags vk_pipeline_stage_flags_swpsync_imgui = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Keep stage flag
-	setupImGuiSubmitInfo(
-		&vk_semaphore_swapchain_imgui, // Pass address
-		&vk_pipeline_stage_flags_swpsync_imgui, // Pass address
-		&vk_semaphore_swapchain_pres,   // Pass address
-		&swpsync_imgui);
+    VK_QueueSync swpsync_imgui; // Keep declaration
+    getDeviceQueue(vob.VKL, vob.VKQ_i, 0, &swpsync_imgui.vk_queue);
+    VkPipelineStageFlags vk_pipeline_stage_flags_swpsync_imgui = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // Keep stage flag
+    setupImGuiSubmitInfo(
+        &vk_semaphore_swapchain_imgui, // Pass address
+        &vk_pipeline_stage_flags_swpsync_imgui, // Pass address
+        &vk_semaphore_swapchain_pres,   // Pass address
+        &swpsync_imgui);
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK IMAGE VIEWS");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "WORK IMAGE VIEWS");       /**/
+    ///////////////////////////////////////////////////
 
-	VK_ImageView work_init[2]; // Keep declaration
+    VK_ImageView work_init[2]; // Keep declaration
 
-	for(int i = 0; i < 2; i++) {
-		VkResult workViewResult = createImageView(
-			vob.VKL,                    // Logical device
-			work.vk_image[i],           // Source image handle from work array
-			work.img_info[i].format,    // Format from work image info
-			VK_IMAGE_ASPECT_COLOR_BIT,  // Aspect flags
-			&work_init[i],              // Output struct for this view
-			&vkres);                    // Result vector
-		if(stage_failed("Work image view creation", workViewResult)) { return 1; }
+    for(int i = 0; i < 2; i++) {
+        VkResult workViewResult = createImageView(
+            vob.VKL,                    // Logical device
+            work.vk_image[i],           // Source image handle from work array
+            work.img_info[i].format,    // Format from work image info
+            VK_IMAGE_ASPECT_COLOR_BIT,  // Aspect flags
+            &work_init[i],              // Output struct for this view
+            &vkres);                    // Result vector
+        if(stage_failed("Work image view creation", workViewResult)) { return 1; }
 
-		// --- Keep the Image Memory Barrier setup that follows ---
-		work_init[i].img_mem_barr.sType                 = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-		work_init[i].img_mem_barr.pNext                 = NULL;
-		work_init[i].img_mem_barr.srcAccessMask         = 0;
-		work_init[i].img_mem_barr.dstAccessMask         = 0;
-		work_init[i].img_mem_barr.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
-		work_init[i].img_mem_barr.newLayout             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		work_init[i].img_mem_barr.srcQueueFamilyIndex   = vob.VKQ_i;
-		work_init[i].img_mem_barr.dstQueueFamilyIndex   = vob.VKQ_i;
-		work_init[i].img_mem_barr.image                 = work.vk_image[i];
-		work_init[i].img_mem_barr.subresourceRange      = rpass_info.img_subres_range;
-	}
+        // --- Keep the Image Memory Barrier setup that follows ---
+        work_init[i].img_mem_barr.sType                 = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        work_init[i].img_mem_barr.pNext                 = NULL;
+        work_init[i].img_mem_barr.srcAccessMask         = 0;
+        work_init[i].img_mem_barr.dstAccessMask         = 0;
+        work_init[i].img_mem_barr.oldLayout             = VK_IMAGE_LAYOUT_UNDEFINED;
+        work_init[i].img_mem_barr.newLayout             = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        work_init[i].img_mem_barr.srcQueueFamilyIndex   = vob.VKQ_i;
+        work_init[i].img_mem_barr.dstQueueFamilyIndex   = vob.VKQ_i;
+        work_init[i].img_mem_barr.image                 = work.vk_image[i];
+        work_init[i].img_mem_barr.subresourceRange      = rpass_info.img_subres_range;
+    }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD WORK_INIT");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD WORK_INIT");       /**/
+    ///////////////////////////////////////////////////
 
-	for(int i = 0; i < 2; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_work_init[i].vk_command_buffer, &combuf_work_init[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record work init command buffer begin", beginResult)) { return 1; }
+    for(int i = 0; i < 2; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_work_init[i].vk_command_buffer, &combuf_work_init[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record work init command buffer begin", beginResult)) { return 1; }
 
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_work_init[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &work_init[i].img_mem_barr );
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_work_init[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &work_init[i].img_mem_barr );
 
-		VkResult endResult = vkEndCommandBuffer(combuf_work_init[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record work init command buffer end", endResult)) { return 1; } }
+        VkResult endResult = vkEndCommandBuffer(combuf_work_init[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record work init command buffer end", endResult)) { return 1; } }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SUBMIT WORK_INIT");		/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SUBMIT WORK_INIT");       /**/
+    ///////////////////////////////////////////////////
 
-	for(int i = 0; i < 2; i++) {
-		if(valid) {
-			rv("vkcombuf_work_init");
-				qsync.sub_info.pCommandBuffers = &combuf_work_init[i].vk_command_buffer;
-			vr("vkQueueSubmit", &vkres, i,
-				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
+    for(int i = 0; i < 2; i++) {
+        if(valid) {
+            rv("vkcombuf_work_init");
+                qsync.sub_info.pCommandBuffers = &combuf_work_init[i].vk_command_buffer;
+            vr("vkQueueSubmit", &vkres, i,
+                vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK DESCRIPTOR SETS");	/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "WORK DESCRIPTOR SETS");   /**/
+    ///////////////////////////////////////////////////
 
-	VK_DescSetLayout3 dsl_work;
+    VK_DescSetLayout3 dsl_work;
 
-	VkResult descriptorSetResult = createWorkDescriptorSet(
-		vob.VKL,        // Logical device
-		&dsl_work,      // Input/Output struct for layout, pool, sets
-		2,              // Number of sets to allocate (for ping-pong)
-		&vkres);        // Result vector
-	if(stage_failed("Work descriptor set creation", descriptorSetResult)) { return 1; }
+    VkResult descriptorSetResult = createWorkDescriptorSet(
+        vob.VKL,        // Logical device
+        &dsl_work,      // Input/Output struct for layout, pool, sets
+        2,              // Number of sets to allocate (for ping-pong)
+        &vkres);        // Result vector
+    if(stage_failed("Work descriptor set creation", descriptorSetResult)) { return 1; }
 
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK UNIFORM BUFFER");	/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "WORK UNIFORM BUFFER");    /**/
+    ///////////////////////////////////////////////////
 
-	VkDeviceSize vkdevsize_work;
-	vkdevsize_work = sizeof(UB32_64);
-	ov("UB32_64 size", vkdevsize_work);
+    VkDeviceSize vkdevsize_work;
+    vkdevsize_work = sizeof(UB32_64);
+    ov("UB32_64 size", vkdevsize_work);
 
-	VK_Buffer_Data work_ub_data; // Struct to hold results
-	VkResult uniformBufferResult = createBuffer(
-		vob.VKL,                    // Logical device
-		vob.VKP,                    // Physical device
-		vkdevsize_work,             // Size of the buffer
-		VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // Usage flags
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // Memory properties
-		VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
-		&vob.VKQ_i,                 // Queue family indices
-		1,                          // Queue family index count
-		&work_ub_data,              // Output struct
-		&vkres);                    // Result vector
-	if(stage_failed("Work uniform buffer creation", uniformBufferResult)) { return 1; }
+    VK_Buffer_Data work_ub_data; // Struct to hold results
+    VkResult uniformBufferResult = createBuffer(
+        vob.VKL,                    // Logical device
+        vob.VKP,                    // Physical device
+        vkdevsize_work,             // Size of the buffer
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, // Usage flags
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // Memory properties
+        VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+        &vob.VKQ_i,                 // Queue family indices
+        1,                          // Queue family index count
+        &work_ub_data,              // Output struct
+        &vkres);                    // Result vector
+    if(stage_failed("Work uniform buffer creation", uniformBufferResult)) { return 1; }
 
-	// --- Keep the original descriptor info setup ---
-	VkBuffer vkbuff_work = work_ub_data.vk_buffer; // Get the buffer handle
-	VkDeviceMemory vkdevmem_ub_work = work_ub_data.vk_dev_mem; // Get the memory handle
+    // --- Keep the original descriptor info setup ---
+    VkBuffer vkbuff_work = work_ub_data.vk_buffer; // Get the buffer handle
+    VkDeviceMemory vkdevmem_ub_work = work_ub_data.vk_dev_mem; // Get the memory handle
 
     VkDescriptorBufferInfo vkDescBuff_info_work;
         vkDescBuff_info_work.buffer         = vkbuff_work;
         vkDescBuff_info_work.offset         = 0;
         vkDescBuff_info_work.range          = VK_WHOLE_SIZE;
 
-	// --- Keep the original vkMapMemory call ---
-	void *pvoid_memmap_work = nullptr;
-	VkResult map_work_result =
-		vkMapMemory(vob.VKL, vkdevmem_ub_work, vkDescBuff_info_work.offset, vkDescBuff_info_work.range, 0, &pvoid_memmap_work);
-	vr("vkMapMemory", &vkres, pvoid_memmap_work, map_work_result);
-	if(stage_failed("Work uniform buffer mapping", map_work_result)) { return 1; }
+    // --- Keep the original vkMapMemory call ---
+    void *pvoid_memmap_work = nullptr;
+    VkResult map_work_result =
+        vkMapMemory(vob.VKL, vkdevmem_ub_work, vkDescBuff_info_work.offset, vkDescBuff_info_work.range, 0, &pvoid_memmap_work);
+    vr("vkMapMemory", &vkres, pvoid_memmap_work, map_work_result);
+    if(stage_failed("Work uniform buffer mapping", map_work_result)) { return 1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SSBO");	/**/
-	///////////////////////////////////////////////////
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SSBO");   /**/
+    ///////////////////////////////////////////////////
 
 
-	VkDeviceSize vkdevsize_ssbo;
-	vkdevsize_ssbo = sizeof(UB32_64) * 16;
-	ov("UB32_64 * 16 size", vkdevsize_ssbo);
+    VkDeviceSize vkdevsize_ssbo;
+    vkdevsize_ssbo = sizeof(UB32_64) * 16;
+    ov("UB32_64 * 16 size", vkdevsize_ssbo);
 
-	VK_Buffer_Data work_ssbo_data; // Struct to hold results
-	VkResult ssboBufferResult = createBuffer(
-		vob.VKL,                    // Logical device
-		vob.VKP,                    // Physical device
-		vkdevsize_ssbo,             // Size of the buffer
-		VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, // Usage flags
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // Memory properties
-		VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
-		&vob.VKQ_i,                 // Queue family indices
-		1,                          // Queue family index count
-		&work_ssbo_data,            // Output struct
-		&vkres);                    // Result vector
-	if(stage_failed("Work SSBO creation", ssboBufferResult)) { return 1; }
+    VK_Buffer_Data work_ssbo_data; // Struct to hold results
+    VkResult ssboBufferResult = createBuffer(
+        vob.VKL,                    // Logical device
+        vob.VKP,                    // Physical device
+        vkdevsize_ssbo,             // Size of the buffer
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, // Usage flags
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, // Memory properties
+        VK_SHARING_MODE_EXCLUSIVE,  // Sharing mode
+        &vob.VKQ_i,                 // Queue family indices
+        1,                          // Queue family index count
+        &work_ssbo_data,            // Output struct
+        &vkres);                    // Result vector
+    if(stage_failed("Work SSBO creation", ssboBufferResult)) { return 1; }
 
-	// --- Keep the original descriptor info setup ---
-	VkBuffer vkbuff_ssbo = work_ssbo_data.vk_buffer; // Get the buffer handle
-	VkDeviceMemory vkdevmem_sb_work = work_ssbo_data.vk_dev_mem; // Get the memory handle
+    // --- Keep the original descriptor info setup ---
+    VkBuffer vkbuff_ssbo = work_ssbo_data.vk_buffer; // Get the buffer handle
+    VkDeviceMemory vkdevmem_sb_work = work_ssbo_data.vk_dev_mem; // Get the memory handle
 
     VkDescriptorBufferInfo vkDescBuff_info_ssbo;
         vkDescBuff_info_ssbo.buffer         = vkbuff_ssbo;
         vkDescBuff_info_ssbo.offset         = 0;
         vkDescBuff_info_ssbo.range          = VK_WHOLE_SIZE;
 
-	// --- Keep the original vkMapMemory call ---
-	void *pvoid_memmap_ssbo = nullptr;
-	VkResult map_ssbo_result =
-		vkMapMemory(vob.VKL, vkdevmem_sb_work, vkDescBuff_info_ssbo.offset, vkDescBuff_info_ssbo.range, 0, &pvoid_memmap_ssbo);
-	vr("vkMapMemory", &vkres, pvoid_memmap_ssbo, map_ssbo_result);
-	if(stage_failed("Work SSBO mapping", map_ssbo_result)) { return 1; }
-
-	// Perform bulk update of descriptor sets after all resources are ready
-	updateWorkDescriptorSets(
-		vob.VKL,                        // Logical device
-		&dsl_work,                      // Struct containing the allocated descriptor sets
-		rpass_info.vk_sampler,          // Sampler handle
-		work_init,                      // Array of work image views (work_init[0], work_init[1])
-		vkbuff_work,                    // Uniform buffer handle
-		vkbuff_ssbo,                    // Storage buffer handle
-		2);                             // Number of sets to update
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK RENDER PASS");		/**/
-	///////////////////////////////////////////////////
-
-	VK_RenderPass rp_work; // Keep declaration
-
-	VkResult workRenderPassResult = createSimpleColorRenderPass(
-		vob.VKL,                             // Logical device
-		work.img_info[0].format,             // Format from work image
-		VK_ATTACHMENT_LOAD_OP_LOAD,          // LoadOp
-		VK_ATTACHMENT_STORE_OP_STORE,        // StoreOp
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // InitialLayout
-		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // FinalLayout
-		&rp_work,                            // Output struct
-		&vkres);                             // Result vector
-	if(stage_failed("Work render pass creation", workRenderPassResult)) { return 1; }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK FRAMEBUFFER");		/**/
-	///////////////////////////////////////////////////
-
-	VK_FrameBuff fb_work[2]; // Keep declaration
-
-	for(int i = 0; i < 2; i++) {
-		VkResult workFramebufferResult = createFramebuffer(
-			vob.VKL,                    // Logical device
-			rp_work.vk_render_pass,     // Render pass for work
-			work_init[i].vk_image_view, // Corresponding work image view
-			APP_W,                      // Width
-			APP_H,                      // Height
-			&fb_work[i],                // Output struct for this framebuffer
-			&vkres);                    // Result vector
-		if(stage_failed("Work framebuffer creation", workFramebufferResult)) { return 1; }
-	}
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "WORK PIPELINE");			/**/
-	///////////////////////////////////////////////////
-
-	VK_Pipe pipe_work; // Keep declaration
-
-	// Create Pipeline Layout
-	VkResult workPipelineLayoutResult = createPipelineLayout(
-		vob.VKL,                    // Logical device
-		dsl_work.vk_desc_set_layout,// Descriptor set layout for work pipeline
-		&pipe_work,                 // Output struct (stores layout handle)
-		&vkres);                    // Result vector
-	if(stage_failed("Work pipeline layout creation", workPipelineLayoutResult)) { return 1; }
-
-	// Create Graphics Pipeline
-	VkResult workPipelineResult = createWorkGraphicsPipeline(
-		vob.VKL,                    // Logical device
-		&pipe_work,                 // Input: layout handle. Output: pipeline handle.
-		&pipe_info,                 // Struct containing pipeline state config
-		rp_work.vk_render_pass,     // Render pass for work pipeline
-		&vkres);                    // Result vector
-	if(stage_failed("Work graphics pipeline creation", workPipelineResult)) { return 1; }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD WORK LOOP");		/**/
-	///////////////////////////////////////////////////
-
-	VkRenderPassBeginInfo vkrpbegininfo_work[2];
-	for(int i = 0; i < 2; i++) {
-		vkrpbegininfo_work[i].sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		vkrpbegininfo_work[i].pNext 				= NULL;
-		vkrpbegininfo_work[i].renderPass 			= rp_work.vk_render_pass;
-		vkrpbegininfo_work[i].framebuffer 			= fb_work[i].vk_framebuffer;
-		vkrpbegininfo_work[i].renderArea 			= rpass_info.rect2D;
-		vkrpbegininfo_work[i].clearValueCount 		= 1;
-		vkrpbegininfo_work[i].pClearValues 			= &rpass_info.clear_val; }
-
-	for(int i = 0; i < 2; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_work_loop[i].vk_command_buffer, &combuf_work_loop[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record work loop command buffer begin", beginResult)) { return 1; }
-
-			rv("vkCmdBeginRenderPass");
-				vkCmdBeginRenderPass (
-					combuf_work_loop[i].vk_command_buffer, &vkrpbegininfo_work[i], VK_SUBPASS_CONTENTS_INLINE );
-
-				rv("vkCmdBindPipeline");
-					vkCmdBindPipeline (
-						combuf_work_loop[i].vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe_work.vk_pipeline );
-
-				rv("vkCmdBindDescriptorSets");
-					vkCmdBindDescriptorSets (
-						combuf_work_loop[i].vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe_work.vk_pipeline_layout,
-						0, 1, &dsl_work.vk_descriptor_set[i], 0, NULL );
-
-				rv("vkCmdDraw");
-					vkCmdDraw (
-						combuf_work_loop[i].vk_command_buffer, 3, 1, 0, 0 );
-
-			rv("vkCmdEndRenderPass");
-				vkCmdEndRenderPass(combuf_work_loop[i].vk_command_buffer);
-
-		VkResult endResult = vkEndCommandBuffer(combuf_work_loop[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record work loop command buffer end", endResult)) { return 1; } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "IMGUI RENDER PASS");		/**/
-	///////////////////////////////////////////////////
-
-	VK_RenderPass rp_imgui; // Keep declaration
-
-	VkResult imguiRenderPassResult = createSimpleColorRenderPass(
-		vob.VKL,                               // Logical device
-		VK_FORMAT_B8G8R8A8_UNORM,              // Format for swapchain/ImGui
-		VK_ATTACHMENT_LOAD_OP_LOAD,            // LoadOp
-		VK_ATTACHMENT_STORE_OP_STORE,          // StoreOp
-		VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,       // InitialLayout (from presentation)
-		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // FinalLayout (ready for ImGui draw)
-		&rp_imgui,                             // Output struct
-		&vkres);                               // Result vector
-	if(stage_failed("ImGui render pass creation", imguiRenderPassResult)) { return 1; }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "IMGUI FRAMEBUFFER");		/**/
-	///////////////////////////////////////////////////
-
-	std::vector<VK_ImageView> vk_imgview_imgui(swap_image_count); // Keep declaration
-
-	for(int i = 0; i < swap_image_count; i++) {
-		VkResult imguiViewResult = createImageView(
-			vob.VKL,                        // Logical device
-			vk_image_swapimgs_vec[i],           // Source image handle from swapchain images array
-			VK_FORMAT_B8G8R8A8_UNORM,       // Format (matches ImGui render pass)
-			VK_IMAGE_ASPECT_COLOR_BIT,      // Aspect flags
-			&vk_imgview_imgui[i],           // Output struct for this view
-			&vkres);                        // Result vector
-		if(stage_failed("ImGui image view creation", imguiViewResult)) { return 1; }
-	}
-
-	std::vector<VK_FrameBuff> fb_imgui(swap_image_count); // Keep declaration
-
-	for(int i = 0; i < swap_image_count; i++) {
-		VkResult imguiFramebufferResult = createFramebuffer(
-			vob.VKL,                        // Logical device
-			rp_imgui.vk_render_pass,        // Render pass for ImGui
-			vk_imgview_imgui[i].vk_image_view, // Corresponding ImGui image view
-			APP_W,                          // Width
-			APP_H,                          // Height
-			&fb_imgui[i],                   // Output struct for this framebuffer
-			&vkres);                        // Result vector
-		if(stage_failed("ImGui framebuffer creation", imguiFramebufferResult)) { return 1; }
-	}
-
-	std::vector<VkRenderPassBeginInfo> vkrpbegininfo_imgui(swap_image_count);
-	setupImGuiRenderPassBeginInfo(
-		swap_image_count,      // Number of swapchain images
-		rp_imgui.vk_render_pass, // ImGui render pass handle
-		fb_imgui.data(),       // Array of ImGui framebuffers
-		&rpass_info,           // Pointer to render pass config (for rect/clear)
-		vkrpbegininfo_imgui.data() // Output array
-	);
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "BARRIERS");				/**/
-	///////////////////////////////////////////////////
-
-	// Declare single barriers
-	VkImageMemoryBarrier vk_IMB_blit_TSO_to_TDO;
-	VkImageMemoryBarrier vk_IMB_blit_TDO_to_TSO;
-	VkImageMemoryBarrier vk_IMB_blit_imagedata_UND_to_TDO;
-	VkImageMemoryBarrier vk_IMB_blit_imagedata_TDO_to_TSO;
-	VkImageMemoryBarrier vk_IMB_blit_imagedata_TSO_to_TDO;
-
-	// Declare vector barriers (initialize empty)
-	std::vector<VkImageMemoryBarrier> vk_IMB_pres_CAO_to_PRS;
-	std::vector<VkImageMemoryBarrier> vk_IMB_work_SRO_to_TSO;
-	std::vector<VkImageMemoryBarrier> vk_IMB_work_TSO_to_SRO;
-	std::vector<VkImageMemoryBarrier> vk_IMB_pres_UND_to_PRS;
-	std::vector<VkImageMemoryBarrier> vk_IMB_pres_PRS_to_TDO;
-	std::vector<VkImageMemoryBarrier> vk_IMB_pres_TDO_to_PRS;
-	std::vector<VkImageMemoryBarrier> vk_IMB_swap_PRS_to_TSO;
-	std::vector<VkImageMemoryBarrier> vk_IMB_swap_TSO_to_PRS;
-
-	initializeBarriers(
-		&vob,                           // Core Vulkan objects
-		&blit,                          // Blit image data
-		&work,                          // Work image data
-		&rpass_info,                    // Render pass config
-		vk_image_swapimgs_vec,          // Swapchain images vector (pass by value)
-		swap_image_count,               // Swapchain image count
-		// Output Barrier Structs (pass addresses)
-		&vk_IMB_blit_TSO_to_TDO,
-		&vk_IMB_blit_TDO_to_TSO,
-		&vk_IMB_blit_imagedata_UND_to_TDO,
-		vk_IMB_pres_CAO_to_PRS,         // Pass vector by reference
-		vk_IMB_work_SRO_to_TSO,         // Pass vector by reference
-		vk_IMB_work_TSO_to_SRO,         // Pass vector by reference
-		&vk_IMB_blit_imagedata_TDO_to_TSO,
-		&vk_IMB_blit_imagedata_TSO_to_TDO,
-		vk_IMB_pres_UND_to_PRS,         // Pass vector by reference
-		vk_IMB_pres_PRS_to_TDO,         // Pass vector by reference
-		vk_IMB_pres_TDO_to_PRS,         // Pass vector by reference
-		vk_IMB_swap_PRS_to_TSO,         // Pass vector by reference
-		vk_IMB_swap_TSO_to_PRS          // Pass vector by reference
-	);
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD IMAGEDATA INIT");	/**/
-	///////////////////////////////////////////////////
-
-	for(int i = 0; i < 1; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer, &combuf_work_imagedata_init[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record image-data init command buffer begin", beginResult)) { return 1; }
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_work_imagedata_init[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_blit_imagedata_UND_to_TDO );
-
-		VkResult endResult = vkEndCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record image-data init command buffer end", endResult)) { return 1; } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SUBMIT IMAGEDATA INIT");	/**/
-	///////////////////////////////////////////////////
-
-	for(int i = 0; i < 1; i++) {
-		if(valid) {
-			rv("vkcombuf_work_init");
-				qsync.sub_info.pCommandBuffers = &combuf_work_imagedata_init[i].vk_command_buffer;
-			vr("vkQueueSubmit", &vkres, i,
-				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD IMAGEDATA OUT");	/**/
-	///////////////////////////////////////////////////
-
-	for(int i = 0; i < 2; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_work_imagedata[i].vk_command_buffer, &combuf_work_imagedata[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record image-data output command buffer begin", beginResult)) { return 1; }
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_work_imagedata[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_work_SRO_to_TSO[i] );
-
-			rv("vkCmdBlitImage");
-				vkCmdBlitImage (
-					combuf_work_imagedata[i].vk_command_buffer, 
-					work.vk_image[i], 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					blit.vk_image, 				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_work_imagedata[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_work_TSO_to_SRO[i] );
-
-		VkResult endResult = vkEndCommandBuffer(combuf_work_imagedata[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record image-data output command buffer end", endResult)) { return 1; } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD BLIT IMGUI OUT");	/**/
-	///////////////////////////////////////////////////
-
-	for(int i = 0; i < swap_image_count; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer, &combuf_blit_imgui_loop[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record ImGui blit command buffer begin", beginResult)) { return 1; }
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_blit_imgui_loop[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_swap_PRS_to_TSO[i] );
-
-			rv("vkCmdBlitImage");
-				vkCmdBlitImage (
-					combuf_blit_imgui_loop[i].vk_command_buffer, 
-					vk_image_swapimgs_vec[i], 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					blit.vk_image, 				VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_blit_imgui_loop[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_swap_TSO_to_PRS[i] );
-
-		VkResult endResult = vkEndCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record ImGui blit command buffer end", endResult)) { return 1; } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD BLIT2BUFF");		/**/
-	///////////////////////////////////////////////////
-
-	for(int i = 0; i < 1; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer, &combuf_blit2buff_sing[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record blit-to-buffer command buffer begin", beginResult)) { return 1; }
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_blit2buff_sing[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_blit_TDO_to_TSO );
-
-			rv("vkCmdCopyImageToBuffer");
-				vkCmdCopyImageToBuffer (
-					combuf_blit2buff_sing[i].vk_command_buffer, 
-					blit.vk_image, 				VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					blit2buff_data.vk_buffer,
-					1, &rpass_info.buffer_img_cpy );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_blit2buff_sing[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_blit_TSO_to_TDO );
-
-		VkResult endResult = vkEndCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record blit-to-buffer command buffer end", endResult)) { return 1; } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD PRES INIT");		/**/
-	///////////////////////////////////////////////////
-
-	for(int i = 0; i < swap_image_count; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_pres_init[i].vk_command_buffer, &combuf_pres_init[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record presentation init command buffer begin", beginResult)) { return 1; }
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_pres_init[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_pres_UND_to_PRS[i] );
-
-		VkResult endResult = vkEndCommandBuffer(combuf_pres_init[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record presentation init command buffer end", endResult)) { return 1; } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SUBMIT PRES INIT");		/**/
-	///////////////////////////////////////////////////
-
-	for(int i = 0; i < swap_image_count; i++) {
-		if(valid) {
-			rv("vkcombuf_pres_init");
-				qsync.sub_info.pCommandBuffers = &combuf_pres_init[i].vk_command_buffer;
-			vr("vkQueueSubmit", &vkres, i,
-				vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "RECORD PRES LOOP");		/**/
-	///////////////////////////////////////////////////
-
-	// Split function into two, so that it can sync with the two "work" frames
-	for(int i = 0; i < swap_image_count*2; i++) {
-		VkResult beginResult = vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info);
-		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-		if(stage_failed("Record presentation loop command buffer begin", beginResult)) { return 1; }
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_pres_loop[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_pres_PRS_to_TDO[i%swap_image_count] );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_pres_loop[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_work_SRO_to_TSO[i/swap_image_count] );
-
-			rv("vkCmdBlitImage");
-				vkCmdBlitImage (
-					combuf_pres_loop[i].vk_command_buffer, 
-					work.vk_image[i/swap_image_count], 			VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-					vk_image_swapimgs_vec[i%swap_image_count], 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-					1, &rpass_info.img_blit, 	VK_FILTER_NEAREST );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_pres_loop[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_work_TSO_to_SRO[i/swap_image_count] );
-
-			rv("vkCmdPipelineBarrier");
-				vkCmdPipelineBarrier (
-					combuf_pres_loop[i].vk_command_buffer,
-					VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-					0, NULL, 0, NULL,
-					1, &vk_IMB_pres_TDO_to_PRS[i%swap_image_count] );
-
-		VkResult endResult = vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer);
-		vr("vkEndCommandBuffer", &vkres, i, endResult);
-		if(stage_failed("Record presentation loop command buffer end", endResult)) { return 1; } }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "SWAPCHAIN PRESENT INFO");	/**/
-	///////////////////////////////////////////////////
-
-	VkPresentInfoKHR vk_present_info;
-		vk_present_info.sType 					= VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		vk_present_info.pNext 					= NULL;
-		vk_present_info.waitSemaphoreCount 		= 1;
-		vk_present_info.pWaitSemaphores 		= &vk_semaphore_swapchain_pres;
-		vk_present_info.swapchainCount 			= 1;
-		vk_present_info.pSwapchains 			= &vk_swapchain;
-		vk_present_info.pImageIndices 			= &swap_image_index;
-		vk_present_info.pResults 				= NULL;
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "DEAR IMGUI");				/**/
-	///////////////////////////////////////////////////
-
-	VkResult imguiInitResult = initImGui(
-		glfw_W,                     // GLFW window handle
-		&vob,                       // Core Vulkan objects
-		qsync.vk_queue,             // Graphics queue
-		rp_imgui.vk_render_pass,    // ImGui render pass
-		vk_surface_capabilities.minImageCount, // Min swapchain image count
-		swap_image_count,           // Actual swapchain image count
-		&ei,                        // Engine info (for headless check)
-		&vkres                      // Result vector
-	);
-	if(stage_failed("Dear ImGui initialization", imguiInitResult)) { return 1; }
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "MAIN LOOP INIT");			/**/
-	///////////////////////////////////////////////////
-
-	uint32_t 	frame_index 	= 0;	// Loop Frame Index
-	uint32_t 	work_index 		= 0;	// Work Image Generation Frame Index
-//	uint32_t	imgdat_idx		= 0;	// Export Image Data Index
-
-//	Timers
-	NS_Timer 	ftime;
-	NS_Timer 	optime;
-	NS_Timer 	prstime;
-	NS_Timer 	uitime;
-	NS_Timer 	guitime;
-	NS_Timer 	cmdtime;
-	int  		current_sec		= time(0);
-	int  		fps_freq 		= 1;
-	int  		fps_report 		= time(0) - fps_freq;
-
-
-	UB32_64 pcd 	= new_PCD_256();
-
-//	Uniform Buffer Object ( 64 * 32 bits maximum )
-	UB32_64 ub;
-	SB_4096 sb;
-
-	update_ub( &pcd, &ub );
-
-	UI_info ui;
-		ui.mx 	= 0;
-		ui.my 	= 0;
-		ui.mbl 	= 0;
-		ui.mbr 	= 0;
-		ui.cmd 	= 0;
-
-	FT_info ft;
-		ft.frame = 0;
-		ft.seed	 = INIT_TIME%256;
-
-	VW_info vw;
-		vw.pmap = 0;
-		vw.sdat	= 0;
-
-	IMGUI_Config gc;
-	initImGuiConfig(&gc, &ei, &pcd); // Pass addresses of ei and pcd
-
-	NS_Timer nottime;
-		gc.notification_timer = nottime;
-		send_notif(0, &gc);
-
-	fspec256 fs;
-	fsmag256 fsm = new_fsmag256();
-
-	bool do_ub_update = true;
-
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "MAIN LOOP");				/**/
-	///////////////////////////////////////////////////
-
-//	Main Loop code
-	do {
-	//	Record loop start time
-    	ftime = start_timer(ftime);
-
-	//	Reset shader commands
-		if(!ei.paused && ei.tick_loop == 0) { ui.cmd = 0; }
-		clear_glfw_key(&glfw_key);
-		clear_glfw_mouse(&glfw_mouse);
-
-	//	Timing (seconds) setup
-		current_sec = time(0);
-		if( current_sec - fps_report >= fps_freq + 1) { fps_report = current_sec; }
-
-	//	'Render'
-		if(valid) {
-
-		//	Lower the workload / FPS if paused
-			if(ei.paused) { framesleep( 1000/60 ); } else {
-			if(gc.throttle_enabled) { framesleep( gc.throttle_target ); } }
-
-			if(!ei.run_headless) {
-			//	Poll for GLFW window events
-				glfwPollEvents();
-
-			//	Does IMGUI want to capture input?
-				ImGuiIO& io = ImGui::GetIO();
-
-				kc.has_keyboard = io.WantCaptureKeyboard;
-				kc.has_mouse 	= io.WantCaptureMouse;
-
-				glfwSetKeyCallback( glfw_W, glfw_keyboard_event	);
-
-				if(!ei.show_gui) { kc.has_mouse = false; kc.has_keyboard = false; }
-
-				if( !kc.has_mouse ) {
-					glfwSetCursorPosCallback 	( glfw_W, glfw_mousemove_event 	 );
-					glfwSetMouseButtonCallback	( glfw_W, glfw_mouseclick_event	 );
-					glfwSetScrollCallback		( glfw_W, glfw_mousescroll_event );
-
-					processMouseInput(
-						&glfw_mouse,    // Pointer to mouse state
-						&ui,            // Pointer to UI info
-						&ei,            // Pointer to Engine info
-						&gc,            // Pointer to ImGui config
-						APP_W           // Application width
-					);
-
-				} else { ui.mbl = 0; ui.mbr = 0; }
-
-				if( !kc.has_keyboard ) {
-					processKeyboardInput(
-						&glfw_key,      // Pointer to key state
-						&ui,            // Pointer to UI info
-						&ei,            // Pointer to Engine info
-						&gc             // Pointer to ImGui config
-					);
-				}
-
-			//	Notifications
-				if( gc.show_notification ) {
-					auto uint_notif_age =
-						std::chrono::duration_cast<std::chrono::nanoseconds> (
-							std::chrono::high_resolution_clock::now()
-						- 	gc.notification_timer.st ).count();
-					if( uint_notif_age < 1200000000 ) 	{ gc.notification_age = 1.0f - float(uint_notif_age) / float(1800000000); }
-					if( uint_notif_age > 2400000000 ) 	{ tog(&gc.show_notification); } }
-
-				if( gc.show_notification_float ) {
-					auto uint_notif_age =
-						std::chrono::duration_cast<std::chrono::nanoseconds> (
-							std::chrono::high_resolution_clock::now()
-						- 	gc.notification_float_timer.st ).count();
-					if( uint_notif_age < 1200000000 ) 	{ gc.notification_float_age = 1.0f - float(uint_notif_age) / float(1800000000); }
-					if( uint_notif_age > 2400000000 ) 	{ tog(&gc.show_notification_float); } }
-
-
-				if( gc.load_A256_confirm ) {
-					gc.load_A256_confirm = false;
-					ui.cmd = 1;
-					ei.tick_loop = 1;
-					pcd = load_PCD256("sav/PCD256_archive.vkpat", gc.load_A256_index);
-					do_ub_update = true;
-					memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
-					memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
-					gc.scale_update = true;
-					gc.zoom_update = true;
-					for(int j = 0; j < 16; j++) {
-						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = pcd.u32[i]; }
-					} }
-
-			//	Load random Archive pattern
-				if( gc.load_pattern_confirm ) {
-					gc.load_pattern_confirm = false;
-					if( gc.load_pattern_random ) {
-						gc.load_pattern_random = false;
-						ei.PCD_count = get_PCD408_count("res/data/save_global.vkpat");
-					//	Depreicated patterns under 17000
-						if(ei.PCD_count > 18080) {
-							ei.load_pattern = (mut_rnd() % (ei.PCD_count - 18080)) + 18080;
-						} else {
-							ov("Error", "PCD408 archive has no non-deprecated random pattern range.");
-						}	}
-					loadPattern_PCD408_to_256( &ei, &pcd );
-					do_ub_update = true;
-					memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
-					memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
-					if(gc.load_pattern_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
+    // --- Keep the original vkMapMemory call ---
+    void *pvoid_memmap_ssbo = nullptr;
+    VkResult map_ssbo_result =
+        vkMapMemory(vob.VKL, vkdevmem_sb_work, vkDescBuff_info_ssbo.offset, vkDescBuff_info_ssbo.range, 0, &pvoid_memmap_ssbo);
+    vr("vkMapMemory", &vkres, pvoid_memmap_ssbo, map_ssbo_result);
+    if(stage_failed("Work SSBO mapping", map_ssbo_result)) { return 1; }
+
+    // Perform bulk update of descriptor sets after all resources are ready
+    updateWorkDescriptorSets(
+        vob.VKL,                        // Logical device
+        &dsl_work,                      // Struct containing the allocated descriptor sets
+        rpass_info.vk_sampler,          // Sampler handle
+        work_init,                      // Array of work image views (work_init[0], work_init[1])
+        vkbuff_work,                    // Uniform buffer handle
+        vkbuff_ssbo,                    // Storage buffer handle
+        2);                             // Number of sets to update
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "WORK RENDER PASS");       /**/
+    ///////////////////////////////////////////////////
+
+    VK_RenderPass rp_work; // Keep declaration
+
+    VkResult workRenderPassResult = createSimpleColorRenderPass(
+        vob.VKL,                             // Logical device
+        work.img_info[0].format,             // Format from work image
+        VK_ATTACHMENT_LOAD_OP_LOAD,          // LoadOp
+        VK_ATTACHMENT_STORE_OP_STORE,        // StoreOp
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // InitialLayout
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // FinalLayout
+        &rp_work,                            // Output struct
+        &vkres);                             // Result vector
+    if(stage_failed("Work render pass creation", workRenderPassResult)) { return 1; }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "WORK FRAMEBUFFER");       /**/
+    ///////////////////////////////////////////////////
+
+    VK_FrameBuff fb_work[2]; // Keep declaration
+
+    for(int i = 0; i < 2; i++) {
+        VkResult workFramebufferResult = createFramebuffer(
+            vob.VKL,                    // Logical device
+            rp_work.vk_render_pass,     // Render pass for work
+            work_init[i].vk_image_view, // Corresponding work image view
+            APP_W,                      // Width
+            APP_H,                      // Height
+            &fb_work[i],                // Output struct for this framebuffer
+            &vkres);                    // Result vector
+        if(stage_failed("Work framebuffer creation", workFramebufferResult)) { return 1; }
+    }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "WORK PIPELINE");          /**/
+    ///////////////////////////////////////////////////
+
+    VK_Pipe pipe_work; // Keep declaration
+
+    // Create Pipeline Layout
+    VkResult workPipelineLayoutResult = createPipelineLayout(
+        vob.VKL,                    // Logical device
+        dsl_work.vk_desc_set_layout,// Descriptor set layout for work pipeline
+        &pipe_work,                 // Output struct (stores layout handle)
+        &vkres);                    // Result vector
+    if(stage_failed("Work pipeline layout creation", workPipelineLayoutResult)) { return 1; }
+
+    // Create Graphics Pipeline
+    VkResult workPipelineResult = createWorkGraphicsPipeline(
+        vob.VKL,                    // Logical device
+        &pipe_work,                 // Input: layout handle. Output: pipeline handle.
+        &pipe_info,                 // Struct containing pipeline state config
+        rp_work.vk_render_pass,     // Render pass for work pipeline
+        &vkres);                    // Result vector
+    if(stage_failed("Work graphics pipeline creation", workPipelineResult)) { return 1; }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD WORK LOOP");       /**/
+    ///////////////////////////////////////////////////
+
+    VkRenderPassBeginInfo vkrpbegininfo_work[2];
+    for(int i = 0; i < 2; i++) {
+        vkrpbegininfo_work[i].sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        vkrpbegininfo_work[i].pNext                 = NULL;
+        vkrpbegininfo_work[i].renderPass            = rp_work.vk_render_pass;
+        vkrpbegininfo_work[i].framebuffer           = fb_work[i].vk_framebuffer;
+        vkrpbegininfo_work[i].renderArea            = rpass_info.rect2D;
+        vkrpbegininfo_work[i].clearValueCount       = 1;
+        vkrpbegininfo_work[i].pClearValues          = &rpass_info.clear_val; }
+
+    for(int i = 0; i < 2; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_work_loop[i].vk_command_buffer, &combuf_work_loop[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record work loop command buffer begin", beginResult)) { return 1; }
+
+            rv("vkCmdBeginRenderPass");
+                vkCmdBeginRenderPass (
+                    combuf_work_loop[i].vk_command_buffer, &vkrpbegininfo_work[i], VK_SUBPASS_CONTENTS_INLINE );
+
+                rv("vkCmdBindPipeline");
+                    vkCmdBindPipeline (
+                        combuf_work_loop[i].vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe_work.vk_pipeline );
+
+                rv("vkCmdBindDescriptorSets");
+                    vkCmdBindDescriptorSets (
+                        combuf_work_loop[i].vk_command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipe_work.vk_pipeline_layout,
+                        0, 1, &dsl_work.vk_descriptor_set[i], 0, NULL );
+
+                rv("vkCmdDraw");
+                    vkCmdDraw (
+                        combuf_work_loop[i].vk_command_buffer, 3, 1, 0, 0 );
+
+            rv("vkCmdEndRenderPass");
+                vkCmdEndRenderPass(combuf_work_loop[i].vk_command_buffer);
+
+        VkResult endResult = vkEndCommandBuffer(combuf_work_loop[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record work loop command buffer end", endResult)) { return 1; } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "IMGUI RENDER PASS");      /**/
+    ///////////////////////////////////////////////////
+
+    VK_RenderPass rp_imgui; // Keep declaration
+
+    VkResult imguiRenderPassResult = createSimpleColorRenderPass(
+        vob.VKL,                               // Logical device
+        VK_FORMAT_B8G8R8A8_UNORM,              // Format for swapchain/ImGui
+        VK_ATTACHMENT_LOAD_OP_LOAD,            // LoadOp
+        VK_ATTACHMENT_STORE_OP_STORE,          // StoreOp
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,       // InitialLayout (from presentation)
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // FinalLayout (ready for ImGui draw)
+        &rp_imgui,                             // Output struct
+        &vkres);                               // Result vector
+    if(stage_failed("ImGui render pass creation", imguiRenderPassResult)) { return 1; }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "IMGUI FRAMEBUFFER");      /**/
+    ///////////////////////////////////////////////////
+
+    std::vector<VK_ImageView> vk_imgview_imgui(swap_image_count); // Keep declaration
+
+    for(int i = 0; i < swap_image_count; i++) {
+        VkResult imguiViewResult = createImageView(
+            vob.VKL,                        // Logical device
+            vk_image_swapimgs_vec[i],           // Source image handle from swapchain images array
+            VK_FORMAT_B8G8R8A8_UNORM,       // Format (matches ImGui render pass)
+            VK_IMAGE_ASPECT_COLOR_BIT,      // Aspect flags
+            &vk_imgview_imgui[i],           // Output struct for this view
+            &vkres);                        // Result vector
+        if(stage_failed("ImGui image view creation", imguiViewResult)) { return 1; }
+    }
+
+    std::vector<VK_FrameBuff> fb_imgui(swap_image_count); // Keep declaration
+
+    for(int i = 0; i < swap_image_count; i++) {
+        VkResult imguiFramebufferResult = createFramebuffer(
+            vob.VKL,                        // Logical device
+            rp_imgui.vk_render_pass,        // Render pass for ImGui
+            vk_imgview_imgui[i].vk_image_view, // Corresponding ImGui image view
+            APP_W,                          // Width
+            APP_H,                          // Height
+            &fb_imgui[i],                   // Output struct for this framebuffer
+            &vkres);                        // Result vector
+        if(stage_failed("ImGui framebuffer creation", imguiFramebufferResult)) { return 1; }
+    }
+
+    std::vector<VkRenderPassBeginInfo> vkrpbegininfo_imgui(swap_image_count);
+    setupImGuiRenderPassBeginInfo(
+        swap_image_count,      // Number of swapchain images
+        rp_imgui.vk_render_pass, // ImGui render pass handle
+        fb_imgui.data(),       // Array of ImGui framebuffers
+        &rpass_info,           // Pointer to render pass config (for rect/clear)
+        vkrpbegininfo_imgui.data() // Output array
+    );
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "BARRIERS");               /**/
+    ///////////////////////////////////////////////////
+
+    // Declare single barriers
+    VkImageMemoryBarrier vk_IMB_blit_TSO_to_TDO;
+    VkImageMemoryBarrier vk_IMB_blit_TDO_to_TSO;
+    VkImageMemoryBarrier vk_IMB_blit_imagedata_UND_to_TDO;
+    VkImageMemoryBarrier vk_IMB_blit_imagedata_TDO_to_TSO;
+    VkImageMemoryBarrier vk_IMB_blit_imagedata_TSO_to_TDO;
+
+    // Declare vector barriers (initialize empty)
+    std::vector<VkImageMemoryBarrier> vk_IMB_pres_CAO_to_PRS;
+    std::vector<VkImageMemoryBarrier> vk_IMB_work_SRO_to_TSO;
+    std::vector<VkImageMemoryBarrier> vk_IMB_work_TSO_to_SRO;
+    std::vector<VkImageMemoryBarrier> vk_IMB_pres_UND_to_PRS;
+    std::vector<VkImageMemoryBarrier> vk_IMB_pres_PRS_to_TDO;
+    std::vector<VkImageMemoryBarrier> vk_IMB_pres_TDO_to_PRS;
+    std::vector<VkImageMemoryBarrier> vk_IMB_swap_PRS_to_TSO;
+    std::vector<VkImageMemoryBarrier> vk_IMB_swap_TSO_to_PRS;
+
+    initializeBarriers(
+        &vob,                           // Core Vulkan objects
+        &blit,                          // Blit image data
+        &work,                          // Work image data
+        &rpass_info,                    // Render pass config
+        vk_image_swapimgs_vec,          // Swapchain images vector (pass by value)
+        swap_image_count,               // Swapchain image count
+        // Output Barrier Structs (pass addresses)
+        &vk_IMB_blit_TSO_to_TDO,
+        &vk_IMB_blit_TDO_to_TSO,
+        &vk_IMB_blit_imagedata_UND_to_TDO,
+        vk_IMB_pres_CAO_to_PRS,         // Pass vector by reference
+        vk_IMB_work_SRO_to_TSO,         // Pass vector by reference
+        vk_IMB_work_TSO_to_SRO,         // Pass vector by reference
+        &vk_IMB_blit_imagedata_TDO_to_TSO,
+        &vk_IMB_blit_imagedata_TSO_to_TDO,
+        vk_IMB_pres_UND_to_PRS,         // Pass vector by reference
+        vk_IMB_pres_PRS_to_TDO,         // Pass vector by reference
+        vk_IMB_pres_TDO_to_PRS,         // Pass vector by reference
+        vk_IMB_swap_PRS_to_TSO,         // Pass vector by reference
+        vk_IMB_swap_TSO_to_PRS          // Pass vector by reference
+    );
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD IMAGEDATA INIT");  /**/
+    ///////////////////////////////////////////////////
+
+    for(int i = 0; i < 1; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer, &combuf_work_imagedata_init[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record image-data init command buffer begin", beginResult)) { return 1; }
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_work_imagedata_init[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_blit_imagedata_UND_to_TDO );
+
+        VkResult endResult = vkEndCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record image-data init command buffer end", endResult)) { return 1; } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SUBMIT IMAGEDATA INIT");  /**/
+    ///////////////////////////////////////////////////
+
+    for(int i = 0; i < 1; i++) {
+        if(valid) {
+            rv("vkcombuf_work_init");
+                qsync.sub_info.pCommandBuffers = &combuf_work_imagedata_init[i].vk_command_buffer;
+            vr("vkQueueSubmit", &vkres, i,
+                vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD IMAGEDATA OUT");   /**/
+    ///////////////////////////////////////////////////
+
+    for(int i = 0; i < 2; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_work_imagedata[i].vk_command_buffer, &combuf_work_imagedata[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record image-data output command buffer begin", beginResult)) { return 1; }
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_work_imagedata[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_work_SRO_to_TSO[i] );
+
+            rv("vkCmdBlitImage");
+                vkCmdBlitImage (
+                    combuf_work_imagedata[i].vk_command_buffer, 
+                    work.vk_image[i],           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    blit.vk_image,              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1, &rpass_info.img_blit,    VK_FILTER_NEAREST );
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_work_imagedata[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_work_TSO_to_SRO[i] );
+
+        VkResult endResult = vkEndCommandBuffer(combuf_work_imagedata[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record image-data output command buffer end", endResult)) { return 1; } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD BLIT IMGUI OUT");  /**/
+    ///////////////////////////////////////////////////
+
+    for(int i = 0; i < swap_image_count; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer, &combuf_blit_imgui_loop[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record ImGui blit command buffer begin", beginResult)) { return 1; }
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_blit_imgui_loop[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_swap_PRS_to_TSO[i] );
+
+            rv("vkCmdBlitImage");
+                vkCmdBlitImage (
+                    combuf_blit_imgui_loop[i].vk_command_buffer, 
+                    vk_image_swapimgs_vec[i],       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    blit.vk_image,              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1, &rpass_info.img_blit,    VK_FILTER_NEAREST );
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_blit_imgui_loop[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_swap_TSO_to_PRS[i] );
+
+        VkResult endResult = vkEndCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record ImGui blit command buffer end", endResult)) { return 1; } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD BLIT2BUFF");       /**/
+    ///////////////////////////////////////////////////
+
+    for(int i = 0; i < 1; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer, &combuf_blit2buff_sing[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record blit-to-buffer command buffer begin", beginResult)) { return 1; }
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_blit2buff_sing[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_blit_TDO_to_TSO );
+
+            rv("vkCmdCopyImageToBuffer");
+                vkCmdCopyImageToBuffer (
+                    combuf_blit2buff_sing[i].vk_command_buffer, 
+                    blit.vk_image,              VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    blit2buff_data.vk_buffer,
+                    1, &rpass_info.buffer_img_cpy );
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_blit2buff_sing[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_blit_TSO_to_TDO );
+
+        VkResult endResult = vkEndCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record blit-to-buffer command buffer end", endResult)) { return 1; } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD PRES INIT");       /**/
+    ///////////////////////////////////////////////////
+
+    for(int i = 0; i < swap_image_count; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_pres_init[i].vk_command_buffer, &combuf_pres_init[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record presentation init command buffer begin", beginResult)) { return 1; }
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_pres_init[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_pres_UND_to_PRS[i] );
+
+        VkResult endResult = vkEndCommandBuffer(combuf_pres_init[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record presentation init command buffer end", endResult)) { return 1; } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SUBMIT PRES INIT");       /**/
+    ///////////////////////////////////////////////////
+
+    for(int i = 0; i < swap_image_count; i++) {
+        if(valid) {
+            rv("vkcombuf_pres_init");
+                qsync.sub_info.pCommandBuffers = &combuf_pres_init[i].vk_command_buffer;
+            vr("vkQueueSubmit", &vkres, i,
+                vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, VK_NULL_HANDLE) ); } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "RECORD PRES LOOP");       /**/
+    ///////////////////////////////////////////////////
+
+    // Split function into two, so that it can sync with the two "work" frames
+    for(int i = 0; i < swap_image_count*2; i++) {
+        VkResult beginResult = vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info);
+        vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+        if(stage_failed("Record presentation loop command buffer begin", beginResult)) { return 1; }
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_pres_loop[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_pres_PRS_to_TDO[i%swap_image_count] );
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_pres_loop[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_work_SRO_to_TSO[i/swap_image_count] );
+
+            rv("vkCmdBlitImage");
+                vkCmdBlitImage (
+                    combuf_pres_loop[i].vk_command_buffer, 
+                    work.vk_image[i/swap_image_count],          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                    vk_image_swapimgs_vec[i%swap_image_count],      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    1, &rpass_info.img_blit,    VK_FILTER_NEAREST );
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_pres_loop[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_work_TSO_to_SRO[i/swap_image_count] );
+
+            rv("vkCmdPipelineBarrier");
+                vkCmdPipelineBarrier (
+                    combuf_pres_loop[i].vk_command_buffer,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                    0, NULL, 0, NULL,
+                    1, &vk_IMB_pres_TDO_to_PRS[i%swap_image_count] );
+
+        VkResult endResult = vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer);
+        vr("vkEndCommandBuffer", &vkres, i, endResult);
+        if(stage_failed("Record presentation loop command buffer end", endResult)) { return 1; } }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "SWAPCHAIN PRESENT INFO"); /**/
+    ///////////////////////////////////////////////////
+
+    VkPresentInfoKHR vk_present_info;
+        vk_present_info.sType                   = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        vk_present_info.pNext                   = NULL;
+        vk_present_info.waitSemaphoreCount      = 1;
+        vk_present_info.pWaitSemaphores         = &vk_semaphore_swapchain_pres;
+        vk_present_info.swapchainCount          = 1;
+        vk_present_info.pSwapchains             = &vk_swapchain;
+        vk_present_info.pImageIndices           = &swap_image_index;
+        vk_present_info.pResults                = NULL;
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "DEAR IMGUI");             /**/
+    ///////////////////////////////////////////////////
+
+    VkResult imguiInitResult = initImGui(
+        glfw_W,                     // GLFW window handle
+        &vob,                       // Core Vulkan objects
+        qsync.vk_queue,             // Graphics queue
+        rp_imgui.vk_render_pass,    // ImGui render pass
+        vk_surface_capabilities.minImageCount, // Min swapchain image count
+        swap_image_count,           // Actual swapchain image count
+        &ei,                        // Engine info (for headless check)
+        &vkres                      // Result vector
+    );
+    if(stage_failed("Dear ImGui initialization", imguiInitResult)) { return 1; }
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "MAIN LOOP INIT");         /**/
+    ///////////////////////////////////////////////////
+
+    uint32_t    frame_index     = 0;    // Loop Frame Index
+    uint32_t    work_index      = 0;    // Work Image Generation Frame Index
+//  uint32_t    imgdat_idx      = 0;    // Export Image Data Index
+
+//  Timers
+    NS_Timer    ftime;
+    NS_Timer    optime;
+    NS_Timer    prstime;
+    NS_Timer    uitime;
+    NS_Timer    guitime;
+    NS_Timer    cmdtime;
+    int         current_sec     = time(0);
+    int         fps_freq        = 1;
+    int         fps_report      = time(0) - fps_freq;
+
+
+    UB32_64 pcd     = new_PCD_256();
+
+//  Uniform Buffer Object ( 64 * 32 bits maximum )
+    UB32_64 ub;
+    SB_4096 sb;
+
+    update_ub( &pcd, &ub );
+
+    UI_info ui;
+        ui.mx   = 0;
+        ui.my   = 0;
+        ui.mbl  = 0;
+        ui.mbr  = 0;
+        ui.cmd  = 0;
+
+    FT_info ft;
+        ft.frame = 0;
+        ft.seed  = INIT_TIME%256;
+
+    VW_info vw;
+        vw.pmap = 0;
+        vw.sdat = 0;
+
+    IMGUI_Config gc;
+    initImGuiConfig(&gc, &ei, &pcd); // Pass addresses of ei and pcd
+
+    NS_Timer nottime;
+        gc.notification_timer = nottime;
+        send_notif(0, &gc);
+
+    fspec256 fs;
+    fsmag256 fsm = new_fsmag256();
+
+    bool do_ub_update = true;
+
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "MAIN LOOP");              /**/
+    ///////////////////////////////////////////////////
+
+//  Main Loop code
+    do {
+    //  Record loop start time
+        ftime = start_timer(ftime);
+
+    //  Reset shader commands
+        if(!ei.paused && ei.tick_loop == 0) { ui.cmd = 0; }
+        clear_glfw_key(&glfw_key);
+        clear_glfw_mouse(&glfw_mouse);
+
+    //  Timing (seconds) setup
+        current_sec = time(0);
+        if( current_sec - fps_report >= fps_freq + 1) { fps_report = current_sec; }
+
+    //  'Render'
+        if(valid) {
+
+        //  Lower the workload / FPS if paused
+            if(ei.paused) { framesleep( 1000/60 ); } else {
+            if(gc.throttle_enabled) { framesleep( gc.throttle_target ); } }
+
+            if(!ei.run_headless) {
+            //  Poll for GLFW window events
+                glfwPollEvents();
+
+            //  Does IMGUI want to capture input?
+                ImGuiIO& io = ImGui::GetIO();
+
+                kc.has_keyboard = io.WantCaptureKeyboard;
+                kc.has_mouse    = io.WantCaptureMouse;
+
+                glfwSetKeyCallback( glfw_W, glfw_keyboard_event );
+
+                if(!ei.show_gui) { kc.has_mouse = false; kc.has_keyboard = false; }
+
+                if( !kc.has_mouse ) {
+                    glfwSetCursorPosCallback    ( glfw_W, glfw_mousemove_event   );
+                    glfwSetMouseButtonCallback  ( glfw_W, glfw_mouseclick_event  );
+                    glfwSetScrollCallback       ( glfw_W, glfw_mousescroll_event );
+
+                    processMouseInput(
+                        &glfw_mouse,    // Pointer to mouse state
+                        &ui,            // Pointer to UI info
+                        &ei,            // Pointer to Engine info
+                        &gc,            // Pointer to ImGui config
+                        APP_W           // Application width
+                    );
+
+                } else { ui.mbl = 0; ui.mbr = 0; }
+
+                if( !kc.has_keyboard ) {
+                    processKeyboardInput(
+                        &glfw_key,      // Pointer to key state
+                        &ui,            // Pointer to UI info
+                        &ei,            // Pointer to Engine info
+                        &gc             // Pointer to ImGui config
+                    );
+                }
+
+            //  Notifications
+                if( gc.show_notification ) {
+                    auto uint_notif_age =
+                        std::chrono::duration_cast<std::chrono::nanoseconds> (
+                            std::chrono::high_resolution_clock::now()
+                        -   gc.notification_timer.st ).count();
+                    if( uint_notif_age < 1200000000 )   { gc.notification_age = 1.0f - float(uint_notif_age) / float(1800000000); }
+                    if( uint_notif_age > 2400000000 )   { tog(&gc.show_notification); } }
+
+                if( gc.show_notification_float ) {
+                    auto uint_notif_age =
+                        std::chrono::duration_cast<std::chrono::nanoseconds> (
+                            std::chrono::high_resolution_clock::now()
+                        -   gc.notification_float_timer.st ).count();
+                    if( uint_notif_age < 1200000000 )   { gc.notification_float_age = 1.0f - float(uint_notif_age) / float(1800000000); }
+                    if( uint_notif_age > 2400000000 )   { tog(&gc.show_notification_float); } }
+
+
+                if( gc.load_A256_confirm ) {
+                    gc.load_A256_confirm = false;
+                    ui.cmd = 1;
+                    ei.tick_loop = 1;
+                    pcd = load_PCD256("sav/PCD256_archive.vkpat", gc.load_A256_index);
+                    do_ub_update = true;
+                    memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
+                    memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
+                    gc.scale_update = true;
+                    gc.zoom_update = true;
+                    for(int j = 0; j < 16; j++) {
+                        for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = pcd.u32[i]; }
+                    } }
+
+            //  Load random Archive pattern
+                if( gc.load_pattern_confirm ) {
+                    gc.load_pattern_confirm = false;
+                    if( gc.load_pattern_random ) {
+                        gc.load_pattern_random = false;
+                        ei.PCD_count = get_PCD408_count("res/data/save_global.vkpat");
+                    //  Depreicated patterns under 17000
+                        if(ei.PCD_count > 18080) {
+                            ei.load_pattern = (mut_rnd() % (ei.PCD_count - 18080)) + 18080;
+                        } else {
+                            ov("Error", "PCD408 archive has no non-deprecated random pattern range.");
+                        }   }
+                    loadPattern_PCD408_to_256( &ei, &pcd );
+                    do_ub_update = true;
+                    memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
+                    memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
+                    if(gc.load_pattern_check_reseed) { ui.cmd = 1; ei.tick_loop = 1; } }
 
 //
-				if( gc.mutate_set_target ) {
-					loglevel = MAXLOG;
-					uint32_t panel_x = static_cast<uint32_t>(std::clamp(glfw_mouse.xpos, 0.0, double(APP_W - 1)) / double(APP_W) * double(panel_n_x_n));
-					uint32_t panel_y = static_cast<uint32_t>(std::clamp(glfw_mouse.ypos, 0.0, double(APP_H - 1)) / double(APP_H) * double(panel_n_x_n));
-					uint32_t panel_index = panel_y * panel_n_x_n + panel_x;
-					ov("INDEX",panel_index);
-					loglevel = -1;
-					gc.mutate_set_target = false;
-					for(int i = 0; i < 48; i++) { pcd.u32[i] = sb.ub[panel_index].u32[i]; }
-					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
+                if( gc.mutate_set_target ) {
+                    loglevel = MAXLOG;
+                    uint32_t panel_x = static_cast<uint32_t>(std::clamp(glfw_mouse.xpos, 0.0, double(APP_W - 1)) / double(APP_W) * double(panel_n_x_n));
+                    uint32_t panel_y = static_cast<uint32_t>(std::clamp(glfw_mouse.ypos, 0.0, double(APP_H - 1)) / double(APP_H) * double(panel_n_x_n));
+                    uint32_t panel_index = panel_y * panel_n_x_n + panel_x;
+                    ov("INDEX",panel_index);
+                    loglevel = -1;
+                    gc.mutate_set_target = false;
+                    for(int i = 0; i < 48; i++) { pcd.u32[i] = sb.ub[panel_index].u32[i]; }
+                    save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
-				if( gc.mutate_backstep ) {
-					gc.mutate_backstep = false;
-					ui.cmd = 1;
-					ei.tick_loop = 1;
-					pcd = load_PCD256("sav/PCD256_global_all.vkpat", gc.mutate_backstep_idx);
-					do_ub_update = true;
-					memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
-					memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
-					gc.scale_update = true;
-					gc.zoom_update = true;
-					for(int j = 0; j < 16; j++) {
-						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = pcd.u32[i]; }
-					} }
+                if( gc.mutate_backstep ) {
+                    gc.mutate_backstep = false;
+                    ui.cmd = 1;
+                    ei.tick_loop = 1;
+                    pcd = load_PCD256("sav/PCD256_global_all.vkpat", gc.mutate_backstep_idx);
+                    do_ub_update = true;
+                    memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
+                    memcpy(&gc.zoom_value, &pcd.u32[61], sizeof(uint32_t));
+                    gc.scale_update = true;
+                    gc.zoom_update = true;
+                    for(int j = 0; j < 16; j++) {
+                        for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = pcd.u32[i]; }
+                    } }
 
-				if( gc.mutate_full_random ) {
-					gc.mutate_full_random = false;
-					ui.cmd = 1;
-					ei.tick_loop = 1;
-					for(int i = 0; i < 48; i++) { pcd.u32[i] = mut_rnd(); }
-					for(int j = 1; j < 16; j++) {
-						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = mut_rnd(); }
-					}
-					do_ub_update = true;
-					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
+                if( gc.mutate_full_random ) {
+                    gc.mutate_full_random = false;
+                    ui.cmd = 1;
+                    ei.tick_loop = 1;
+                    for(int i = 0; i < 48; i++) { pcd.u32[i] = mut_rnd(); }
+                    for(int j = 1; j < 16; j++) {
+                        for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = mut_rnd(); }
+                    }
+                    do_ub_update = true;
+                    save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
-				if( gc.mutate_flip ) {
-					gc.mutate_flip = false;
-					ui.cmd = 1;
-					ei.tick_loop = 1;
+                if( gc.mutate_flip ) {
+                    gc.mutate_flip = false;
+                    ui.cmd = 1;
+                    ei.tick_loop = 1;
 
-					for(int j = 1; j < 16; j++) {
-						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = bit_flp( pcd.u32[i], mutation_period_from_strength(gc.mutate_flip_str) ); }
-					}
+                    for(int j = 1; j < 16; j++) {
+                        for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = bit_flp( pcd.u32[i], mutation_period_from_strength(gc.mutate_flip_str) ); }
+                    }
 
-					for(int i = 0; i < 48; i++) { pcd.u32[i] = bit_flp( pcd.u32[i], mutation_period_from_strength(gc.mutate_flip_str) ); }
+                    for(int i = 0; i < 48; i++) { pcd.u32[i] = bit_flp( pcd.u32[i], mutation_period_from_strength(gc.mutate_flip_str) ); }
 
-					for(int i = 0; i < 48; i++) {
-						sb.ub[0].u32[i] = pcd.u32[i]; }
+                    for(int i = 0; i < 48; i++) {
+                        sb.ub[0].u32[i] = pcd.u32[i]; }
 
-					do_ub_update = true;
-					save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
+                    do_ub_update = true;
+                    save_PCD256("sav/PCD256_global_all.vkpat", &pcd); }
 
-				if( gc.mutate_backstep_retry ) {
-					gc.mutate_backstep_retry = false;
-					gc.mutate_backstep_idx--;
-					gc.mutate_backstep_last_value = gc.mutate_backstep_idx; }
+                if( gc.mutate_backstep_retry ) {
+                    gc.mutate_backstep_retry = false;
+                    gc.mutate_backstep_idx--;
+                    gc.mutate_backstep_last_value = gc.mutate_backstep_idx; }
 
-			//	Update special floats
-				//	[62]	'Scale' value
-				if( gc.scale_update ) {
-					gc.scale_update = false;
+            //  Update special floats
+                //  [62]    'Scale' value
+                if( gc.scale_update ) {
+                    gc.scale_update = false;
 
-					float fsc = gc.scale_value;
-					memcpy(&pcd.u32[62], &fsc, sizeof(uint32_t));
-					do_ub_update = true; }
-				//	[61]	'Zoom' value
-				if( gc.zoom_update ) {
-					gc.zoom_update = false;
-					float fzm = gc.zoom_value;// + gc.zoom_value * (float(sound) / float(INT16_MAX)) * 1.0f;
-					memcpy(&pcd.u32[61], &fzm, sizeof(uint32_t));
-					do_ub_update = true;	}
+                    float fsc = gc.scale_value;
+                    memcpy(&pcd.u32[62], &fsc, sizeof(uint32_t));
+                    do_ub_update = true; }
+                //  [61]    'Zoom' value
+                if( gc.zoom_update ) {
+                    gc.zoom_update = false;
+                    float fzm = gc.zoom_value;// + gc.zoom_value * (float(sound) / float(INT16_MAX)) * 1.0f;
+                    memcpy(&pcd.u32[61], &fzm, sizeof(uint32_t));
+                    do_ub_update = true;    }
 
-			//	Save current target to PCD256 Archive
-				if( gc.save_to_archive ) {
-					gc.save_to_archive = false;
-					if(save_PCD256("sav/PCD256_archive.vkpat", &pcd)) {
-						gc.load_A256_count = get_PCD256_count("sav/PCD256_archive.vkpat");
-						send_notif(1, &gc);
-					} }
+            //  Save current target to PCD256 Archive
+                if( gc.save_to_archive ) {
+                    gc.save_to_archive = false;
+                    if(save_PCD256("sav/PCD256_archive.vkpat", &pcd)) {
+                        gc.load_A256_count = get_PCD256_count("sav/PCD256_archive.vkpat");
+                        send_notif(1, &gc);
+                    } }
 
-				if(ei.show_gui || ei.paused) {
-					guitime = start_timer(guitime);
-						ImGui_ImplVulkan_NewFrame();
-						ImGui_ImplGlfw_NewFrame();
-						ImGui::NewFrame();
-						imgui_menu( glfw_W, &ui, &ei, &gc );
-					//	ImGui::ShowDemoWindow();	// TODO TODO
-						ImGui::Render();
-					end_timer(guitime, "IMGUI Build Time");
+                if(ei.show_gui || ei.paused) {
+                    guitime = start_timer(guitime);
+                        ImGui_ImplVulkan_NewFrame();
+                        ImGui_ImplGlfw_NewFrame();
+                        ImGui::NewFrame();
+                        imgui_menu( glfw_W, &ui, &ei, &gc );
+                    //  ImGui::ShowDemoWindow();    // TODO TODO
+                        ImGui::Render();
+                    end_timer(guitime, "IMGUI Build Time");
 
-					cmdtime = start_timer(cmdtime);
-						for(int i = 0; i < swap_image_count; i++) {
-							VkResult beginResult = vkBeginCommandBuffer(combuf_imgui_loop[i].vk_command_buffer, &combuf_imgui_loop[i].comm_buff_begin_info);
-							vr("vkBeginCommandBuffer", &vkres, i, beginResult);
-							if(stage_failed("Record ImGui loop command buffer begin", beginResult)) { return 1; }
+                    cmdtime = start_timer(cmdtime);
+                        for(int i = 0; i < swap_image_count; i++) {
+                            VkResult beginResult = vkBeginCommandBuffer(combuf_imgui_loop[i].vk_command_buffer, &combuf_imgui_loop[i].comm_buff_begin_info);
+                            vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+                            if(stage_failed("Record ImGui loop command buffer begin", beginResult)) { return 1; }
 
-								rv("vkCmdBeginRenderPass");
-									vkCmdBeginRenderPass (
-										combuf_imgui_loop[i].vk_command_buffer,
-										&vkrpbegininfo_imgui[i%swap_image_count],
-										VK_SUBPASS_CONTENTS_INLINE );
+                                rv("vkCmdBeginRenderPass");
+                                    vkCmdBeginRenderPass (
+                                        combuf_imgui_loop[i].vk_command_buffer,
+                                        &vkrpbegininfo_imgui[i%swap_image_count],
+                                        VK_SUBPASS_CONTENTS_INLINE );
 
-									ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), combuf_imgui_loop[i].vk_command_buffer);
+                                    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), combuf_imgui_loop[i].vk_command_buffer);
 
-								rv("vkCmdEndRenderPass");
-									vkCmdEndRenderPass(combuf_imgui_loop[i].vk_command_buffer);
+                                rv("vkCmdEndRenderPass");
+                                    vkCmdEndRenderPass(combuf_imgui_loop[i].vk_command_buffer);
 
-								rv("vkCmdPipelineBarrier");
-									vkCmdPipelineBarrier (
-										combuf_imgui_loop[i].vk_command_buffer,
-										VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
-										0, NULL, 0, NULL,
-										1, &vk_IMB_pres_CAO_to_PRS[i%swap_image_count] );
+                                rv("vkCmdPipelineBarrier");
+                                    vkCmdPipelineBarrier (
+                                        combuf_imgui_loop[i].vk_command_buffer,
+                                        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                                        0, NULL, 0, NULL,
+                                        1, &vk_IMB_pres_CAO_to_PRS[i%swap_image_count] );
 
-							VkResult endResult = vkEndCommandBuffer(combuf_imgui_loop[i].vk_command_buffer);
-							vr("vkEndCommandBuffer", &vkres, i, endResult);
-							if(stage_failed("Record ImGui loop command buffer end", endResult)) { return 1; } }
-					end_timer(cmdtime, "Command Buffer Build Time"); } }
+                            VkResult endResult = vkEndCommandBuffer(combuf_imgui_loop[i].vk_command_buffer);
+                            vr("vkEndCommandBuffer", &vkres, i, endResult);
+                            if(stage_failed("Record ImGui loop command buffer end", endResult)) { return 1; } }
+                    end_timer(cmdtime, "Command Buffer Build Time"); } }
 
-			if( do_ub_update ) { update_ub( &pcd, &ub ); update_ub( &ub, &sb.ub[0] ); }
-		//	Update Uniform Buffer values
-		//		[62]	'Scale' value
-		//	if( gc.scale_update ) {
-		//		gc.scale_update = false;
-		//		memcpy(&pcd.u32[62], &gc.scale_value, sizeof(uint32_t));
-		//		update_ub( &pcd, &ub );	}
-		//		[61]	'Zoom' value
-		//	if( gc.zoom_update ) {
-		//		gc.zoom_update = false;
-		//		memcpy(&pcd.u32[61], &gc.zoom_value, sizeof(uint32_t));
-		//		update_ub( &pcd, &ub );	}
-		//		[60]	Mouse info & Command IDs
-			ub.u32[60] 		= pack_ui_info(ui);
-		//		[59]	Views/Modes
-			vw.pmap		= gc.pmap_index;
-			vw.sdat		= (gc.mode_showdata) ? 1u : 0u;
-			ub.u32[59] 	= pack_vw_info(vw);
-			pcd.u32[59] = ub.u32[59];
-		//		[63]	Frame Index, Time-Seed
-			ft.frame 	= frame_index;
-			ub.u32[63]	= pack_ft_info(ft);
+            if( do_ub_update ) { update_ub( &pcd, &ub ); update_ub( &ub, &sb.ub[0] ); }
+        //  Update Uniform Buffer values
+        //      [62]    'Scale' value
+        //  if( gc.scale_update ) {
+        //      gc.scale_update = false;
+        //      memcpy(&pcd.u32[62], &gc.scale_value, sizeof(uint32_t));
+        //      update_ub( &pcd, &ub ); }
+        //      [61]    'Zoom' value
+        //  if( gc.zoom_update ) {
+        //      gc.zoom_update = false;
+        //      memcpy(&pcd.u32[61], &gc.zoom_value, sizeof(uint32_t));
+        //      update_ub( &pcd, &ub ); }
+        //      [60]    Mouse info & Command IDs
+            ub.u32[60]      = pack_ui_info(ui);
+        //      [59]    Views/Modes
+            vw.pmap     = gc.pmap_index;
+            vw.sdat     = (gc.mode_showdata) ? 1u : 0u;
+            ub.u32[59]  = pack_vw_info(vw);
+            pcd.u32[59] = ub.u32[59];
+        //      [63]    Frame Index, Time-Seed
+            ft.frame    = frame_index;
+            ub.u32[63]  = pack_ft_info(ft);
 
-		//	Send UB values to GPU
-			rv("memcpy");
-				memcpy(pvoid_memmap_work, &ub, sizeof(ub));
-
-
-		//	Send SSBO values to GPU
-//			sb.ub[0] = ub;
-			rv("memcpy");
-				memcpy(pvoid_memmap_ssbo, &sb, sizeof(sb));
-
-    		optime = start_timer(optime);
+        //  Send UB values to GPU
+            rv("memcpy");
+                memcpy(pvoid_memmap_work, &ub, sizeof(ub));
 
 
-			if(!ei.paused || ei.tick_loop) {
-				if(valid) {
-				//	Submit 'work' commands to the GPU graphics queue
-					rv("vkcombuf_work");
-						qsync.sub_info.pCommandBuffers = &combuf_work_loop[(frame_index+1)%2].vk_command_buffer;
-					VkFence f = (ei.run_headless) ? qsync.vk_fence : VK_NULL_HANDLE;
-					vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
-						vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, f) ); } }
+        //  Send SSBO values to GPU
+//          sb.ub[0] = ub;
+            rv("memcpy");
+                memcpy(pvoid_memmap_ssbo, &sb, sizeof(sb));
 
-			if(!ei.run_headless) {
-				if(valid) {
-				//	Acquire a VkImage from the swapchain's pool
-					vr("vkAcquireNextImageKHR", &vkres, swap_image_index,
-						vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain_img_acq, VK_NULL_HANDLE, &swap_image_index) );
-					ov("swap_image_index", swap_image_index); }
+            optime = start_timer(optime);
 
-				if(valid) {
-				//	Copy the "Work" Image to the "Swap" Image
-					rv("vkcombuf_pres");
-						swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
-					VkFence f = (ei.show_gui || ei.paused) ? VK_NULL_HANDLE : qsync.vk_fence;
-					swpsync.sub_info.pSignalSemaphores = (ei.show_gui || ei.paused) ? &vk_semaphore_swapchain_imgui : &vk_semaphore_swapchain_pres;
-					vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
-						vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, f) ); }
 
-				if(valid && (ei.show_gui || ei.paused)) {
-				//	Add IMGUI interface
-					rv("vkcombuf_IMGUI");
-						swpsync_imgui.sub_info.pCommandBuffers = &combuf_imgui_loop[swap_image_index].vk_command_buffer;
-					VkFence f = qsync.vk_fence;
-					vr("vkQueueSubmit", &vkres, swpsync_imgui.sub_info.pCommandBuffers,
-						vkQueueSubmit(swpsync_imgui.vk_queue, 1, &swpsync_imgui.sub_info, f) ); } }
+            if(!ei.paused || ei.tick_loop) {
+                if(valid) {
+                //  Submit 'work' commands to the GPU graphics queue
+                    rv("vkcombuf_work");
+                        qsync.sub_info.pCommandBuffers = &combuf_work_loop[(frame_index+1)%2].vk_command_buffer;
+                    VkFence f = (ei.run_headless) ? qsync.vk_fence : VK_NULL_HANDLE;
+                    vr("vkQueueSubmit", &vkres, qsync.sub_info.pCommandBuffers,
+                        vkQueueSubmit(qsync.vk_queue, 1, &qsync.sub_info, f) ); } }
 
-			if(valid) {
-			//	Wait for the queued commands to finish execution
-				VkResult wait_result = VK_SUCCESS;
-				do {
-					wait_result = vkWaitForFences(vob.VKL, 1, &qsync.vk_fence, VK_TRUE, 100000000);
-					vr("vkWaitForFences <100ms>", &vkres, qsync.vk_fence, wait_result);
-				} while (wait_result == VK_TIMEOUT); }
+            if(!ei.run_headless) {
+                if(valid) {
+                //  Acquire a VkImage from the swapchain's pool
+                    vr("vkAcquireNextImageKHR", &vkres, swap_image_index,
+                        vkAcquireNextImageKHR(vob.VKL, vk_swapchain, UINT64_MAX, vk_semaphore_swapchain_img_acq, VK_NULL_HANDLE, &swap_image_index) );
+                    ov("swap_image_index", swap_image_index); }
 
-    		end_timer(optime, "Work Queue Time");
+                if(valid) {
+                //  Copy the "Work" Image to the "Swap" Image
+                    rv("vkcombuf_pres");
+                        swpsync.sub_info.pCommandBuffers = &combuf_pres_loop[swap_image_index+((frame_index%2)*swap_image_count)].vk_command_buffer;
+                    VkFence f = (ei.show_gui || ei.paused) ? VK_NULL_HANDLE : qsync.vk_fence;
+                    swpsync.sub_info.pSignalSemaphores = (ei.show_gui || ei.paused) ? &vk_semaphore_swapchain_imgui : &vk_semaphore_swapchain_pres;
+                    vr("vkQueueSubmit", &vkres, swpsync.sub_info.pCommandBuffers,
+                        vkQueueSubmit(swpsync.vk_queue, 1, &swpsync.sub_info, f) ); }
 
-			if(valid) {
-			//	Reset the fence for reuse in the next iteration
-				vr("vkResetFences", &vkres, qsync.vk_fence,
-					vkResetFences(vob.VKL, 1, &qsync.vk_fence) ); }
+                if(valid && (ei.show_gui || ei.paused)) {
+                //  Add IMGUI interface
+                    rv("vkcombuf_IMGUI");
+                        swpsync_imgui.sub_info.pCommandBuffers = &combuf_imgui_loop[swap_image_index].vk_command_buffer;
+                    VkFence f = qsync.vk_fence;
+                    vr("vkQueueSubmit", &vkres, swpsync_imgui.sub_info.pCommandBuffers,
+                        vkQueueSubmit(swpsync_imgui.vk_queue, 1, &swpsync_imgui.sub_info, f) ); } }
 
-			if(valid && !ei.run_headless) {
-				vr("vkQueuePresentKHR", &vkres, swap_image_index,
-					vkQueuePresentKHR(swpsync.vk_queue, &vk_present_info) ); }
+            if(valid) {
+            //  Wait for the queued commands to finish execution
+                VkResult wait_result = VK_SUCCESS;
+                do {
+                    wait_result = vkWaitForFences(vob.VKL, 1, &qsync.vk_fence, VK_TRUE, 100000000);
+                    vr("vkWaitForFences <100ms>", &vkres, qsync.vk_fence, wait_result);
+                } while (wait_result == VK_TIMEOUT); }
 
-			if(!ei.paused || ei.tick_loop) { frame_index++; }
+            end_timer(optime, "Work Queue Time");
 
-			handleImageExport(
-				&ei,                        // EngineInfo pointer
-				&gc,                        // IMGUI_Config pointer
-				&vob,                       // VK_Obj pointer
-				&qsync,                     // VK_QueueSync pointer for general submissions
-				combuf_work_imagedata.data(), // Pointer to work->blit command buffers
-				combuf_blit_imgui_loop.data(), // Pointer to swap->blit command buffers
-				combuf_blit2buff_sing.data(), // Pointer to blit->buffer command buffer
-				frame_index,                // Current frame index
-				swap_image_index,           // Current swapchain image index
-				pvoid_blit2buff,            // Mapped buffer pointer
-				APP_W,                      // App width
-				APP_H,                      // App height
-				glfw_mouse,                 // GLFW mouse state (for cursor)
-				&fs,                        // Pointer to fspec256 struct
-				&fsm,                       // Pointer to fsmag256 struct
-				valid,                      // *** ADDED: Pass valid state ***
-				loglevel,                   // *** ADDED: Pass loglevel state ***
-				&vkres                      // Result vector pointer
-			);
+            if(valid) {
+            //  Reset the fence for reuse in the next iteration
+                vr("vkResetFences", &vkres, qsync.vk_fence,
+                    vkResetFences(vob.VKL, 1, &qsync.vk_fence) ); }
 
-		}
+            if(valid && !ei.run_headless) {
+                vr("vkQueuePresentKHR", &vkres, swap_image_index,
+                    vkQueuePresentKHR(swpsync.vk_queue, &vk_present_info) ); }
 
-	//	End of loop
-		if(fps_report == current_sec) {
-			fps_report--;
-			if(!verbose_loops) { loglevel = MAXLOG; }
-			end_timer(ftime, "Full Loop Time");
-			if(!verbose_loops) { loglevel = -1; } }
+            if(!ei.paused || ei.tick_loop) { frame_index++; }
 
-		if(verbose_loops) { end_timer(ftime, "Full Loop Time"); }
+            handleImageExport(
+                &ei,                        // EngineInfo pointer
+                &gc,                        // IMGUI_Config pointer
+                &vob,                       // VK_Obj pointer
+                &qsync,                     // VK_QueueSync pointer for general submissions
+                combuf_work_imagedata.data(), // Pointer to work->blit command buffers
+                combuf_blit_imgui_loop.data(), // Pointer to swap->blit command buffers
+                combuf_blit2buff_sing.data(), // Pointer to blit->buffer command buffer
+                frame_index,                // Current frame index
+                swap_image_index,           // Current swapchain image index
+                pvoid_blit2buff,            // Mapped buffer pointer
+                APP_W,                      // App width
+                APP_H,                      // App height
+                glfw_mouse,                 // GLFW mouse state (for cursor)
+                &fs,                        // Pointer to fspec256 struct
+                &fsm,                       // Pointer to fsmag256 struct
+                valid,                      // *** ADDED: Pass valid state ***
+                loglevel,                   // *** ADDED: Pass loglevel state ***
+                &vkres                      // Result vector pointer
+            );
 
-		hd("STAGE:", "LOOP");
+        }
 
-		if(ei.tick_loop > 0) { ei.tick_loop--; }
-		if(verbose_loops > 0) { verbose_loops--; } else { loglevel = -1; }
+    //  End of loop
+        if(fps_report == current_sec) {
+            fps_report--;
+            if(!verbose_loops) { loglevel = MAXLOG; }
+            end_timer(ftime, "Full Loop Time");
+            if(!verbose_loops) { loglevel = -1; } }
 
-		do_ub_update = false;
+        if(verbose_loops) { end_timer(ftime, "Full Loop Time"); }
 
-	} while ( valid && ((!ei.run_headless && !glfwWindowShouldClose(glfw_W)) || ei.run_headless) );
+        hd("STAGE:", "LOOP");
 
-	loglevel = MAXLOG;
+        if(ei.tick_loop > 0) { ei.tick_loop--; }
+        if(verbose_loops > 0) { verbose_loops--; } else { loglevel = -1; }
 
-	  ///////////////////////////////////////////////////
-	 /**/	hd("STAGE:", "EXIT APPLICATION");		/**/
-	///////////////////////////////////////////////////
+        do_ub_update = false;
 
-	if(!valid) 	 							{ hd("STAGE:", "ABORTED"); }
+    } while ( valid && ((!ei.run_headless && !glfwWindowShouldClose(glfw_W)) || ei.run_headless) );
 
-	if(!ei.run_headless) {
-		if(glfwWindowShouldClose(glfw_W)) 	{ hd("STAGE:",  "CLOSED"); }
+    loglevel = MAXLOG;
 
-		cleanupImGui(vob.VKL);
-		cleanupGLFW(glfw_W);
+      ///////////////////////////////////////////////////
+     /**/   hd("STAGE:", "EXIT APPLICATION");       /**/
+    ///////////////////////////////////////////////////
 
-	} else { rv("Headless Mode Enabled!"); }
+    if(!valid)                              { hd("STAGE:", "ABORTED"); }
 
-	rv("glfwTerminate");
-	glfwTerminate();
+    if(!ei.run_headless) {
+        if(glfwWindowShouldClose(glfw_W))   { hd("STAGE:",  "CLOSED"); }
 
-	rv("return");
-	return 0;
+        cleanupImGui(vob.VKL);
+        cleanupGLFW(glfw_W);
+
+    } else { rv("Headless Mode Enabled!"); }
+
+    rv("glfwTerminate");
+    glfwTerminate();
+
+    rv("return");
+    return 0;
 }
