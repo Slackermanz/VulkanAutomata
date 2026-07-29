@@ -1,7 +1,8 @@
 #ifndef VKMODULES_TYPES_H
 #define VKMODULES_TYPES_H
 
-#include <GLFW/glfw3.h>
+struct GLFWwindow;
+
 #include <chrono>
 #include <string>
 #include <cstdint>
@@ -24,6 +25,8 @@ struct GLFW_mouse {
 	int 		mods;
 	double 		xoffset;
 	double 		yoffset;
+	double 		scroll_x_accum;
+	double 		scroll_y_accum;
 };
 
 struct KeyCapture {

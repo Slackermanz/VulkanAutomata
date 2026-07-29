@@ -82,31 +82,48 @@ int main() {
 	 /**/	hd("STAGE:", "GLFW EXTENSIONS");		/**/
 	///////////////////////////////////////////////////
 
-	uint32_t glfw_ext_count;
-	const char** glfw_extentions; // Keep original variable name with typo for consistency
-	initGLFWExtensions(&glfw_ext_count, &glfw_extentions, &vkres);
+	uint32_t glfw_ext_count = 0;
+	const char** glfw_extentions = nullptr; // Keep original variable name with typo for consistency
+	if (!initGLFWExtensions(&glfw_ext_count, &glfw_extentions, &vkres)) {
+		ov("Error", "GLFW initialization failed or Vulkan surface extensions are unavailable.");
+		return 1;
+	}
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "VULKAN EXTENSIONS");		/**/
 	///////////////////////////////////////////////////
 
-	uint32_t 	INST_EXS 		= 1 + glfw_ext_count;	//	Number of Vulkan Instance Extensions
-	uint32_t 	LAYR_EXS 		= 1;					//	Number of Vulkan Layers
+	std::vector<const char*> instance_extensions;
+	const bool enable_debug_utils =
+		isInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME, &vkres);
+	if (enable_debug_utils) {
+		instance_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+	} else {
+		ov("Instance Extension", "VK_EXT_debug_utils not available; continuing without debug messenger.");
+	}
+	for (uint32_t i = 0; i < glfw_ext_count; ++i) {
+		instance_extensions.push_back(glfw_extentions[i]);
+	}
+
+	std::vector<const char*> layer_extensions;
+	const char* validation_layer_name = "VK_LAYER_KHRONOS_validation";
+	if (isInstanceLayerAvailable(validation_layer_name, &vkres)) {
+		layer_extensions.push_back(validation_layer_name);
+	} else {
+		ov("Validation Layer", "VK_LAYER_KHRONOS_validation not available; continuing without validation layer.");
+	}
+
+	uint32_t 	INST_EXS 		= static_cast<uint32_t>(instance_extensions.size());
+	uint32_t 	LAYR_EXS 		= static_cast<uint32_t>(layer_extensions.size());
 	uint32_t 	LDEV_EXS 		= 1;					//	Number of Vulkan Logical Device Extensions
 
 //	Paths to shader files and extension names
-	const 	char* 	instance_extensions	[INST_EXS]
-	=	{	"VK_EXT_debug_utils", 
-			glfw_extentions[0], 
-			glfw_extentions[1]					};	// TODO Number of entries might not be the same for all systems!
-	const 	char* 	layer_extensions	[LAYR_EXS]
-	=	{	"VK_LAYER_KHRONOS_validation" 		};
 	const 	char* 	device_extensions	[LDEV_EXS]
 	=	{	VK_KHR_SWAPCHAIN_EXTENSION_NAME		};
 
 //	Extension Notification Messages
-	for(int i = 0; i < INST_EXS; i++) {	iv("Instance Extensions", 		instance_extensions[i], i ); }
-	for(int i = 0; i < LAYR_EXS; i++) {	iv("Layer Extensions", 			layer_extensions[i], 	i ); }
+	for(uint32_t i = 0; i < INST_EXS; i++) {	iv("Instance Extensions", 		instance_extensions[i], static_cast<int>(i) ); }
+	for(uint32_t i = 0; i < LAYR_EXS; i++) {	iv("Layer Extensions", 			layer_extensions[i], 	static_cast<int>(i) ); }
 	for(int i = 0; i < LDEV_EXS; i++) {	iv("Logical Device Extensions", device_extensions[i], 	i ); }
 
 	  ///////////////////////////////////////////////////
@@ -116,11 +133,11 @@ int main() {
 	VK_Obj vob;
 	VK_Config vkcfg;
 	
-	VkResult instanceResult = initVulkanInstance(&vob, &vkcfg, instance_extensions, INST_EXS, 
-					  layer_extensions, LAYR_EXS, &vkres);
+	VkResult instanceResult = initVulkanInstance(&vob, &vkcfg, instance_extensions.data(), INST_EXS, 
+					  layer_extensions.data(), LAYR_EXS, &vkres);
 	
 	if (instanceResult != VK_SUCCESS) {
-		ov("Error", "Vulkan instance creation failed. Check if validation layers are installed.");
+		ov("Error", "Vulkan instance creation failed. Check instance extensions, optional validation layers, and Vulkan loader setup.");
 		valid = 0;
 	}
 
@@ -129,8 +146,10 @@ int main() {
 	///////////////////////////////////////////////////
 
 	VK_Debug vkdbg;
-	if (valid) {
+	if (valid && enable_debug_utils) {
 		setupDebugMessenger(&vob, &vkdbg, &vkres);
+	} else if (!enable_debug_utils) {
+		rv("Skipping debug messenger setup");
 	}
 
 	  ///////////////////////////////////////////////////
@@ -210,16 +229,23 @@ int main() {
 	std::vector<VkImage> vk_image_swapimgs_vec; // Use std::vector
 
 	if(!ei.run_headless) {
-        createSwapChain(
+        VkResult swapchainResult = createSwapChain(
             &vob,                       // Core Vulkan objects
             glfw_surface,               // Window surface
             &vk_surface_capabilities,   // Surface capabilities
             vob.VKQ_i,                  // Graphics queue family index (using the one from vob)
+            APP_W,                      // Requested framebuffer width
+            APP_H,                      // Requested framebuffer height
             &vk_swapchain,              // Pass current swapchain (will be VK_NULL_HANDLE initially)
             &vk_swapchain,              // Output: Swapchain handle
             &swap_image_count,          // Output: Image count
             &vk_image_swapimgs_vec,     // Output: Image handles vector
             &vkres);                    // Result vector
+        if (swapchainResult != VK_SUCCESS || swap_image_count == 0 || vk_image_swapimgs_vec.empty()) {
+            ov("Error", "Swapchain creation failed; aborting before framebuffer setup.");
+            valid = 0;
+            return 1;
+        }
 	} else { rv("Headless Mode Enabled!"); }
 
 	  ///////////////////////////////////////////////////

@@ -2,7 +2,6 @@
 #define VKMODULES_IMGUI_MANAGER_H
 
 #include <vulkan/vulkan.h>
-#include <GLFW/glfw3.h>
 #include <vector>
 #include "../../lib/imgui.h"
 #include "../../lib/imgui_impl_vulkan.h"

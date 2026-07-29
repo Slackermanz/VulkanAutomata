@@ -1,7 +1,6 @@
 #ifndef VKMODULES_INPUT_HANDLER_H
 #define VKMODULES_INPUT_HANDLER_H
 
-#include <GLFW/glfw3.h>
 #include "../Types/Types.h"
 
 // External globals used by input handlers

@@ -1,7 +1,6 @@
 #ifndef VKMODULES_VULKAN_CORE_H
 #define VKMODULES_VULKAN_CORE_H
 
-#include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
@@ -40,7 +39,20 @@ VkResult setupDebugMessenger(
 bool initGLFWExtensions(
     uint32_t* glfw_ext_count,
     const char*** glfw_extensions,
-    std::vector<VkResult>* vkres);
+    std::vector<VkResult>* vkres
+);
+
+// Probe instance extension availability
+bool isInstanceExtensionAvailable(
+    const char* extension_name,
+    std::vector<VkResult>* vkres
+);
+
+// Probe instance layer availability
+bool isInstanceLayerAvailable(
+    const char* layer_name,
+    std::vector<VkResult>* vkres
+);
 
 // Enumerate and select a suitable physical device
 VkResult selectPhysicalDevice(

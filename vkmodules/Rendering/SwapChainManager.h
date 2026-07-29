@@ -11,6 +11,8 @@ VkResult createSwapChain(
     VkSurfaceKHR surface,             // Window surface
     VkSurfaceCapabilitiesKHR* capabilities, // Surface capabilities
     uint32_t queueFamilyIndex,        // Graphics queue family index
+    uint32_t requestedWidth,          // Requested framebuffer width when surface extent is delegated
+    uint32_t requestedHeight,         // Requested framebuffer height when surface extent is delegated
     VkSwapchainKHR* oldSwapchain,     // For recreation (optional, VK_NULL_HANDLE for initial)
     VkSwapchainKHR* swapChain,        // Output: Swapchain handle
     uint32_t* imageCount,             // Output: Number of images in swapchain

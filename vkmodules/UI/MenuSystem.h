@@ -1,7 +1,6 @@
 #ifndef VKMODULES_MENU_SYSTEM_H
 #define VKMODULES_MENU_SYSTEM_H
 
-#include <GLFW/glfw3.h>
 #include "../Types/Types.h"
 
 // Create and manage the ImGui interface

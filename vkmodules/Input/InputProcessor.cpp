@@ -1,3 +1,6 @@
+#include <GLFW/glfw3.h>
+#include <cmath>
+
 #include "InputProcessor.h"
 
 void processMouseInput(
@@ -43,17 +46,23 @@ void processMouseInput(
         }
     }
 
-    // Mouse Wheel Up
-    if (mouseState->yoffset == -1) {
-        mouseState->yoffset = 0; // Consume action
+    // Mouse Wheel Up / high-resolution scroll negative direction
+    while (mouseState->scroll_y_accum <= -1.0) {
+        mouseState->scroll_y_accum += 1.0; // Consume one scroll step
         do_action(36, ui, ei, gc); // Zoom Out
     }
 
-    // Mouse Wheel Down
-    if (mouseState->yoffset == 1) {
-        mouseState->yoffset = 0; // Consume action
+    // Mouse Wheel Down / high-resolution scroll positive direction
+    while (mouseState->scroll_y_accum >= 1.0) {
+        mouseState->scroll_y_accum -= 1.0; // Consume one scroll step
         do_action(35, ui, ei, gc); // Zoom In
     }
+
+    if (std::abs(mouseState->scroll_y_accum) < 0.000001) {
+        mouseState->scroll_y_accum = 0.0;
+    }
+    mouseState->xoffset = 0;
+    mouseState->yoffset = 0;
 
     // Mouse Back
     if (mouseState->button == 3 && mouseState->action == 1) {

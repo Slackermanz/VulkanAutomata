@@ -1,7 +1,9 @@
 # VulkanAutomata
 GPU-Accelerated Cellular Automata Render Engine using the Vulkan API
 
-Developed on `Xubuntu 20.04`
+Originally developed on `Xubuntu 20.04`.
+
+This repository is currently built through the shell entrypoints in the repo root, not through CMake or Meson. The Linux build path assumes system-installed compiler and graphics development packages rather than a bundled project toolchain.
 
 ---
 
@@ -11,45 +13,59 @@ Demo video: https://www.youtube.com/watch?v=MSINHosdRjU
 
 ---
 
-The Vulkan SDK can be found at: https://vulkan.lunarg.com/sdk/home
+## Build prerequisites
 
-For `Xubuntu 20.04`:
+The current Linux build path requires:
 
-`wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -`
+- a C++17 compiler with concepts support
+- `glslc`
+- GLFW development headers and libraries
+- Vulkan headers and loader libraries
+- `pkg-config` so the build script can discover the active GLFW flags
+- optional: Vulkan validation layers for runtime diagnostics
 
-`sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list https://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list`
+On Debian-like hosts, the relevant package names are typically:
 
-`sudo apt update`
+- `g++`
+- `pkg-config`
+- `libglfw3-dev`
+- `libvulkan-dev`
+- `glslc`
+- optional: `vulkan-validationlayers`
 
-`sudo apt install vulkan-sdk`
+The historical LunarG SDK path can still be used if preferred, but it is not the only viable Linux setup. The repo build scripts now expect the active host environment to expose the necessary development surfaces directly.
 
 ---
 
-The Cellular Automata 'rules' are coded as Fragment Shaders in `./res/frag/` 
- 
-Shaders are compiled from `./res/vert/` and  `./res/frag/` using the program `glslc` from the Vulkan SDK
+## Build and run
+
+Scripts should be called from the repository root `./VulkanAutomata`.
+
+Primary entrypoints:
+
+- `./buildrun.sh` — preflight the host toolchain, compile shaders, compile the application, then run it
+- `./buildrun_shaders_only.sh` — rebuild the fragment shader and run the existing application binary
+- `./script_buildrun.sh` — run `buildrun.sh` and capture the terminal transcript into `./log/`
+
+Manual flow:
+
+- compile `./res/vert/vert_TriQuad.vert` into `./app/vert_TriQuad.spv`
+- compile `./res/frag/frag_automata0000.frag` into `./app/frag_automata0000.spv`
+- compile the C++ application with GLFW flags resolved from the active system and link against Vulkan
+- run `./app/RunVulkanAutomataGLFW`
+
+If the host is missing required development packages, `buildrun.sh` now fails before the full compile and reports which surface is unavailable.
 
 ---
 
-Scripts should be called from the location `./VulkanAutomata`
+The Cellular Automata 'rules' are coded as Fragment Shaders in `./res/frag/`.
 
-Build & Run:
+Shaders are compiled from `./res/vert/` and `./res/frag/` using `glslc`.
 
-`script_buildrun.sh`
+Further design notes:
 
-or
-
-`buildrun.sh`
-
-or
-
-`glslc -O ./res/vert/vert_TriQuad.vert -o ./app/vert_TriQuad.spv`
-
-`glslc -O ./res/frag/frag_automata0000.frag -o ./app/frag_automata0000.spv`
-
-`g++ VulkanAutomata.cpp -fconcepts -lvulkan -o ./app/RunVkAuto`
-
-`./app/RunVkAuto`
+- `docs/PAIR_SELECTIVE_MNCA.md` explains the active pair-selective perceptron MNCA shader architecture in approachable implementation terms.
+- `docs/STATE_QUANTIZATION_AND_SYMMETRY.md` explains how the shaders use quantization boundaries to prevent hidden floating-point drift and preserve symmetry.
 
 ---
 
@@ -78,5 +94,3 @@ Communities:
  - ConwayLifeLounge Discord: https://discord.gg/BCuYCEn
 
  - Reddit: https://old.reddit.com/r/cellular_automata
-
-

@@ -1,7 +1,6 @@
 #ifndef VKMODULES_WINDOW_MANAGER_H
 #define VKMODULES_WINDOW_MANAGER_H
 
-#include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <string>
@@ -16,7 +15,7 @@ VkResult createGLFWWindowAndSurface(
     VK_Obj* vob,                  // For VKI, VKP, VKQ_i
     EngineInfo* ei,             // To check headless mode
     GLFWwindow** window,          // Output: GLFW window handle
-    VkSurfaceKHR* surface,        // Output: Vulkan surface handle
+    VkSurfaceKHR* surface,        // Output: Surface handle
     VkSurfaceCapabilitiesKHR* capabilities, // Output: Surface capabilities
     std::vector<VkResult>* vkres
 );

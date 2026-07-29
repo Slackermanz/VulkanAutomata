@@ -1,3 +1,5 @@
+#include <GLFW/glfw3.h>
+
 #include "MenuSystem.h"
 #include "ActionDispatcher.h"
 #include "Notifications.h"     // For notification_list

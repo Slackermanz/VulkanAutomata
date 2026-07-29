@@ -8,6 +8,8 @@ VkResult createSwapChain(
     VkSurfaceKHR surface,
     VkSurfaceCapabilitiesKHR* capabilities,
     uint32_t queueFamilyIndex,
+    uint32_t requestedWidth,
+    uint32_t requestedHeight,
     VkSwapchainKHR* oldSwapchain,
     VkSwapchainKHR* swapChain,
     uint32_t* imageCount, // In/Out parameter
@@ -16,11 +18,38 @@ VkResult createSwapChain(
 
     // Choose Swapchain format (B8G8R8A8 UNORM and SRGB Non-linear are common)
     VkSurfaceFormatKHR surfaceFormat = { VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR };
-    // Choose presentation mode (Immediate is used in original code)
-    VkPresentModeKHR presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+    // Choose presentation mode. FIFO is guaranteed; prefer immediate only when the surface reports support.
+    VkPresentModeKHR presentMode = VK_PRESENT_MODE_FIFO_KHR;
+    uint32_t presentModeCount = 0;
+    VkResult presentModeResult = vkGetPhysicalDeviceSurfacePresentModesKHR(vob->VKP, surface, &presentModeCount, NULL);
+    vr("vkGetPhysicalDeviceSurfacePresentModesKHR (count)", vkres, presentModeCount, presentModeResult);
+    if (presentModeResult != VK_SUCCESS || presentModeCount == 0) {
+        return presentModeResult == VK_SUCCESS ? VK_ERROR_INITIALIZATION_FAILED : presentModeResult;
+    }
 
-    // Choose swap extent
+    std::vector<VkPresentModeKHR> presentModes(presentModeCount);
+    presentModeResult = vkGetPhysicalDeviceSurfacePresentModesKHR(vob->VKP, surface, &presentModeCount, presentModes.data());
+    vr("vkGetPhysicalDeviceSurfacePresentModesKHR (modes)", vkres, "ARRAY", presentModeResult);
+    if (presentModeResult != VK_SUCCESS) {
+        return presentModeResult;
+    }
+
+    for (uint32_t i = 0; i < presentModeCount; ++i) {
+        iv("Swapchain present mode", presentModes[i], i);
+        if (presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR) {
+            presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+        }
+    }
+    ov("Selected swapchain presentMode", presentMode);
+
+    // Choose swap extent. Some WSI backends delegate extent selection to the application.
     VkExtent2D extent = capabilities->currentExtent;
+    if (extent.width == std::numeric_limits<uint32_t>::max()) {
+        extent.width = std::clamp(requestedWidth, capabilities->minImageExtent.width, capabilities->maxImageExtent.width);
+        extent.height = std::clamp(requestedHeight, capabilities->minImageExtent.height, capabilities->maxImageExtent.height);
+    }
+    ov("Swapchain extent.width", extent.width);
+    ov("Swapchain extent.height", extent.height);
 
     // Determine image count
     uint32_t desiredImageCount = capabilities->minImageCount + 1;

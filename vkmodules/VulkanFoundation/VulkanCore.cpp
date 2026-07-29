@@ -1,8 +1,12 @@
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
 #include "VulkanCore.h"
 #include "../Utils/Logger.h"
 #include <iostream>
 #include <vector>
 #include <limits> // Needed for UINT32_MAX
+#include <cstring>
 
 // External variables
 extern int loglevel;
@@ -54,17 +58,82 @@ int32_t findProperties(const VkPhysicalDeviceMemoryProperties* pMemoryProperties
 }
 
 bool initGLFWExtensions(uint32_t* glfw_ext_count, const char*** glfw_extensions, std::vector<VkResult>* vkres) {
-    vr("glfwInit", vkres, "GLFW", VkResult(glfwInit()));
-    vr("glfwVulkanSupported", vkres, "GLFW", VkResult(glfwVulkanSupported()));
+    if (glfwInit() != GLFW_TRUE) {
+        ov("Error", "glfwInit failed.");
+        valid = 0;
+        return false;
+    }
+    rv("glfwInit");
+
+    if (glfwVulkanSupported() != GLFW_TRUE) {
+        ov("Error", "glfwVulkanSupported returned false.");
+        valid = 0;
+        return false;
+    }
+    rv("glfwVulkanSupported");
     
     rv("glfwGetRequiredInstanceExtensions");
     *glfw_extensions = glfwGetRequiredInstanceExtensions(glfw_ext_count);
+
+    if (*glfw_extensions == NULL || *glfw_ext_count == 0) {
+        ov("Error", "glfwGetRequiredInstanceExtensions returned no Vulkan surface extensions.");
+        valid = 0;
+        return false;
+    }
     
     for(int i = 0; i < *glfw_ext_count; i++) {
         iv("GLFW Extensions", (*glfw_extensions)[i], i);
     }
     
     return true;
+}
+
+bool isInstanceExtensionAvailable(const char* extension_name, std::vector<VkResult>* vkres) {
+    uint32_t extension_count = 0;
+    VkResult result = vkEnumerateInstanceExtensionProperties(NULL, &extension_count, NULL);
+    vr("vkEnumerateInstanceExtensionProperties (count)", vkres, extension_count, result);
+    if (result != VK_SUCCESS) {
+        return false;
+    }
+
+    std::vector<VkExtensionProperties> extensions(extension_count);
+    result = vkEnumerateInstanceExtensionProperties(NULL, &extension_count, extensions.data());
+    vr("vkEnumerateInstanceExtensionProperties (list)", vkres, "ARRAY", result);
+    if (result != VK_SUCCESS) {
+        return false;
+    }
+
+    for (const auto& extension : extensions) {
+        if (std::strcmp(extension.extensionName, extension_name) == 0) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool isInstanceLayerAvailable(const char* layer_name, std::vector<VkResult>* vkres) {
+    uint32_t layer_count = 0;
+    VkResult result = vkEnumerateInstanceLayerProperties(&layer_count, NULL);
+    vr("vkEnumerateInstanceLayerProperties (count)", vkres, layer_count, result);
+    if (result != VK_SUCCESS) {
+        return false;
+    }
+
+    std::vector<VkLayerProperties> layers(layer_count);
+    result = vkEnumerateInstanceLayerProperties(&layer_count, layers.data());
+    vr("vkEnumerateInstanceLayerProperties (list)", vkres, "ARRAY", result);
+    if (result != VK_SUCCESS) {
+        return false;
+    }
+
+    for (const auto& layer : layers) {
+        if (std::strcmp(layer.layerName, layer_name) == 0) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 VkResult initVulkanInstance(VK_Obj* vob, VK_Config* vkcfg, 

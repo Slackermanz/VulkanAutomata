@@ -1,3 +1,5 @@
+#include <GLFW/glfw3.h>
+
 #include "InputHandler.h"
 #include "../Utils/Logger.h"
 #include "../../lib/imgui.h"
@@ -19,6 +21,8 @@ void clear_glfw_mouse(GLFW_mouse *e) {
 	e->mods 	= 0;
 	e->xoffset 	= 0;
 	e->yoffset 	= 0;
+	// Do not clear scroll accumulators here; high-resolution scroll deltas
+	// may arrive as fractional values that need to survive across frames.
 }
 
 void glfw_keyboard_event(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -69,9 +73,11 @@ void glfw_mousescroll_event(GLFWwindow* window, double xoffset, double yoffset) 
 		ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
 	}
 	else {
-		glfw_mouse.window 	= window;
-		glfw_mouse.xoffset	= xoffset;
-		glfw_mouse.yoffset 	= yoffset;
+		glfw_mouse.window 			= window;
+		glfw_mouse.xoffset			+= xoffset;
+		glfw_mouse.yoffset 			+= yoffset;
+		glfw_mouse.scroll_x_accum	+= xoffset;
+		glfw_mouse.scroll_y_accum	+= yoffset;
 	}
 /*	loglevel = MAXLOG;
 	hd("INPUT:", "MOUSE");

@@ -25,12 +25,6 @@ layout(binding 		=  2) readonly buffer SSBO {
 //	----    ----    ----    ----    ----    ----    ----    ----
 
 const uint MAX_RADIUS = 8u;
-const uint PAIR_COUNT = 6u;
-const uint MAG_BASE = 3u;	// v3..v38: six 5-bit coefficient magnitudes per word
-const uint SIGN_BASE = 39u;	// v39..v45: one sign bit per coefficient
-const float PAIR_STEP = 0.125;
-const float ENERGY_UNIT = 1.0 / 65536.0;
-const float ENERGY_TAX = 16.0 * ENERGY_UNIT;
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -149,71 +143,8 @@ vec4 bitmake(ConvData[MAX_RADIUS] rings, uint bits, uint of) {
 	vec4  sum = vec4(0.0,0.0,0.0,0.0);
 	float tot = 0.0;
 	for(uint i = 0u; i < MAX_RADIUS; i++) {
-		if(u32_upk(bits, 1u,i+of) == 1u) { sum += rings[i].value; tot += rings[i].total; } }
-	return (tot > 0.0) ? sum / tot : vec4(0.0); }
-
-uint pair_mask(uint panel_idx, uint head_idx) {
-	return u32_upk(sb.p[panel_idx].v[head_idx / 4u], 8u, (head_idx & 3u) * 8u);
-}
-
-float pair_coeff_mag(uint panel_idx, uint pair_idx, uint coeff_idx) {
-	uint word_idx = MAG_BASE + pair_idx * 6u + coeff_idx / 6u;
-	uint field_idx = coeff_idx % 6u;
-	return float(ut3(sb.p[panel_idx].v[word_idx], 5u, field_idx)) / 31.0;
-}
-
-float pair_coeff_sign(uint panel_idx, uint pair_idx, uint coeff_idx) {
-	uint sign_idx = pair_idx * 36u + coeff_idx;
-	return bsn(sb.p[panel_idx].v[SIGN_BASE + sign_idx / 32u], sign_idx & 31u);
-}
-
-float pair_coeff(uint panel_idx, uint pair_idx, uint coeff_idx) {
-	return pair_coeff_mag(panel_idx, pair_idx, coeff_idx) * pair_coeff_sign(panel_idx, pair_idx, coeff_idx);
-}
-
-vec3 pair_side_encode(uint panel_idx, uint pair_idx, uint coeff_base, vec3 nh) {
-	return vec3(
-		dot(nh, vec3(
-			pair_coeff(panel_idx, pair_idx, coeff_base + 0u),
-			pair_coeff(panel_idx, pair_idx, coeff_base + 1u),
-			pair_coeff(panel_idx, pair_idx, coeff_base + 2u))),
-		dot(nh, vec3(
-			pair_coeff(panel_idx, pair_idx, coeff_base + 3u),
-			pair_coeff(panel_idx, pair_idx, coeff_base + 4u),
-			pair_coeff(panel_idx, pair_idx, coeff_base + 5u))),
-		dot(nh, vec3(
-			pair_coeff(panel_idx, pair_idx, coeff_base + 6u),
-			pair_coeff(panel_idx, pair_idx, coeff_base + 7u),
-			pair_coeff(panel_idx, pair_idx, coeff_base + 8u))));
-}
-
-vec3 pair_terminal(uint panel_idx, uint pair_idx, vec3 a, vec3 b) {
-	return vec3(
-		dot(a, vec3(
-			pair_coeff(panel_idx, pair_idx, 18u),
-			pair_coeff(panel_idx, pair_idx, 19u),
-			pair_coeff(panel_idx, pair_idx, 20u)))
-		+ dot(b, vec3(
-			pair_coeff(panel_idx, pair_idx, 21u),
-			pair_coeff(panel_idx, pair_idx, 22u),
-			pair_coeff(panel_idx, pair_idx, 23u))),
-		dot(a, vec3(
-			pair_coeff(panel_idx, pair_idx, 24u),
-			pair_coeff(panel_idx, pair_idx, 25u),
-			pair_coeff(panel_idx, pair_idx, 26u)))
-		+ dot(b, vec3(
-			pair_coeff(panel_idx, pair_idx, 27u),
-			pair_coeff(panel_idx, pair_idx, 28u),
-			pair_coeff(panel_idx, pair_idx, 29u))),
-		dot(a, vec3(
-			pair_coeff(panel_idx, pair_idx, 30u),
-			pair_coeff(panel_idx, pair_idx, 31u),
-			pair_coeff(panel_idx, pair_idx, 32u)))
-		+ dot(b, vec3(
-			pair_coeff(panel_idx, pair_idx, 33u),
-			pair_coeff(panel_idx, pair_idx, 34u),
-			pair_coeff(panel_idx, pair_idx, 35u))));
-}
+		if(u32_upk(bits, 1u, i+of) == 1u) { sum += rings[i].value; tot += rings[i].total; } }
+    	return sum / tot; }
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 
@@ -295,81 +226,108 @@ void main() {
 
 //	Output Values
 	vec4 res_c = gdv( ivec2(0, 0), txdata );
-	res_c.rgb = max(res_c.rgb - vec3(ENERGY_TAX), vec3(0.0));
 
 //  Panel Index ID
 	uint v_idx = uint(vmap()*4.0) * 4u + uint(lmap()*4.0);
 
-	vec3 current = res_c.rgb;
-	vec3 best_score = vec3(0.0);
-	vec3 best_value = current;
-	vec3 second_score = vec3(0.0);
-	vec3 second_value = current;
+    vec4 res_v = vec4(0.0,0.0,0.0,1.0);
+	uint bt = 5u;
+	float t = 31.0;
 
-	for(uint p = 0u; p < PAIR_COUNT; p++) {
-		uint head_a = p * 2u;
-		uint head_b = head_a + 1u;
-		uint mask_a = pair_mask(v_idx, head_a);
-		uint mask_b = pair_mask(v_idx, head_b);
+	for(uint i = 0u; i < 8u; i++) {
 
-		vec3 nh_a = bitmake(nh_rings_m, mask_a, 0u).rgb;
-		vec3 nh_b = bitmake(nh_rings_m, mask_b, 0u).rgb;
+        // Get the average values of the color channels for the unique neighborhood kernel
+        vec4 nhv = bitmake( nh_rings_m, sb.p[v_idx].v[i/(32u/MAX_RADIUS)], (i*MAX_RADIUS) & 31u );
 
-		vec3 latent_a = pair_side_encode(v_idx, p, 0u, nh_a);
-		vec3 latent_b = pair_side_encode(v_idx, p, 9u, nh_b);
-		vec3 impulse = pair_terminal(v_idx, p, latent_a, latent_b);
+        // Weights, from -1.0 to +1.0, one set for each color channel being read
+        vec4 nnvr0 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],0u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],1u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  2u )) / t)*bsn(sb.p[v_idx].v[i+26u],2u),
+		    1.0
+	    );
 
-		vec3 delta = impulse / (vec3(1.0) + abs(impulse));
-		vec3 proposal = current
-			+ PAIR_STEP * (
-				max(delta, vec3(0.0)) * (vec3(1.0) - current)
-			+	min(delta, vec3(0.0)) * current );
+	    vec4 nnvg0 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],3u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  4u )) / t)*bsn(sb.p[v_idx].v[i+26u],4u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+0u], bt,  5u )) / t)*bsn(sb.p[v_idx].v[i+26u],5u),
+		    1.0
+	    );
 
-		vec3 relation = abs(latent_a - latent_b);
-		vec3 relation_norm = relation / (vec3(1.0) + relation);
-		vec3 relation_band = vec3(4.0) * relation_norm * (vec3(1.0) - relation_norm);
-		vec3 saturation_safety = vec3(4.0) * proposal * (vec3(1.0) - proposal);
-		float support = ((mask_a != 0u) && (mask_b != 0u)) ? 1.0 : 0.0;
-		vec3 score = support * relation_band * saturation_safety;
+	    vec4 nnvb0 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],6u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],7u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  2u )) / t)*bsn(sb.p[v_idx].v[i+26u],8u),
+		    1.0
+	    );
 
-		if(score.r > best_score.r) {
-			second_score.r = best_score.r;
-			second_value.r = best_value.r;
-			best_score.r = score.r;
-			best_value.r = proposal.r;
-		} else if(score.r > second_score.r) {
-			second_score.r = score.r;
-			second_value.r = proposal.r;
-		}
+        // sub-result
+        vec4 subres_0 = vec4(0.0,0.0,0.0,1.0);
 
-		if(score.g > best_score.g) {
-			second_score.g = best_score.g;
-			second_value.g = best_value.g;
-			best_score.g = score.g;
-			best_value.g = proposal.g;
-		} else if(score.g > second_score.g) {
-			second_score.g = score.g;
-			second_value.g = proposal.g;
-		}
+        subres_0[0] = dot(nhv.rgb, nnvr0.rgb);
+        subres_0[1] = dot(nhv.rgb, nnvg0.rgb);
+        subres_0[2] = dot(nhv.rgb, nnvb0.rgb);
 
-		if(score.b > best_score.b) {
-			second_score.b = best_score.b;
-			second_value.b = best_value.b;
-			best_score.b = score.b;
-			best_value.b = proposal.b;
-		} else if(score.b > second_score.b) {
-			second_score.b = score.b;
-			second_value.b = proposal.b;
-		}
-	}
+        vec4 nnvr1 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],9u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  4u )) / t)*bsn(sb.p[v_idx].v[i+26u],10u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+1u], bt,  5u )) / t)*bsn(sb.p[v_idx].v[i+26u],11u),
+		    1.0
+	    );
 
-	vec3 retained_score = best_score + second_score;
-	vec3 retained_value =
-		(best_value * best_score + second_value * second_score)
-		/ max(retained_score, vec3(0.000001));
-	vec3 authority = clamp(retained_score, vec3(0.0), vec3(1.0));
+	    vec4 nnvg1 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  0u )) / t)*bsn(sb.p[v_idx].v[i+26u],12u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  1u )) / t)*bsn(sb.p[v_idx].v[i+26u],13u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  2u )) / t)*bsn(sb.p[v_idx].v[i+26u],14u),
+		    1.0
+	    );
 
-	res_c.rgb = mix(current, retained_value, authority);
+	    vec4 nnvb1 = vec4(
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  3u )) / t)*bsn(sb.p[v_idx].v[i+26u],15u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  4u )) / t)*bsn(sb.p[v_idx].v[i+26u],16u),
+		    (float(ut3( sb.p[v_idx].v[i*3u+2u+2u], bt,  5u )) / t)*bsn(sb.p[v_idx].v[i+26u],17u),
+		    1.0
+	    );
+
+        // sub-result
+        vec4 subres_1 = vec4(0.0,0.0,0.0,1.0);
+
+        subres_1[0] = dot(subres_0.rgb, nnvr1.rgb);
+        subres_1[1] = dot(subres_0.rgb, nnvg1.rgb);
+        subres_1[2] = dot(subres_0.rgb, nnvb1.rgb);
+
+        vec4 nnvr2 = vec4(
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)], bt,  (i&1u)*3u+0u )) / t)*bsn(sb.p[v_idx].v[i+26u],18u),
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)], bt,  (i&1u)*3u+1u )) / t)*bsn(sb.p[v_idx].v[i+26u],19u),
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)], bt,  (i&1u)*3u+2u )) / t)*bsn(sb.p[v_idx].v[i+26u],20u),
+		    1.0
+	    );
+
+	    vec4 nnvg2 = vec4(
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)*2u], bt,  (1u-(i&1u))*3u+0u )) / t)*bsn(sb.p[v_idx].v[i+26u],21u),
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)*2u], bt,  (1u-(i&1u))*3u+1u )) / t)*bsn(sb.p[v_idx].v[i+26u],22u),
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)*2u], bt,  (1u-(i&1u))*3u+2u )) / t)*bsn(sb.p[v_idx].v[i+26u],23u),
+		    1.0
+	    );
+
+	    vec4 nnvb2 = vec4(
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)+1u], bt,  (i&1u)*3u+0u )) / t)*bsn(sb.p[v_idx].v[i+26u],24u),
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)+1u], bt,  (i&1u)*3u+1u )) / t)*bsn(sb.p[v_idx].v[i+26u],25u),
+		    (float(ut3( sb.p[v_idx].v[34u+(i/2u)*3u+(i&1u)+1u], bt,  (i&1u)*3u+2u )) / t)*bsn(sb.p[v_idx].v[i+26u],26u),
+		    1.0
+	    );
+
+        // sub-result
+        vec4 subres_2 = vec4(0.0,0.0,0.0,1.0);
+
+        subres_2[0] = dot(subres_1.rgb, nnvr2.rgb);
+        subres_2[1] = dot(subres_1.rgb, nnvg2.rgb);
+        subres_2[2] = dot(subres_1.rgb, nnvb2.rgb);
+
+        res_v += subres_2;
+    }
+
+    res_c = res_v;
 
 //	----    ----    ----    ----    ----    ----    ----    ----
 //	Shader Output
