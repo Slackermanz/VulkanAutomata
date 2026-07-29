@@ -23,7 +23,7 @@ void handleImageExport(
     fspec256* fs,               // For DFT calculation
     fsmag256* fsm,               // For DFT calculation
     int valid,                  // *** ADDED parameter ***
-    int loglevel,               // *** ADDED parameter ***
+    int current_log_level,      // Current logger state to restore after export diagnostics
     std::vector<VkResult>* vkres // Result vector
 ) {
 
@@ -62,7 +62,7 @@ void handleImageExport(
 
         // Save the image from the mapped buffer
         NS_Timer optime = start_timer(optime); // Assuming NS_Timer and start_timer are available via includes
-        int originalLogLevel = loglevel; // Store original log level
+        int originalLogLevel = current_log_level; // Store original log level
         if (!verbose_loops) { loglevel = LOCAL_MAXLOG; } // *** Use LOCAL_MAXLOG ***
         save_image(pMappedBuffer, "IMG" + std::to_string(ei->imgdat_idx), app_w, app_h, glfw_mouse, get_gui);
         end_timer(optime, "Save ImageData"); // Assuming end_timer is available

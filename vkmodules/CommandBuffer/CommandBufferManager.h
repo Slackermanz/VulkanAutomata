@@ -7,7 +7,7 @@
 #include "../Utils/Logger.h" // Needed for vr, rv, nf used within createCommandBuffers
 
 // Create a set of command buffers (pool and allocation)
-void createCommandBuffers(
+VkResult createCommandBuffers(
     VkDevice device,
     uint32_t queueFamilyIndex,
     uint32_t count,

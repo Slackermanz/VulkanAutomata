@@ -10,6 +10,10 @@ void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h, GLF
     ov("Save Image", fname);
     
     std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
+    if(!file.is_open()) {
+        ov("Failed opening image file", fname);
+        return;
+    }
     file    <<  "P7"                         << "\n"
             <<  "WIDTH "    << w             << "\n"
             <<  "HEIGHT "   << h             << "\n"
@@ -37,6 +41,9 @@ void save_image(void* image_data, std::string fname, uint32_t w, uint32_t h, GLF
         file.write((const char*)buffer, w*h*4);
         delete[] buffer;
     }
+    if(!file.good()) {
+        ov("Failed writing image file", fname);
+    }
     file.close();
 }
 
@@ -50,8 +57,15 @@ void save_sound(void* image_data, std::string fname, uint32_t w, uint32_t h, GLF
         for(int xoff = 0; xoff < w*4; xoff++) { line[xoff] = buffer[(xoff+yoff-w*4*0+maxsize)%maxsize]; }
         fname = "out/S" + std::to_string(yoff) + ".sound";
         std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
-        file.write((const char*)line, w*4);
-        file.close();
+        if(file.is_open()) {
+            file.write((const char*)line, w*4);
+            if(!file.good()) {
+                ov("Failed writing sound file", fname);
+            }
+            file.close();
+        } else {
+            ov("Failed opening sound file", fname);
+        }
         delete[] line;
     }
     delete[] buffer;
@@ -62,6 +76,10 @@ void save_fspec(fsmag256 *fsm, std::string fname, uint32_t w, uint32_t h) {
     ov("Save Image", fname);
 
     std::ofstream file(fname.c_str(), std::ios::out | std::ios::binary);
+    if(!file.is_open()) {
+        ov("Failed opening spectrum image file", fname);
+        return;
+    }
     file    <<  "P7"                         << "\n"
             <<  "WIDTH "    << w             << "\n"
             <<  "HEIGHT "   << h             << "\n"
@@ -87,6 +105,9 @@ void save_fspec(fsmag256 *fsm, std::string fname, uint32_t w, uint32_t h) {
     }
 
     file.write((const char*)buffer, w*h*4);
+    if(!file.good()) {
+        ov("Failed writing spectrum image file", fname);
+    }
     delete[] buffer;
     file.close();
 }

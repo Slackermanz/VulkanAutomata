@@ -27,7 +27,7 @@ void handleImageExport(
     fspec256* fs,               // For DFT calculation
     fsmag256* fsm,               // For DFT calculation
     int valid,                  // *** ADDED: Pass application validity state ***
-    int loglevel,               // *** ADDED: Pass current log level ***
+    int current_log_level,      // Current logger state to restore after export diagnostics
     std::vector<VkResult>* vkres // Result vector
 );
 

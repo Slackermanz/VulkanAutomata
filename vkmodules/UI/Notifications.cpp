@@ -28,8 +28,14 @@ const char* notification_list[20] = {
 // Global for verbose loops control
 extern uint32_t verbose_loops;
 
+static int notification_index_or_default(int idx) {
+	const int notification_count = int(sizeof(notification_list) / sizeof(notification_list[0]));
+	return (idx >= 0 && idx < notification_count) ? idx : 0;
+}
+
 // Send a notification to the user
 void send_notif(int idx, IMGUI_Config *gc, bool clear) {
+	idx = notification_index_or_default(idx);
 	gc->notification_index 	= idx;
 	gc->notification_timer	= start_timer(gc->notification_timer);
 	gc->show_notification 	= true;

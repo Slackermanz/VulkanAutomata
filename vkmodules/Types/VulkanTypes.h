@@ -16,17 +16,30 @@ struct ShaderCodeInfo {
 
 // Function to load shader code from file
 inline ShaderCodeInfo getShaderCodeInfo(const std::string& filename) {
-	std::ifstream 		file		(filename, std::ios::ate | std::ios::binary);
-	size_t 				fileSize = 	(size_t) file.tellg();
-	std::vector<char> 	buffer		(fileSize);
-	file.seekg(0);
-	file.read(buffer.data(), fileSize);
-	file.close();
 	ShaderCodeInfo sc_info;
 		sc_info.shaderFilename		= filename;
+		sc_info.shaderData			= std::vector<char>();
+		sc_info.shaderBytes			= 0;
+		sc_info.shaderBytesValid	= false;
+
+	std::ifstream file(filename, std::ios::ate | std::ios::binary);
+	if(!file.is_open()) { return sc_info; }
+
+	std::streampos endPos = file.tellg();
+	if(endPos == std::streampos(-1) || endPos <= std::streampos(0)) { return sc_info; }
+
+	size_t fileSize = static_cast<size_t>(endPos);
+	if(fileSize % 4 != 0) { return sc_info; }
+
+	std::vector<char> buffer(fileSize);
+	file.seekg(0);
+	file.read(buffer.data(), static_cast<std::streamsize>(fileSize));
+	if(file.gcount() != static_cast<std::streamsize>(fileSize)) { return sc_info; }
+	file.close();
+
 		sc_info.shaderData			= buffer;
 		sc_info.shaderBytes			= buffer.size();
-		sc_info.shaderBytesValid	= (sc_info.shaderBytes%4==0?1:0);
+		sc_info.shaderBytesValid	= true;
 	return sc_info;
 }
 

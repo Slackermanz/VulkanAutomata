@@ -36,14 +36,18 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 //	Next Archive Pattern
 	if (idx == 5) {
-		gc->load_pattern_confirm = true;
-		ei->load_pattern = (ei->load_pattern + 1) % ei->PCD_count;
+		if(ei->PCD_count > 0) {
+			gc->load_pattern_confirm = true;
+			ei->load_pattern = (ei->load_pattern + 1) % ei->PCD_count;
+		}
 	}
 
 //	Prev Archive Pattern
 	if (idx == 6) {
-		gc->load_pattern_confirm = true;
-		ei->load_pattern = (ei->load_pattern + ei->PCD_count - 1) % ei->PCD_count;
+		if(ei->PCD_count > 0) {
+			gc->load_pattern_confirm = true;
+			ei->load_pattern = (ei->load_pattern + ei->PCD_count - 1) % ei->PCD_count;
+		}
 	}
 
 //	Save to PCD256 Archive
@@ -106,7 +110,7 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 //	Shader Mode: Planar Parameter Map
 	if (idx == 14) {
-		if (&gc->mode_planar) {
+		if (gc->mode_planar) {
 			send_notif(12, gc);
 			gc->pmap_index = 0;
 			gc->mode_linear = false;
@@ -116,7 +120,7 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 //	Shader Mode: Linear Parameter Map
 	if (idx == 15) {
-		if (&gc->mode_linear) {
+		if (gc->mode_linear) {
 			send_notif(13, gc);
 			gc->pmap_index = 1;
 			gc->mode_planar = false;
@@ -126,7 +130,7 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 //	Shader Mode: Circular Parameter Map
 	if (idx == 16) {
-		if (&gc->mode_circular) {
+		if (gc->mode_circular) {
 			send_notif(14, gc);
 			gc->pmap_index = 2;
 			gc->mode_planar = false;
@@ -177,6 +181,7 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 //	Confirm update of Recording Batch Size
 	if (idx == 25) {
+		if(ei->export_batch_size < 0) { ei->export_batch_size = 0; }
 		ei->export_batch_left = ei->export_batch_size;
 		gc->mutate_backstep_last_value = gc->mutate_backstep_idx;
 	}
@@ -189,7 +194,8 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 //	Decrease export frequency
 	if (idx == 27) {
-		ei->export_frequency--;
+		if(ei->export_frequency > 1) { ei->export_frequency--; }
+		else { ei->export_frequency = 1; }
 		send_notif_float(19, float(ei->export_frequency), gc);
 	}
 
@@ -250,24 +256,32 @@ void do_action(int idx, UI_info *ui, EngineInfo *ei, IMGUI_Config *gc) {
 
 //	Next Archive256 Pattern
 	if (idx == 37) {
-		gc->load_A256_confirm = true;
-		gc->load_A256_index = (gc->load_A256_index + 1) % gc->load_A256_count;
+		if(gc->load_A256_count > 0) {
+			gc->load_A256_confirm = true;
+			gc->load_A256_index = (gc->load_A256_index + 1) % gc->load_A256_count;
+		}
 	}
 
 //	Prev Archive256 Pattern
 	if (idx == 38) {
-		gc->load_A256_confirm = true;
-		gc->load_A256_index = (gc->load_A256_index + gc->load_A256_count - 1) % gc->load_A256_count;
+		if(gc->load_A256_count > 0) {
+			gc->load_A256_confirm = true;
+			gc->load_A256_index = (gc->load_A256_index + gc->load_A256_count - 1) % gc->load_A256_count;
+		}
 	}
 
 //	Rand Archive256 Pattern
 	if (idx == 39) {
-		gc->load_A256_confirm = true;
-		gc->load_A256_index = rand() % gc->load_A256_count;
+		if(gc->load_A256_count > 0) {
+			gc->load_A256_confirm = true;
+			gc->load_A256_index = rand() % gc->load_A256_count;
+		}
 	}
 
 //	Load Archive256 Pattern
 	if (idx == 40) {
-		gc->load_A256_confirm = true;
+		if(gc->load_A256_count > 0) {
+			gc->load_A256_confirm = true;
+		}
 	}
 }

@@ -12,6 +12,7 @@
 #include <thread>
 #include <cstring>
 #include <cmath>
+#include <algorithm>
 
 // Include our modularized type definitions
 #include "vkmodules/Types/AllTypes.h"
@@ -53,6 +54,14 @@ int main() {
 
 //	Result storage
 	std::vector<VkResult> vkres;
+
+	auto stage_failed = [&](const std::string& stage, VkResult result) {
+		if(result == VK_SUCCESS) { return false; }
+		ov("Error", stage + " failed");
+		ov("VkResult", result);
+		valid = 0;
+		return true;
+	};
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "USER CONFIG");			/**/
@@ -136,10 +145,7 @@ int main() {
 	VkResult instanceResult = initVulkanInstance(&vob, &vkcfg, instance_extensions.data(), INST_EXS, 
 					  layer_extensions.data(), LAYR_EXS, &vkres);
 	
-	if (instanceResult != VK_SUCCESS) {
-		ov("Error", "Vulkan instance creation failed. Check instance extensions, optional validation layers, and Vulkan loader setup.");
-		valid = 0;
-	}
+	if(stage_failed("Vulkan instance creation", instanceResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "DEBUG UTILS");			/**/
@@ -157,22 +163,24 @@ int main() {
 	///////////////////////////////////////////////////
 
 	VK_PhysDev selectedPdevInfo; // To store properties/features of the selected device
-	selectPhysicalDevice(
+	VkResult physicalDeviceResult = selectPhysicalDevice(
 		vob.VKI,            // Vulkan instance handle
 		&vob,               // Output: Stores VKP handle and index
 		&selectedPdevInfo,  // Output: Stores selected device properties/features
 		&vkres);            // Result vector
+	if(stage_failed("Physical device selection", physicalDeviceResult)) { return 1; }
 
 	// --- Queue Selection ---
 	hd("STAGE:", "QUEUES"); // Keep stage header
 
 	uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
 	uint32_t graphicsQueueCount = 0;
-	findGraphicsQueueFamily(
+	VkResult queueFamilyResult = findGraphicsQueueFamily(
 		vob.VKP,                // Selected physical device handle
 		&graphicsQueueFamilyIndex, // Output: Queue family index
 		&graphicsQueueCount,       // Output: Queue count in the family
 		&vkres);                // Result vector
+	if(stage_failed("Graphics queue family selection", queueFamilyResult)) { return 1; }
 
 	// Store the found queue index in vob
 	vob.VKQ_i = graphicsQueueFamilyIndex;
@@ -195,7 +203,7 @@ int main() {
 	VkSurfaceCapabilitiesKHR 	vk_surface_capabilities = {}; // Initialize
 	GLFWwindow* 				glfw_W = nullptr; // Initialize
 
-	createGLFWWindowAndSurface(
+	VkResult windowSurfaceResult = createGLFWWindowAndSurface(
 		APP_W,                      // Width
 		APP_H,                      // Height
 		vkcfg.app_info.pApplicationName, // Title from app info
@@ -206,12 +214,13 @@ int main() {
 		&vk_surface_capabilities,   // Output: Surface capabilities
 		&vkres                      // Result vector
 	);
+	if(stage_failed("GLFW window and surface creation", windowSurfaceResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "LOGICAL DEVICE");			/**/
 	///////////////////////////////////////////////////
 
-	createLogicalDevice(
+	VkResult logicalDeviceResult = createLogicalDevice(
 		vob.VKP,                    // Physical device handle
 		&pdq,                       // Struct containing queue create info
 		device_extensions,          // Device extensions array
@@ -219,6 +228,7 @@ int main() {
 		&selectedPdevInfo.vk_pdev_feats, // Enabled features from selected physical device
 		&vob,                       // Output: stores logical device handle (VKL)
 		&vkres);                    // Result vector
+	if(stage_failed("Logical device creation", logicalDeviceResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SWAPCHAIN");				/**/
@@ -258,7 +268,7 @@ int main() {
 		// Use a temporary VK_Layer_1x2D to pass to the function
 		VK_Layer_1x2D tempImageData;
 
-		createImage(
+		VkResult workImageResult = createImage(
 			vob.VKL,                    // Logical device
 			vob.VKP,                    // Physical device
 			APP_W,                      // Width
@@ -272,6 +282,7 @@ int main() {
 			0,                          // queueFamilyIndexCount
 			&tempImageData,             // Output struct (single image data)
 			&vkres);                    // Result vector
+		if(stage_failed("Work image creation", workImageResult)) { return 1; }
 
 		// Copy results from temp struct to the correct index in the work array
 		work.ext3D[i] = tempImageData.ext3D;
@@ -289,7 +300,7 @@ int main() {
 
 	VK_Layer_1x2D blit; // Keep the declaration
 
-	createImage(
+	VkResult blitImageResult = createImage(
 		vob.VKL,                    // Logical device
 		vob.VKP,                    // Physical device
 		APP_W,                      // Width
@@ -303,6 +314,7 @@ int main() {
 		0,                          // queueFamilyIndexCount
 		&blit,                      // Output struct (directly use 'blit' here)
 		&vkres);                    // Result vector
+	if(stage_failed("Blit export image creation", blitImageResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "BLIT EXPORT BUFFER");		/**/
@@ -310,7 +322,7 @@ int main() {
 
 	VK_Buffer_Data blit2buff_data; // Declare the new struct
 	VkDeviceSize blit_buffer_size = blit.vk_mem_reqs.size; // Get size from the blit image mem reqs
-	createBuffer(
+	VkResult blitBufferResult = createBuffer(
 		vob.VKL,
 		vob.VKP,
 		blit_buffer_size, // Use the size from the blit image
@@ -321,11 +333,14 @@ int main() {
 		1,          // Queue family index count
 		&blit2buff_data, // Pass the address of our data struct
 		&vkres);
+	if(stage_failed("Blit export buffer creation", blitBufferResult)) { return 1; }
 
 	//	Map the memory location on the GPU to export image data
-		void* pvoid_blit2buff;
-		vr("vkMapMemory", &vkres, pvoid_blit2buff,
-			vkMapMemory(vob.VKL, blit2buff_data.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff) );
+		void* pvoid_blit2buff = nullptr;
+		VkResult map_blit2buff_result =
+			vkMapMemory(vob.VKL, blit2buff_data.vk_dev_mem, 0, VK_WHOLE_SIZE, 0, &pvoid_blit2buff);
+		vr("vkMapMemory", &vkres, pvoid_blit2buff, map_blit2buff_result);
+		if(stage_failed("Blit export buffer mapping", map_blit2buff_result)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SHADER DATA");			/**/
@@ -335,21 +350,31 @@ int main() {
 
 	// Load Vertex Shaders
 	for (int i = 0; i < VERT_FLS; i++) {
-		loadAndCreateShaderModule(
+		VkResult shaderResult = loadAndCreateShaderModule(
 			vob.VKL,
 			filepath_vert[i],
 			&shade_data[i], // Output struct for this shader
 			&vkres);
+		if(shaderResult != VK_SUCCESS) {
+			ov("Error", "Vertex shader load failed; aborting before pipeline creation.");
+			valid = 0;
+			return 1;
+		}
 		shade_data[i].stage_bits = VK_SHADER_STAGE_VERTEX_BIT; // Set stage after loading
 	}
 
 	// Load Fragment Shaders
 	for (int i = VERT_FLS; i < VERT_FLS + FRAG_FLS; i++) {
-		loadAndCreateShaderModule(
+		VkResult shaderResult = loadAndCreateShaderModule(
 			vob.VKL,
 			filepath_frag[i - VERT_FLS], // Adjust index for frag file array
 			&shade_data[i], // Output struct for this shader
 			&vkres);
+		if(shaderResult != VK_SUCCESS) {
+			ov("Error", "Fragment shader load failed; aborting before pipeline creation.");
+			valid = 0;
+			return 1;
+		}
 		shade_data[i].stage_bits = VK_SHADER_STAGE_FRAGMENT_BIT; // Set stage after loading
 	}
 
@@ -366,10 +391,11 @@ int main() {
 	);
 
 	// --- Keep the Sampler creation call that follows ---
-	createDefaultSampler(
+	VkResult samplerResult = createDefaultSampler(
 		vob.VKL,
 		&rpass_info.vk_sampler,
 		&vkres);
+	if(stage_failed("Default sampler creation", samplerResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "PIPELINE INFO"); 			/**/
@@ -398,33 +424,42 @@ int main() {
 
 	// Are all of these used? TODO
 
-	VK_Command combuf_blit2buff_sing[1];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_blit2buff_sing, &vkres);
+	std::vector<VK_Command> combuf_blit2buff_sing(1);
+	if(stage_failed("Blit-to-buffer command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_blit2buff_sing.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_imgui_loop[swap_image_count];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_imgui_loop, &vkres);
+	std::vector<VK_Command> combuf_imgui_loop(swap_image_count);
+	if(stage_failed("ImGui loop command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_imgui_loop.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_pres_init[swap_image_count];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_pres_init, &vkres);
+	std::vector<VK_Command> combuf_pres_init(swap_image_count);
+	if(stage_failed("Presentation init command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_pres_init.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_pres_loop[swap_image_count*2];
+	std::vector<VK_Command> combuf_pres_loop(swap_image_count * 2);
     // Note the count is swap_image_count * 2
-    createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count * 2, combuf_pres_loop, &vkres);
+    if(stage_failed("Presentation loop command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count * 2, combuf_pres_loop.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_work_init[2];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_init, &vkres);
+	std::vector<VK_Command> combuf_work_init(2);
+	if(stage_failed("Work init command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_init.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_work_loop[2];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_loop, &vkres);
+	std::vector<VK_Command> combuf_work_loop(2);
+	if(stage_failed("Work loop command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_loop.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_work_imagedata_init[1];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_work_imagedata_init, &vkres);
+	std::vector<VK_Command> combuf_work_imagedata_init(1);
+	if(stage_failed("Image-data init command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, 1, combuf_work_imagedata_init.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_work_imagedata[2];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_imagedata, &vkres);
+	std::vector<VK_Command> combuf_work_imagedata(2);
+	if(stage_failed("Image-data loop command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, 2, combuf_work_imagedata.data(), &vkres))) { return 1; }
 
-	VK_Command combuf_blit_imgui_loop[swap_image_count];
-	createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_blit_imgui_loop, &vkres);
+	std::vector<VK_Command> combuf_blit_imgui_loop(swap_image_count);
+	if(stage_failed("Blit ImGui command buffer creation",
+		createCommandBuffers(vob.VKL, vob.VKQ_i, swap_image_count, combuf_blit_imgui_loop.data(), &vkres))) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "QUEUE SYNC");				/**/
@@ -436,29 +471,33 @@ int main() {
 	setupBasicSubmitInfo(&qsync); // Setup basic submit info (no semaphores)
 
 	// Keep fence creation call
-	createFence(vob.VKL, 0, &qsync.vk_fence, &vkres);
+	VkResult queueFenceResult = createFence(vob.VKL, 0, &qsync.vk_fence, &vkres);
+	if(stage_failed("Queue fence creation", queueFenceResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SWAPCHAIN SYNC");			/**/
 	///////////////////////////////////////////////////
 
 	VkSemaphore vk_semaphore_swapchain_img_acq; // Keep declaration
-	createSemaphore(
+	VkResult acquireSemaphoreResult = createSemaphore(
 		vob.VKL,
 		&vk_semaphore_swapchain_img_acq,
 		&vkres);
+	if(stage_failed("Swapchain acquire semaphore creation", acquireSemaphoreResult)) { return 1; }
 
 	VkSemaphore vk_semaphore_swapchain_imgui; // Keep declaration
-	createSemaphore(
+	VkResult imguiSemaphoreResult = createSemaphore(
 		vob.VKL,
 		&vk_semaphore_swapchain_imgui,
 		&vkres);
+	if(stage_failed("Swapchain ImGui semaphore creation", imguiSemaphoreResult)) { return 1; }
 
 	VkSemaphore vk_semaphore_swapchain_pres; // Keep declaration
-	createSemaphore(
+	VkResult presentSemaphoreResult = createSemaphore(
 		vob.VKL,
 		&vk_semaphore_swapchain_pres,
 		&vkres);
+	if(stage_failed("Swapchain present semaphore creation", presentSemaphoreResult)) { return 1; }
 
 	uint32_t swap_image_index = 0;
 
@@ -487,13 +526,14 @@ int main() {
 	VK_ImageView work_init[2]; // Keep declaration
 
 	for(int i = 0; i < 2; i++) {
-		createImageView(
+		VkResult workViewResult = createImageView(
 			vob.VKL,                    // Logical device
 			work.vk_image[i],           // Source image handle from work array
 			work.img_info[i].format,    // Format from work image info
 			VK_IMAGE_ASPECT_COLOR_BIT,  // Aspect flags
 			&work_init[i],              // Output struct for this view
 			&vkres);                    // Result vector
+		if(stage_failed("Work image view creation", workViewResult)) { return 1; }
 
 		// --- Keep the Image Memory Barrier setup that follows ---
 		work_init[i].img_mem_barr.sType                 = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -513,8 +553,9 @@ int main() {
 	///////////////////////////////////////////////////
 
 	for(int i = 0; i < 2; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_work_init[i].vk_command_buffer, &combuf_work_init[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_work_init[i].vk_command_buffer, &combuf_work_init[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record work init command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -523,8 +564,9 @@ int main() {
 					0, NULL, 0, NULL,
 					1, &work_init[i].img_mem_barr );
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_work_init[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_work_init[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record work init command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SUBMIT WORK_INIT");		/**/
@@ -543,11 +585,12 @@ int main() {
 
 	VK_DescSetLayout3 dsl_work;
 
-	createWorkDescriptorSet(
+	VkResult descriptorSetResult = createWorkDescriptorSet(
 		vob.VKL,        // Logical device
 		&dsl_work,      // Input/Output struct for layout, pool, sets
 		2,              // Number of sets to allocate (for ping-pong)
 		&vkres);        // Result vector
+	if(stage_failed("Work descriptor set creation", descriptorSetResult)) { return 1; }
 
 
 	  ///////////////////////////////////////////////////
@@ -559,7 +602,7 @@ int main() {
 	ov("UB32_64 size", vkdevsize_work);
 
 	VK_Buffer_Data work_ub_data; // Struct to hold results
-	createBuffer(
+	VkResult uniformBufferResult = createBuffer(
 		vob.VKL,                    // Logical device
 		vob.VKP,                    // Physical device
 		vkdevsize_work,             // Size of the buffer
@@ -570,6 +613,7 @@ int main() {
 		1,                          // Queue family index count
 		&work_ub_data,              // Output struct
 		&vkres);                    // Result vector
+	if(stage_failed("Work uniform buffer creation", uniformBufferResult)) { return 1; }
 
 	// --- Keep the original descriptor info setup ---
 	VkBuffer vkbuff_work = work_ub_data.vk_buffer; // Get the buffer handle
@@ -581,9 +625,11 @@ int main() {
         vkDescBuff_info_work.range          = VK_WHOLE_SIZE;
 
 	// --- Keep the original vkMapMemory call ---
-	void *pvoid_memmap_work;
-	vr("vkMapMemory", &vkres, pvoid_memmap_work,
-		vkMapMemory(vob.VKL, vkdevmem_ub_work, vkDescBuff_info_work.offset, vkDescBuff_info_work.range, 0, &pvoid_memmap_work) );
+	void *pvoid_memmap_work = nullptr;
+	VkResult map_work_result =
+		vkMapMemory(vob.VKL, vkdevmem_ub_work, vkDescBuff_info_work.offset, vkDescBuff_info_work.range, 0, &pvoid_memmap_work);
+	vr("vkMapMemory", &vkres, pvoid_memmap_work, map_work_result);
+	if(stage_failed("Work uniform buffer mapping", map_work_result)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SSBO");	/**/
@@ -595,7 +641,7 @@ int main() {
 	ov("UB32_64 * 16 size", vkdevsize_ssbo);
 
 	VK_Buffer_Data work_ssbo_data; // Struct to hold results
-	createBuffer(
+	VkResult ssboBufferResult = createBuffer(
 		vob.VKL,                    // Logical device
 		vob.VKP,                    // Physical device
 		vkdevsize_ssbo,             // Size of the buffer
@@ -606,6 +652,7 @@ int main() {
 		1,                          // Queue family index count
 		&work_ssbo_data,            // Output struct
 		&vkres);                    // Result vector
+	if(stage_failed("Work SSBO creation", ssboBufferResult)) { return 1; }
 
 	// --- Keep the original descriptor info setup ---
 	VkBuffer vkbuff_ssbo = work_ssbo_data.vk_buffer; // Get the buffer handle
@@ -617,9 +664,11 @@ int main() {
         vkDescBuff_info_ssbo.range          = VK_WHOLE_SIZE;
 
 	// --- Keep the original vkMapMemory call ---
-	void *pvoid_memmap_ssbo;
-	vr("vkMapMemory", &vkres, pvoid_memmap_ssbo,
-		vkMapMemory(vob.VKL, vkdevmem_sb_work, vkDescBuff_info_ssbo.offset, vkDescBuff_info_ssbo.range, 0, &pvoid_memmap_ssbo) );
+	void *pvoid_memmap_ssbo = nullptr;
+	VkResult map_ssbo_result =
+		vkMapMemory(vob.VKL, vkdevmem_sb_work, vkDescBuff_info_ssbo.offset, vkDescBuff_info_ssbo.range, 0, &pvoid_memmap_ssbo);
+	vr("vkMapMemory", &vkres, pvoid_memmap_ssbo, map_ssbo_result);
+	if(stage_failed("Work SSBO mapping", map_ssbo_result)) { return 1; }
 
 	// Perform bulk update of descriptor sets after all resources are ready
 	updateWorkDescriptorSets(
@@ -637,7 +686,7 @@ int main() {
 
 	VK_RenderPass rp_work; // Keep declaration
 
-	createSimpleColorRenderPass(
+	VkResult workRenderPassResult = createSimpleColorRenderPass(
 		vob.VKL,                             // Logical device
 		work.img_info[0].format,             // Format from work image
 		VK_ATTACHMENT_LOAD_OP_LOAD,          // LoadOp
@@ -646,6 +695,7 @@ int main() {
 		VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // FinalLayout
 		&rp_work,                            // Output struct
 		&vkres);                             // Result vector
+	if(stage_failed("Work render pass creation", workRenderPassResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "WORK FRAMEBUFFER");		/**/
@@ -654,7 +704,7 @@ int main() {
 	VK_FrameBuff fb_work[2]; // Keep declaration
 
 	for(int i = 0; i < 2; i++) {
-		createFramebuffer(
+		VkResult workFramebufferResult = createFramebuffer(
 			vob.VKL,                    // Logical device
 			rp_work.vk_render_pass,     // Render pass for work
 			work_init[i].vk_image_view, // Corresponding work image view
@@ -662,6 +712,7 @@ int main() {
 			APP_H,                      // Height
 			&fb_work[i],                // Output struct for this framebuffer
 			&vkres);                    // Result vector
+		if(stage_failed("Work framebuffer creation", workFramebufferResult)) { return 1; }
 	}
 
 	  ///////////////////////////////////////////////////
@@ -671,19 +722,21 @@ int main() {
 	VK_Pipe pipe_work; // Keep declaration
 
 	// Create Pipeline Layout
-	createPipelineLayout(
+	VkResult workPipelineLayoutResult = createPipelineLayout(
 		vob.VKL,                    // Logical device
 		dsl_work.vk_desc_set_layout,// Descriptor set layout for work pipeline
 		&pipe_work,                 // Output struct (stores layout handle)
 		&vkres);                    // Result vector
+	if(stage_failed("Work pipeline layout creation", workPipelineLayoutResult)) { return 1; }
 
 	// Create Graphics Pipeline
-	createWorkGraphicsPipeline(
+	VkResult workPipelineResult = createWorkGraphicsPipeline(
 		vob.VKL,                    // Logical device
 		&pipe_work,                 // Input: layout handle. Output: pipeline handle.
 		&pipe_info,                 // Struct containing pipeline state config
 		rp_work.vk_render_pass,     // Render pass for work pipeline
 		&vkres);                    // Result vector
+	if(stage_failed("Work graphics pipeline creation", workPipelineResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD WORK LOOP");		/**/
@@ -700,8 +753,9 @@ int main() {
 		vkrpbegininfo_work[i].pClearValues 			= &rpass_info.clear_val; }
 
 	for(int i = 0; i < 2; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_work_loop[i].vk_command_buffer, &combuf_work_loop[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_work_loop[i].vk_command_buffer, &combuf_work_loop[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record work loop command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdBeginRenderPass");
 				vkCmdBeginRenderPass (
@@ -723,8 +777,9 @@ int main() {
 			rv("vkCmdEndRenderPass");
 				vkCmdEndRenderPass(combuf_work_loop[i].vk_command_buffer);
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_work_loop[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_work_loop[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record work loop command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "IMGUI RENDER PASS");		/**/
@@ -732,7 +787,7 @@ int main() {
 
 	VK_RenderPass rp_imgui; // Keep declaration
 
-	createSimpleColorRenderPass(
+	VkResult imguiRenderPassResult = createSimpleColorRenderPass(
 		vob.VKL,                               // Logical device
 		VK_FORMAT_B8G8R8A8_UNORM,              // Format for swapchain/ImGui
 		VK_ATTACHMENT_LOAD_OP_LOAD,            // LoadOp
@@ -741,27 +796,29 @@ int main() {
 		VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // FinalLayout (ready for ImGui draw)
 		&rp_imgui,                             // Output struct
 		&vkres);                               // Result vector
+	if(stage_failed("ImGui render pass creation", imguiRenderPassResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "IMGUI FRAMEBUFFER");		/**/
 	///////////////////////////////////////////////////
 
-	VK_ImageView vk_imgview_imgui[swap_image_count]; // Keep declaration
+	std::vector<VK_ImageView> vk_imgview_imgui(swap_image_count); // Keep declaration
 
 	for(int i = 0; i < swap_image_count; i++) {
-		createImageView(
+		VkResult imguiViewResult = createImageView(
 			vob.VKL,                        // Logical device
 			vk_image_swapimgs_vec[i],           // Source image handle from swapchain images array
 			VK_FORMAT_B8G8R8A8_UNORM,       // Format (matches ImGui render pass)
 			VK_IMAGE_ASPECT_COLOR_BIT,      // Aspect flags
 			&vk_imgview_imgui[i],           // Output struct for this view
 			&vkres);                        // Result vector
+		if(stage_failed("ImGui image view creation", imguiViewResult)) { return 1; }
 	}
 
-	VK_FrameBuff fb_imgui[swap_image_count]; // Keep declaration
+	std::vector<VK_FrameBuff> fb_imgui(swap_image_count); // Keep declaration
 
 	for(int i = 0; i < swap_image_count; i++) {
-		createFramebuffer(
+		VkResult imguiFramebufferResult = createFramebuffer(
 			vob.VKL,                        // Logical device
 			rp_imgui.vk_render_pass,        // Render pass for ImGui
 			vk_imgview_imgui[i].vk_image_view, // Corresponding ImGui image view
@@ -769,15 +826,16 @@ int main() {
 			APP_H,                          // Height
 			&fb_imgui[i],                   // Output struct for this framebuffer
 			&vkres);                        // Result vector
+		if(stage_failed("ImGui framebuffer creation", imguiFramebufferResult)) { return 1; }
 	}
 
-	VkRenderPassBeginInfo vkrpbegininfo_imgui[swap_image_count];
+	std::vector<VkRenderPassBeginInfo> vkrpbegininfo_imgui(swap_image_count);
 	setupImGuiRenderPassBeginInfo(
 		swap_image_count,      // Number of swapchain images
 		rp_imgui.vk_render_pass, // ImGui render pass handle
-		fb_imgui,              // Array of ImGui framebuffers
+		fb_imgui.data(),       // Array of ImGui framebuffers
 		&rpass_info,           // Pointer to render pass config (for rect/clear)
-		vkrpbegininfo_imgui    // Output array
+		vkrpbegininfo_imgui.data() // Output array
 	);
 
 	  ///////////////////////////////////////////////////
@@ -829,8 +887,9 @@ int main() {
 	///////////////////////////////////////////////////
 
 	for(int i = 0; i < 1; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer, &combuf_work_imagedata_init[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer, &combuf_work_imagedata_init[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record image-data init command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -839,8 +898,9 @@ int main() {
 					0, NULL, 0, NULL,
 					1, &vk_IMB_blit_imagedata_UND_to_TDO );
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_work_imagedata_init[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record image-data init command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SUBMIT IMAGEDATA INIT");	/**/
@@ -858,8 +918,9 @@ int main() {
 	///////////////////////////////////////////////////
 
 	for(int i = 0; i < 2; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_work_imagedata[i].vk_command_buffer, &combuf_work_imagedata[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_work_imagedata[i].vk_command_buffer, &combuf_work_imagedata[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record image-data output command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -882,16 +943,18 @@ int main() {
 					0, NULL, 0, NULL,
 					1, &vk_IMB_work_TSO_to_SRO[i] );
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_work_imagedata[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_work_imagedata[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record image-data output command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD BLIT IMGUI OUT");	/**/
 	///////////////////////////////////////////////////
 
 	for(int i = 0; i < swap_image_count; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer, &combuf_blit_imgui_loop[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer, &combuf_blit_imgui_loop[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record ImGui blit command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -914,16 +977,18 @@ int main() {
 					0, NULL, 0, NULL,
 					1, &vk_IMB_swap_TSO_to_PRS[i] );
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_blit_imgui_loop[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record ImGui blit command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD BLIT2BUFF");		/**/
 	///////////////////////////////////////////////////
 
 	for(int i = 0; i < 1; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer, &combuf_blit2buff_sing[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer, &combuf_blit2buff_sing[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record blit-to-buffer command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -946,16 +1011,18 @@ int main() {
 					0, NULL, 0, NULL,
 					1, &vk_IMB_blit_TSO_to_TDO );
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_blit2buff_sing[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record blit-to-buffer command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "RECORD PRES INIT");		/**/
 	///////////////////////////////////////////////////
 
 	for(int i = 0; i < swap_image_count; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_pres_init[i].vk_command_buffer, &combuf_pres_init[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_pres_init[i].vk_command_buffer, &combuf_pres_init[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record presentation init command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -964,8 +1031,9 @@ int main() {
 					0, NULL, 0, NULL,
 					1, &vk_IMB_pres_UND_to_PRS[i] );
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_pres_init[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_pres_init[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record presentation init command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SUBMIT PRES INIT");		/**/
@@ -984,8 +1052,9 @@ int main() {
 
 	// Split function into two, so that it can sync with the two "work" frames
 	for(int i = 0; i < swap_image_count*2; i++) {
-		vr("vkBeginCommandBuffer", &vkres, i,
-			vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info) );
+		VkResult beginResult = vkBeginCommandBuffer(combuf_pres_loop[i].vk_command_buffer, &combuf_pres_loop[i].comm_buff_begin_info);
+		vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+		if(stage_failed("Record presentation loop command buffer begin", beginResult)) { return 1; }
 
 			rv("vkCmdPipelineBarrier");
 				vkCmdPipelineBarrier (
@@ -1022,8 +1091,9 @@ int main() {
 					0, NULL, 0, NULL,
 					1, &vk_IMB_pres_TDO_to_PRS[i%swap_image_count] );
 
-		vr("vkEndCommandBuffer", &vkres, i,
-			vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer) ); }
+		VkResult endResult = vkEndCommandBuffer(combuf_pres_loop[i].vk_command_buffer);
+		vr("vkEndCommandBuffer", &vkres, i, endResult);
+		if(stage_failed("Record presentation loop command buffer end", endResult)) { return 1; } }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "SWAPCHAIN PRESENT INFO");	/**/
@@ -1043,7 +1113,7 @@ int main() {
 	 /**/	hd("STAGE:", "DEAR IMGUI");				/**/
 	///////////////////////////////////////////////////
 
-	initImGui(
+	VkResult imguiInitResult = initImGui(
 		glfw_W,                     // GLFW window handle
 		&vob,                       // Core Vulkan objects
 		qsync.vk_queue,             // Graphics queue
@@ -1053,6 +1123,7 @@ int main() {
 		&ei,                        // Engine info (for headless check)
 		&vkres                      // Result vector
 	);
+	if(stage_failed("Dear ImGui initialization", imguiInitResult)) { return 1; }
 
 	  ///////////////////////////////////////////////////
 	 /**/	hd("STAGE:", "MAIN LOOP INIT");			/**/
@@ -1164,19 +1235,17 @@ int main() {
 				} else { ui.mbl = 0; ui.mbr = 0; }
 
 				if( !kc.has_keyboard ) {
-					if( !kc.has_keyboard ) {
-						processKeyboardInput(
-							&glfw_key,      // Pointer to key state
-							&ui,            // Pointer to UI info
-							&ei,            // Pointer to Engine info
-							&gc             // Pointer to ImGui config
-						);
-					}
+					processKeyboardInput(
+						&glfw_key,      // Pointer to key state
+						&ui,            // Pointer to UI info
+						&ei,            // Pointer to Engine info
+						&gc             // Pointer to ImGui config
+					);
 				}
 
 			//	Notifications
 				if( gc.show_notification ) {
-					uint32_t uint_notif_age =
+					auto uint_notif_age =
 						std::chrono::duration_cast<std::chrono::nanoseconds> (
 							std::chrono::high_resolution_clock::now()
 						- 	gc.notification_timer.st ).count();
@@ -1184,7 +1253,7 @@ int main() {
 					if( uint_notif_age > 2400000000 ) 	{ tog(&gc.show_notification); } }
 
 				if( gc.show_notification_float ) {
-					uint32_t uint_notif_age =
+					auto uint_notif_age =
 						std::chrono::duration_cast<std::chrono::nanoseconds> (
 							std::chrono::high_resolution_clock::now()
 						- 	gc.notification_float_timer.st ).count();
@@ -1211,8 +1280,13 @@ int main() {
 					gc.load_pattern_confirm = false;
 					if( gc.load_pattern_random ) {
 						gc.load_pattern_random = false;
+						ei.PCD_count = get_PCD408_count("res/data/save_global.vkpat");
 					//	Depreicated patterns under 17000
-						ei.load_pattern = (rand()%(ei.PCD_count - 18080)) + 18080;	}
+						if(ei.PCD_count > 18080) {
+							ei.load_pattern = (mut_rnd() % (ei.PCD_count - 18080)) + 18080;
+						} else {
+							ov("Error", "PCD408 archive has no non-deprecated random pattern range.");
+						}	}
 					loadPattern_PCD408_to_256( &ei, &pcd );
 					do_ub_update = true;
 					memcpy(&gc.scale_value, &pcd.u32[62], sizeof(uint32_t));
@@ -1222,7 +1296,9 @@ int main() {
 //
 				if( gc.mutate_set_target ) {
 					loglevel = MAXLOG;
-					uint32_t panel_index = (uint32_t((float(ui.my)/float(APP_H))*float(panel_n_x_n))*panel_n_x_n) +(uint32_t((float(ui.mx)/float(APP_W))*float(panel_n_x_n)));
+					uint32_t panel_x = static_cast<uint32_t>(std::clamp(glfw_mouse.xpos, 0.0, double(APP_W - 1)) / double(APP_W) * double(panel_n_x_n));
+					uint32_t panel_y = static_cast<uint32_t>(std::clamp(glfw_mouse.ypos, 0.0, double(APP_H - 1)) / double(APP_H) * double(panel_n_x_n));
+					uint32_t panel_index = panel_y * panel_n_x_n + panel_x;
 					ov("INDEX",panel_index);
 					loglevel = -1;
 					gc.mutate_set_target = false;
@@ -1260,10 +1336,10 @@ int main() {
 					ei.tick_loop = 1;
 
 					for(int j = 1; j < 16; j++) {
-						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = bit_flp( pcd.u32[i], (rand()%(gc.mutate_flip_str*2))+(gc.mutate_flip_str/2)+1 ); }
+						for(int i = 0; i < 48; i++) { sb.ub[j].u32[i] = bit_flp( pcd.u32[i], mutation_period_from_strength(gc.mutate_flip_str) ); }
 					}
 
-					for(int i = 0; i < 48; i++) { pcd.u32[i] = bit_flp( pcd.u32[i], (rand()%(gc.mutate_flip_str*2))+(gc.mutate_flip_str/2)+1 ); }
+					for(int i = 0; i < 48; i++) { pcd.u32[i] = bit_flp( pcd.u32[i], mutation_period_from_strength(gc.mutate_flip_str) ); }
 
 					for(int i = 0; i < 48; i++) {
 						sb.ub[0].u32[i] = pcd.u32[i]; }
@@ -1294,9 +1370,10 @@ int main() {
 			//	Save current target to PCD256 Archive
 				if( gc.save_to_archive ) {
 					gc.save_to_archive = false;
-					save_PCD256("sav/PCD256_archive.vkpat", &pcd);
-					gc.load_A256_count = get_PCD256_count("sav/PCD256_archive.vkpat");
-					send_notif(1, &gc); }
+					if(save_PCD256("sav/PCD256_archive.vkpat", &pcd)) {
+						gc.load_A256_count = get_PCD256_count("sav/PCD256_archive.vkpat");
+						send_notif(1, &gc);
+					} }
 
 				if(ei.show_gui || ei.paused) {
 					guitime = start_timer(guitime);
@@ -1310,8 +1387,9 @@ int main() {
 
 					cmdtime = start_timer(cmdtime);
 						for(int i = 0; i < swap_image_count; i++) {
-							vr("vkBeginCommandBuffer", &vkres, i,
-								vkBeginCommandBuffer(combuf_imgui_loop[i].vk_command_buffer, &combuf_imgui_loop[i].comm_buff_begin_info) );
+							VkResult beginResult = vkBeginCommandBuffer(combuf_imgui_loop[i].vk_command_buffer, &combuf_imgui_loop[i].comm_buff_begin_info);
+							vr("vkBeginCommandBuffer", &vkres, i, beginResult);
+							if(stage_failed("Record ImGui loop command buffer begin", beginResult)) { return 1; }
 
 								rv("vkCmdBeginRenderPass");
 									vkCmdBeginRenderPass (
@@ -1331,8 +1409,9 @@ int main() {
 										0, NULL, 0, NULL,
 										1, &vk_IMB_pres_CAO_to_PRS[i%swap_image_count] );
 
-							vr("vkEndCommandBuffer", &vkres, i,
-								vkEndCommandBuffer(combuf_imgui_loop[i].vk_command_buffer) ); }
+							VkResult endResult = vkEndCommandBuffer(combuf_imgui_loop[i].vk_command_buffer);
+							vr("vkEndCommandBuffer", &vkres, i, endResult);
+							if(stage_failed("Record ImGui loop command buffer end", endResult)) { return 1; } }
 					end_timer(cmdtime, "Command Buffer Build Time"); } }
 
 			if( do_ub_update ) { update_ub( &pcd, &ub ); update_ub( &ub, &sb.ub[0] ); }
@@ -1406,10 +1485,11 @@ int main() {
 
 			if(valid) {
 			//	Wait for the queued commands to finish execution
+				VkResult wait_result = VK_SUCCESS;
 				do {
-					vr("vkWaitForFences <100ms>", &vkres, qsync.vk_fence,
-						vkWaitForFences(vob.VKL, 1, &qsync.vk_fence, VK_TRUE, 100000000) );
-				} while (vkres[vkres.size()-1] == VK_TIMEOUT); }
+					wait_result = vkWaitForFences(vob.VKL, 1, &qsync.vk_fence, VK_TRUE, 100000000);
+					vr("vkWaitForFences <100ms>", &vkres, qsync.vk_fence, wait_result);
+				} while (wait_result == VK_TIMEOUT); }
 
     		end_timer(optime, "Work Queue Time");
 
@@ -1429,9 +1509,9 @@ int main() {
 				&gc,                        // IMGUI_Config pointer
 				&vob,                       // VK_Obj pointer
 				&qsync,                     // VK_QueueSync pointer for general submissions
-				combuf_work_imagedata,      // Pointer to work->blit command buffers
-				combuf_blit_imgui_loop,     // Pointer to swap->blit command buffers
-				combuf_blit2buff_sing,      // Pointer to blit->buffer command buffer
+				combuf_work_imagedata.data(), // Pointer to work->blit command buffers
+				combuf_blit_imgui_loop.data(), // Pointer to swap->blit command buffers
+				combuf_blit2buff_sing.data(), // Pointer to blit->buffer command buffer
 				frame_index,                // Current frame index
 				swap_image_index,           // Current swapchain image index
 				pvoid_blit2buff,            // Mapped buffer pointer

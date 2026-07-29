@@ -1,6 +1,7 @@
 #include "ShaderManager.h"
 #include "../Utils/Logger.h" // For logging helpers (vr, rv, nf, iv, ov)
 #include <fstream> // For file reading
+#include <limits>
 
 // Note: getShaderCodeInfo is now implicitly handled here
 
@@ -19,11 +20,32 @@ VkResult loadAndCreateShaderModule(
         return VK_ERROR_INITIALIZATION_FAILED; // Or another appropriate error
     }
 
-    size_t fileSize = (size_t)file.tellg();
+    std::streampos endPos = file.tellg();
+    if (endPos == std::streampos(-1) || endPos <= std::streampos(0)) {
+        ov("Invalid shader file size", filename);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    std::streamoff fileBytes = static_cast<std::streamoff>(endPos);
+    if (fileBytes > std::numeric_limits<std::streamsize>::max()) {
+        ov("Shader file too large", filename);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    if (fileBytes % 4 != 0) {
+        ov("Invalid SPIR-V size (not multiple of 4)", filename);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
+
+    size_t fileSize = static_cast<size_t>(fileBytes);
     std::vector<char> buffer(fileSize);
 
     file.seekg(0);
-    file.read(buffer.data(), fileSize);
+    file.read(buffer.data(), static_cast<std::streamsize>(fileSize));
+    if (file.gcount() != static_cast<std::streamsize>(fileSize)) {
+        ov("Failed reading complete shader file", filename);
+        return VK_ERROR_INITIALIZATION_FAILED;
+    }
     file.close();
 
     // Store info in ShaderData struct

@@ -39,7 +39,11 @@ void iv(const std::string& id, T ov, int idx) {
 // VkResult output message
 template<typename T>
 void vr(const std::string& id, std::vector<VkResult>* reslist, T v, VkResult res) {
-    reslist->push_back(res);     // TODO slow memory leak
+    const size_t max_history = 4096;
+    if(reslist->size() >= max_history) {
+        reslist->erase(reslist->begin());
+    }
+    reslist->push_back(res);
     uint32_t     idx         = reslist->size() - 1;
     std::string  idx_string  = std::to_string(idx);
     uint32_t     idx_sz      = idx_string.size();

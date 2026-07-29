@@ -18,9 +18,12 @@ UB32_64 new_PCD_256();
 std::string show_PCD256(UB32_64 *pcd);
 
 // Save a UB32_64 pattern to a file
-void save_PCD256(std::string savefile, UB32_64 *pcd);
+bool save_PCD256(std::string savefile, UB32_64 *pcd);
 
-// Get the number of patterns in a file
+// Get the number of legacy PCD408 patterns in a file
+int get_PCD408_count(std::string loadfile);
+
+// Get the number of PCD256 patterns in a file
 int get_PCD256_count(std::string loadfile);
 
 // Load a UB32_64 pattern from a file
@@ -43,6 +46,7 @@ uint32_t u32_flp(uint32_t u32, uint32_t off);
 uint32_t u32_set(uint32_t u32, uint32_t off);
 uint32_t u32_clr(uint32_t u32, uint32_t off);
 uint32_t mut_rnd();
+uint32_t mutation_period_from_strength(int strength);
 uint32_t blk_clr(uint32_t u32);
 uint32_t blk_set(uint32_t u32);
 uint32_t wrd_clr(uint32_t u32, uint32_t off, uint32_t len);
