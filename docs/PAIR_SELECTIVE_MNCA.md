@@ -105,8 +105,9 @@ v39..v45
     one sign bit per coefficient
 
 v46..v47
-    reserved
-    currently not assigned a phenotype in this shader
+    scoring weights for `WEIGHTED_TOP1`
+    12 signed 5-bit weights: four features × RGB channels
+    reserved by the non-weighted profiles
 ```
 
 The shader also reads runtime/control values from the uniform buffer, such as scale, zoom, mapping mode, mouse command, and frame seed.
@@ -133,10 +134,27 @@ nB = average selected rings for head B
 latentA = dot-product transform of nA
 latentB = dot-product transform of nB
 
-impulse = pair terminal transform of latentA and latentB
-proposal = bounded movement from the current cell state
-score = how credible/useful this proposal is
+predictionA = pair terminal contribution from latentA
+predictionB = pair terminal contribution from latentB
+
+proposal = predictionA + predictionB
+score = policy-specific judgment over the candidate facts
 ```
+
+The shader keeps those facts addressable while scoring:
+
+```text
+current
+nA
+nB
+latentA
+latentB
+predictionA
+predictionB
+proposal
+```
+
+That matters because scoring should not be forced to judge only the already-combined proposal. Some experiments may ask whether the two sides agree, whether they oppose, whether one side dominates, whether the proposal conforms to either raw neighbourhood, or whether the pair should win or lose as a whole.
 
 The dot products are just weighted mixes. If you have three input colour channels, a dot product says:
 
@@ -172,21 +190,38 @@ select only the strongest few proposals
 
 That is the essential architectural shift.
 
-## Candidate proposal
-
-A pair terminal transform produces an `impulse`.
-
-The impulse is not written directly as the next colour. It is first bounded:
+Because pair evaluation is upstream of selection, the same pipeline can also support a nonselective control mode:
 
 ```text
-delta = impulse / (1 + abs(impulse))
+six pairs produce candidate proposals
+sum all proposals
+write the dense pair-sum result
 ```
 
-That keeps the movement finite without simply clipping it.
+That control would not be bit-identical to the older three-layer perceptron baseline, but it would be the correct nonselective baseline for the current pair-native architecture. It lets future experiments ask whether a behaviour belongs to candidate construction or to sparse selection.
 
-The proposal then moves from the current cell state by a limited amount:
+## Candidate proposal
+
+A pair terminal transform produces two side predictions:
 
 ```text
+predictionA = output-space contribution from neighbourhood side A
+predictionB = output-space contribution from neighbourhood side B
+```
+
+The raw pair proposal is:
+
+```text
+proposal = predictionA + predictionB
+```
+
+Most experimental profiles currently treat this proposal as a replacement candidate: if the pair wins, the proposal can become the next cell value for the selected channel.
+
+Some profiles deliberately reinterpret the proposal. For example, the governed profile turns the raw proposal into a bounded movement from the current state:
+
+```text
+delta = proposal / (1 + abs(proposal))
+
 if delta is positive:
     move toward 1.0 using available headroom
 
@@ -194,7 +229,7 @@ if delta is negative:
     move toward 0.0 using available room above zero
 ```
 
-This is why the proposal is a state transition rather than a raw colour output.
+That governed version is useful, but it is not the fundamental pair candidate. The fundamental candidate facts are the two side predictions and their raw summed proposal. Scoring, retention, and expression decide how those facts are used.
 
 ## Scoring
 
@@ -447,6 +482,196 @@ The current shader forces alpha to `1.0`.
 
 Alpha may be usable later as hidden state: confidence, prior authority, refractory charge, memory, or energy. Before doing that, the render/export/presentation pipeline needs to be checked carefully so alpha does not unexpectedly affect display or file output.
 
-The selector currently retains the top two proposals per channel. Top one, top two, and other sparse policies may produce different regimes.
+The shader now exposes compile-time profiles near the top of `frag_automata0000.frag`:
 
-The energy tax is currently fixed. Future versions could expose it as a controlled parameter, but doing so should respect the one-bit-one-meaning genotype principle.
+```glsl
+#define PSPMNCA_PROFILE_DENSE_PAIR_SUM 1
+#define PSPMNCA_PROFILE_SINGLE_CHANNEL 0
+#define PSPMNCA_PROFILE_GENTLE_TOP1 0
+#define PSPMNCA_PROFILE_WEIGHTED_TOP1 0
+#define PSPMNCA_PROFILE_RAW_TOP1_REPLACE 0
+#define PSPMNCA_PROFILE_RAW_TOP1 0
+#define PSPMNCA_PROFILE_RAW_TOP2 0
+#define PSPMNCA_PROFILE_GOVERNED_TOP2 0
+```
+
+Exactly one profile should be enabled before compiling.
+
+`DENSE_PAIR_SUM` is the nonselective baseline. All six pair proposals are summed directly with no scoring, selection, or discarding. This is the pair-native equivalent of the old depth-2 perceptron baseline. It shares the same upstream pair evaluation pipeline; the selector is simply bypassed. Use this to confirm whether a behaviour belongs to candidate construction or to sparse selection.
+
+`SINGLE_CHANNEL` is a degenerate test mode. Only the red channel is used for simulation; green and blue mirror red for display. It is controlled by `SC_NEIGHBORHOOD_COUNT` and `SC_ACTIVATIONS_PER_NEIGHBORHOOD`.
+
+The scalar profile has seven independent compile-time feature switches. Any combination is valid as long as the total genotype budget fits within 48 words:
+
+```text
+SC_USE_SIGN         apply sign bits (±1) per contribution, or always positive
+SC_USE_WEIGHT       apply 5-bit magnitude weights, or use 1.0
+SC_USE_STEP         apply range-gated activations, or always fire
+SC_STEP_MULTIPLY_BY_NEIGHBORHOOD   fired update is nh-scaled or constant
+SC_FIXED_STEP_CONTRIB              cap nh-scaled updates to a binary-friendly microstep
+SC_USE_SIZE_PRIORITY               scale each contribution by inverse selected-neighbourhood pixel count
+SC_USE_SCALE_LADDER                bypass contribution summing and use a scale-ladder interval rule
+SC_SCALE_LADDER_USE_MUTATION_MASKS use mutation-owned scalar masks as ladder observations instead of fixed cumulative masks
+SC_SCALE_LADDER_PREBLEND_CURRENT   blend each ladder observation with current before interval comparison
+SC_SCALE_SELECT_MIN_ABS_INTERVAL   select the adjacent scale interval with smallest absolute difference
+SC_SCALE_SELECT_MAX_ABS_INTERVAL   select the adjacent scale interval with largest absolute difference
+SC_SCALE_APPLY_SIGNED_STEP         apply sign(selected interval difference) as a fixed step
+SC_SCALE_APPLY_SELECTED_BIAS       add a small bias from the selected ladder observation
+SC_BASELINE_PASSTHROUGH             start from current state or start from zero
+```
+
+When `SC_USE_STEP` is `0`, each neighbourhood contributes once. Each contribution is the ring average, optionally multiplied by a weight and/or sign. When `SC_USE_STEP` is `1`, each neighbourhood contributes `SC_ACTIVATIONS_PER_NEIGHBORHOOD` times, each gated by a 5-bit lower / 5-bit upper threshold range:
+
+```text
+if lower <= ring_average <= upper:
+    contribution fires
+```
+
+This is implemented with branchless hard `step()` gates, not a smooth sigmoid. If `lower > upper`, the activation cannot fire; this is a valid silent genotype.
+
+The genotype layout chains only the enabled fields:
+
+```text
+masks always first
+then range windows (if SC_USE_STEP)
+then magnitudes (if SC_USE_WEIGHT)
+then signs (if SC_USE_SIGN)
+```
+
+The budget only counts enabled fields. Disabled features consume zero words.
+
+When `SC_USE_SIZE_PRIORITY` is `1`, each contribution is multiplied by an inverse selected-neighbourhood size factor. The factor is derived from the same accumulated sample count used by `bitmake`, so a mask selecting only a tiny ring keeps full priority while a mask selecting many sampled pixels is weakened. This is explicit scalar-test governance for checking whether small kernels need stronger local authority than broad kernels; it does not change how rings are measured.
+
+When `SC_USE_SCALE_LADDER` is `1`, the scalar profile bypasses the contribution-summing branch and evaluates a sequence of ladder observations. With `SC_SCALE_LADDER_USE_MUTATION_MASKS` set to `1`, those observations are the first `SC_SCALE_LADDER_COUNT` mutation-owned scalar masks in declaration order. This hands neighbourhood geometry back to the genotype, but the sequence is not guaranteed to be a true ordered scale ladder. With `SC_SCALE_LADDER_USE_MUTATION_MASKS` set to `0`, the observations are fixed cumulative masks over the current ring bank; that is closer to the old `ScaleVariance.frag` shape but is mutation-invariant.
+
+The scale-ladder controls are deliberately separate. `SC_SCALE_LADDER_PREBLEND_CURRENT` decides whether each observation is smoothed against the current cell before interval comparison. `SC_SCALE_SELECT_MIN_ABS_INTERVAL` and `SC_SCALE_SELECT_MAX_ABS_INTERVAL` choose which adjacent ladder interval is selected. `SC_SCALE_APPLY_SIGNED_STEP` applies a fixed step in the sign direction of the selected interval. `SC_SCALE_APPLY_SELECTED_BIAS` adds a small contribution from the selected observation.
+
+The old `ScaleVariance.frag` behaviour is approximated by this preset:
+
+```text
+SC_USE_SCALE_LADDER 1
+SC_SCALE_LADDER_USE_MUTATION_MASKS 0
+SC_SCALE_LADDER_PREBLEND_CURRENT 1
+SC_SCALE_SELECT_MIN_ABS_INTERVAL 1
+SC_SCALE_SELECT_MAX_ABS_INTERVAL 0
+SC_SCALE_APPLY_SIGNED_STEP 1
+SC_SCALE_APPLY_SELECTED_BIAS 1
+```
+
+Turning individual flags off lets the ladder itself, preblend, interval selection, signed step, and selected-scale bias be tested independently instead of treating ScaleVariance as a forced-function branch.
+
+Examples:
+
+```text
+SC_NEIGHBORHOOD_COUNT 8, sign only, no weight, no step, zero baseline
+    8 neighbourhoods, ±1 raw ring average, start from zero
+    simplest nontrivial scalar MNCA
+
+SC_NEIGHBORHOOD_COUNT 8, sign+weight, no step, zero baseline
+    8 neighbourhoods, signed weighted ring averages
+
+SC_NEIGHBORHOOD_COUNT 8, sign+weight+step, 5 activations, zero baseline
+    8 neighbourhoods, 5 range-gated update functions per neighbourhood
+    closest to historical SMNCA scalar range rules
+
+SC_NEIGHBORHOOD_COUNT 100, no sign, no weight, no step, passthrough baseline
+    100 raw unsigned ring averages added to current state
+
+SC_USE_SCALE_LADDER 1, SC_SCALE_LADDER_USE_MUTATION_MASKS 0, SC_SCALE_LADDER_COUNT 7, min-absolute interval, signed step, selected bias
+    fixed ordered cumulative scale ladder, choose smallest adjacent scale interval, apply fixed signed step and bias
+
+SC_USE_SCALE_LADDER 1, SC_SCALE_LADDER_USE_MUTATION_MASKS 1, SC_SCALE_LADDER_COUNT 7
+    mutation-owned scalar masks used as the ladder observations in declaration order
+```
+
+This tests how each feature independently contributes to the expressiveness of scalar MNCA on the current VulkanAutomata ring/substrate.
+
+`WEIGHTED_TOP1` uses a feature-vector scorer with weights read from the pattern genome. Candidate utility is compared against a genotype-owned no-op threshold:
+
+```text
+proposal = impulse
+neighbourhood_error = min(abs(proposal - neighbourhoodA), abs(proposal - neighbourhoodB))
+
+utility = wd * abs(proposal - current)
+        + wp * proposal
+        + wn * neighbourhood_error
+
+score = utility - wb
+
+retain only the best (maximum score) proposal per channel
+winner expresses directly when score is above zero
+fallback to current when no candidate beats the threshold
+```
+
+The four weight families are:
+
+```text
+wd  weight on deviation magnitude — positive rewards loud change, negative rewards gentle change
+wp  weight on proposal value — positive prefers brighter candidates, negative prefers darker
+wn  weight on neighbourhood conformance error — negative rewards matching either neighbourhood, positive rewards divergence
+wb  no-op threshold — higher values make expression harder, lower values make expression easier
+```
+
+The weights live in `v46` and `v47`:
+
+```text
+v46 bits 0..29  weights 0..5
+v47 bits 0..29  weights 6..11
+
+weights 0..2    wd.rgb
+weights 3..5    wp.rgb
+weights 6..8    wn.rgb
+weights 9..11   wb.rgb
+```
+
+Each weight is one signed 5-bit field:
+
+```text
+bits 0..3  magnitude, 0..15 mapped to 0.0..1.0
+bit  4     sign, 0 = negative, 1 = positive
+```
+
+This uses 60 of the 64 clean spare bits in `v46/v47`. The high two bits of each word remain unused.
+
+Changing `wp` away from zero can break the exchange symmetry that causes two-cycle thrashing: A preferring B no longer forces B to prefer A, because the proposal-value term scores differently for the forward and return transitions.
+
+Changing `wn` changes whether the scorer prefers candidates that resemble one of their two neighbourhood observations. A negative `wn` rewards local conformance. A positive `wn` rewards anti-conformance or novelty. This term does not smooth or clamp the selected proposal; it only changes which proposal wins.
+
+Changing `wb` changes the no-op competitor. A high threshold makes candidate expression rarer. A low or negative threshold makes expression easier. This replaces the earlier hardcoded zero threshold with a mutable scoring boundary.
+
+Existing archive records already contain values in `v46/v47`, because the mutation machinery has always copied and mutated all 48 pattern words. Under `WEIGHTED_TOP1`, those previously latent bits now become active scoring policy. That is intentional for this experiment, but it means old patterns inherit whatever scorer genome they already had.
+
+`GENTLE_TOP1` uses stateless replacement and minimum-deviation selection. Instead of selecting the candidate that changes the state the most, it selects the candidate that changes the state the least while still being non-zero.
+
+`DENSE_PAIR_SUM` is the nonselective baseline. All six pair proposals are summed directly with no scoring, selection, or discarding. This is the pair-native equivalent of the old depth-2 perceptron baseline. It shares the same upstream pair evaluation pipeline; the selector is simply bypassed.
+
+`RAW_TOP1_REPLACE` uses stateless replacement instead of accumulation. The winning pair's raw output becomes the next cell state directly. Empty neighbourhoods produce zero, zero is an exact fixed point, and no ratchet or integration can fill space over time.
+
+`RAW_TOP1` uses accumulation (`proposal = current + impulse`). It restores motility but creates a ratchet: any persistent positive bias fills space over time because state is integrated rather than replaced.
+
+`RAW_TOP2` keeps the raw proposal and raw deviation score, but retains and score-blends the two best proposals per channel. It tests whether top-two synthesis is useful without the baseline-sticky authority mix.
+
+`GOVERNED_TOP2` is the first successful civilized profile. It uses the bounded headroom proposal, relation-band scoring, saturation safety, top-two synthesis, and authority-gated output described in the main sections above. It produces smoother and more stable behaviour, but it also narrows the expressive range.
+
+The energy tax is controlled independently:
+
+```glsl
+#define PSPMNCA_USE_ENERGY_TAX 1
+```
+
+The weighted scorer currently has an experimental override:
+
+```glsl
+#define PSPMNCA_FORCE_CONFORMANCE_SCORER 1
+```
+
+When this is enabled, `WEIGHTED_TOP1` ignores the `v46/v47` scorer weights and uses one universal conformance scorer:
+
+```text
+neighbourhood_error = min(abs(proposal - neighbourhoodA), abs(proposal - neighbourhoodB))
+score = 1 - neighbourhood_error
+```
+
+This makes the best candidate the one whose proposal is closest to either of its two neighbourhood observations. It is meant for inspection of this scoring law without genotype-owned scorer variation. Set it to `0` to return to the evolvable weighted scorer stored in `v46/v47`.
+
+The tax is currently fixed. Future versions could expose it as a controlled parameter, but doing so should respect the one-bit-one-meaning genotype principle.
